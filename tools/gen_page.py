@@ -54,8 +54,11 @@ PAGE = """<!DOCTYPE html>
 
 <header class="hero">
   <div class="hero__scene">
-    <img src="assets/images/hero-forest-portrait.webp" alt=""
-         fetchpriority="high" decoding="async">
+    <picture>
+      <source media="(min-width:768px)" srcset="assets/images/hero-forest-landscape.webp">
+      <img src="assets/images/hero-forest-portrait.webp" alt=""
+           fetchpriority="high" decoding="async">
+    </picture>
   </div>
   <div class="hero__light"></div>
   <div class="hero__veil"></div>
@@ -84,8 +87,10 @@ PAGE = """<!DOCTYPE html>
     <div class="aisle__light"></div>
     <div class="wrap">
       <div class="aisle__inner">
-        <div class="plant"><div class="plant__leaves"></div><div class="plant__pot"></div></div>
         <div class="window"></div>
+        <div class="sill"></div>
+        <img class="plant" src="assets/images/plant.webp" alt=""
+             loading="lazy" decoding="async">
       </div>
     </div>
   </div>

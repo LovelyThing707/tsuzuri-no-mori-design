@@ -28,13 +28,18 @@
   width:100%; height:100%;
   pointer-events:none;
 }
+.hero__scene picture{ display:block; width:100%; height:100%; }
 .hero__scene img{
   width:100%; height:100%;
   object-fit:cover;
-  /* 縦長の画像。広い画面では枝と実のあたりが残るよう上寄りで切る */
+  /* 縦画面は枝と実が残るよう上寄りで切る */
   object-position:50% 34%;
   display:block;
   will-change:transform;
+}
+@media (min-width:768px){
+  /* 横長の画像は横位置で構図が決まっているので、中央のまま使う */
+  .hero__scene img{ object-position:50% 46%; }
 }
 
 /* 木漏れ日。強い光線にしない */
