@@ -7,14 +7,14 @@
 index.html
 styles/   base.css（変数・タイポグラフィ） hero.css layout.css shelf.css（什器・本・影）
 scripts/  main.js（視差と出現のみ）
-assets/images/  書影
+assets/images/  森・什器・小物の画像
 tools/    ページ生成と配信用ビルド
 ```
 
 ## 手元で見る
 
 ES モジュールは使っていないため、ファイルを直接開いても表示できます。
-書影は相対パスで読むため、サーバー経由のほうが確実です。
+画像は相対パスで読むため、サーバー経由のほうが確実です。
 
 ```sh
 python -m http.server 5178
