@@ -301,7 +301,7 @@
 }
 
 
-/* 書影。什器に対して面で乗るよう、要素いっぱいに敷く */
+/* 書影の受け口。商品の画像が入ると、この指定のまま面で乗る */
 .spine img{
   position:absolute; inset:0;
   width:100%; height:100%;
@@ -311,4 +311,42 @@
   position:absolute; inset:0;
   width:100%; height:100%;
   object-fit:cover;
+}
+
+
+/* --- 書影のない平置き本 --------------------------------------
+   表紙は面積が大きいぶん、単色だと紙に見えない。
+   書名や絵柄は描かず、カバーの面の構成だけを出す。 */
+.lying--plain::after{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:2px;
+  background:
+    /* 左端の折り返し（そで）と背側の陰 */
+    linear-gradient(90deg,
+      rgba(0,0,0,.34) 0 2px,
+      rgba(255,248,232,.16) 2px 4px,
+      transparent 4px 12%,
+      transparent 88%,
+      rgba(0,0,0,.20) 100%),
+    /* 上からの光 */
+    linear-gradient(180deg,
+      rgba(255,248,232,.20) 0%,
+      transparent 24%,
+      transparent 74%,
+      rgba(0,0,0,.24) 100%),
+    /* 絵柄のあたり。輪郭を持たせず、ぼかした面として置く */
+    radial-gradient(58% 34% at 50% 66%,
+      rgba(255,250,236,.14) 0%, transparent 72%),
+    /* 題字のあたり */
+    linear-gradient(180deg,
+      transparent 16%,
+      rgba(20,14,10,.16) 19% 27%,
+      transparent 30%),
+    /* 紙目 */
+    repeating-linear-gradient(180deg,
+      rgba(255,255,255,.02) 0 1px,
+      rgba(0,0,0,.022) 1px 3px);
+  filter:blur(.4px);
+  pointer-events:none;
 }
