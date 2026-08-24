@@ -1,0 +1,107 @@
+/* ============================================================
+   綴りの森 — 基本設定
+   色・寸法はすべてこのファイルの変数で調整する。
+   ============================================================ */
+
+:root{
+  /* --- 什器（こげ茶の木） --- */
+  --wood-dark:   #3B2A1D;
+  --wood-mid:    #5A4130;
+  --wood-edge:   #2A1D14;
+  --wood-lit:    #6B4E39;   /* 光が当たる面 */
+
+  /* --- 森 --- */
+  --forest-deep: #1C2620;
+  --forest-mid:  #2E3D31;
+  --forest-soft: #47594A;
+
+  /* --- 光・紙 --- */
+  --light-warm:  #C9A876;
+  --paper:       #E9E0CE;
+  --paper-dim:   #B9AE99;
+
+  /* --- 屋内（店内） --- */
+  --room-wall:   #241A13;
+  --room-floor:  #2B2018;
+  --room-glow:   #3A2A1C;
+
+  /* --- 表示倍率 ---------------------------------------------
+     本の高さは判型（mm）× この値で算出する。
+     画面が広がっても本は大きくせず、見える冊数を増やす。 */
+  --px-per-mm:   0.68;
+
+  /* --- 背表紙の幅 -------------------------------------------
+     幅は厚みに比例させない。実寸のままだと薄い本が線のように
+     潰れて指で触れないため、下駄（base）を履かせて増分（gain）を
+     圧縮する。厚い順・薄い順の並びは保たれる。 */
+  --lying-scale: .98;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
+  --spine-base:  30;        /* px：最も薄い本でも確保する幅 */
+  --spine-gain:  1.15;      /* px／背幅1mmあたりの増分 */
+
+  /* --- 棚に収まる範囲 --- */
+  --h-min:       120;       /* mm：これ以下は同じ高さに揃える */
+  --h-max:       250;       /* mm：これ以上は棚からはみ出させない */
+
+  --board:       11px;      /* 棚板の厚み（小口） */
+  --ease:        cubic-bezier(.22,.68,.24,1);
+
+  --measure:     30em;
+
+  /* --- 1冊ごとに上書きされる値の既定 ---------------------------
+     --h 判型(mm) / --t 背幅(mm) / --w 判横(mm)
+     --c 背表紙の色 / --e 小口（紙）の色 / --rot 平置きの傾き */
+  --c:   #4A3A2C;
+  --e:   #E2D8C2;
+  --rot: 0deg;
+}
+
+@media (min-width: 768px){
+  :root{ --px-per-mm:.72; --spine-base:34; --spine-gain:1.28; --lying-scale:1.02; }
+}
+@media (min-width: 1200px){
+  :root{ --px-per-mm:.76; --spine-base:35; --spine-gain:1.32; --lying-scale:.94; }
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  margin:0;
+  background:var(--forest-deep);
+  color:var(--paper);
+  font-family:"Shippori Mincho","Noto Serif JP",
+              "Hiragino Mincho ProN","Yu Mincho","YuMincho",
+              "Times New Roman",serif;
+  font-size:16px;
+  line-height:1.9;
+  letter-spacing:.04em;
+  overflow-x:hidden;
+}
+
+img{ max-width:100%; display:block; }
+ul{ list-style:none; margin:0; padding:0; }
+p{ margin:0 0 1.2em; }
+
+h1,h2,h3{
+  font-weight:500;
+  letter-spacing:.14em;
+  line-height:1.6;
+  margin:0;
+}
+
+/* 画面には出さないが、読み上げと文書構造のために残す見出し */
+.sr-only{
+  position:absolute; width:1px; height:1px;
+  margin:-1px; padding:0; border:0;
+  clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}

@@ -1,0 +1,302 @@
+/* ============================================================
+   売り場 — 本棚（奥）と平台（手前）
+   什器はこげ茶の木。板には小口の厚みを見せる。
+   立体感は「什器→床」「本→棚板」「本→隣の本」の三種の影で出す。
+   ============================================================ */
+
+.market{ position:relative; padding-top:clamp(30px,7vh,58px); }
+
+.market__sign{
+  position:relative; z-index:3;
+  margin:0 0 clamp(20px,4.6vh,36px);
+  text-align:center;
+  font-size:clamp(15px,4.2vw,19px);
+  letter-spacing:.28em; text-indent:.28em;
+  color:var(--paper);
+}
+.market__sign::after{
+  content:""; display:block;
+  width:38px; height:1px; margin:.85em auto 0;
+  background:linear-gradient(90deg,transparent,rgba(201,168,118,.55),transparent);
+}
+
+.scene{ position:relative; padding-bottom:clamp(26px,6vh,52px); }
+
+/* 床。壁との境をはっきり見せ、什器が床に載っていることを示す */
+.scene__floor{
+  position:absolute; z-index:0;
+  left:50%; bottom:0;
+  width:100vw; height:46%;
+  transform:translateX(-50%);
+  background:
+    linear-gradient(180deg,
+      rgba(0,0,0,.55) 0 2px,
+      rgba(201,168,118,.10) 2px 3px,
+      transparent 3px 26px),
+    linear-gradient(180deg, #4A3826 0%, #3A2B1D 34%, #2A1F15 100%);
+  box-shadow:inset 0 3px 12px -3px rgba(0,0,0,.8);
+}
+/* 床板。手前に向かって間隔が広がるように見せる */
+.scene__floor::after{
+  content:""; position:absolute; inset:0;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,.26) 0 1px, transparent 1px 84px),
+    linear-gradient(180deg,
+      transparent 0 14%, rgba(0,0,0,.18) 14% 15%, transparent 15% 36%,
+      rgba(0,0,0,.16) 36% 37%, transparent 37% 66%,
+      rgba(0,0,0,.14) 66% 67%, transparent 67%);
+  opacity:.8;
+}
+
+/* --- 本棚（奥の什器）。やや小さく、コントラストを控えめに --- */
+.shelf{
+  position:relative; z-index:1;
+  width:min(100%,880px);
+  margin-inline:auto;
+  transform:scale(.965);
+  transform-origin:50% 100%;
+  filter:saturate(.92) brightness(.94);
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.3) 0%, transparent 7%, transparent 93%, rgba(0,0,0,.34) 100%),
+    linear-gradient(180deg, var(--wood-mid) 0%, var(--wood-dark) 40%, var(--wood-edge) 100%);
+  border-radius:2px;
+  padding:var(--board) var(--board) 0;
+  box-shadow:
+    0 26px 34px -22px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(201,168,118,.14);
+}
+
+/* 木目。均一な板に見えないよう繊維方向の濃淡をつける */
+.shelf::before{
+  content:""; position:absolute; inset:0;
+  border-radius:inherit;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,.16) 0 1px,
+      rgba(201,168,118,.035) 1px 2px,
+      transparent 2px 7px),
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,.11) 0 1px,
+      transparent 1px 23px);
+  opacity:.75; pointer-events:none;
+}
+
+.shelf__tier{ position:relative; }
+
+/* 棚板。手前に小口の厚みを見せる */
+.shelf__board{
+  position:relative;
+  height:var(--board);
+  margin:0 calc(var(--board) * -1);
+  background:linear-gradient(180deg,
+    var(--wood-lit) 0%,
+    var(--wood-mid) 34%,
+    var(--wood-edge) 100%);
+  box-shadow:
+    0 -7px 12px -6px rgba(0,0,0,.72),
+    inset 0 1px 0 rgba(201,168,118,.2);
+}
+
+/* 本が並ぶ面。什器の側面よりわずかに明るくして足元を分離する */
+.row{
+  position:relative;
+  display:flex;
+  align-items:flex-end;
+  justify-content:flex-start;
+  gap:0;
+  padding:0 3px;
+  min-height:calc(var(--h-max) * var(--px-per-mm) * 1px * .52);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.12) 14%, transparent 30%),
+    linear-gradient(180deg, #6A5137 0%, #55402B 52%, #3E2E1F 100%);
+}
+
+/* --- 背表紙 -------------------------------------------------
+   幅＝背幅（圧縮済み）、高さ＝判型。どちらも1冊ずつ異なる。 */
+.spine{
+  --w:  calc((var(--spine-base) + var(--t) * var(--spine-gain)) * 1px);
+  --bh: calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--px-per-mm) * 1px);
+  position:relative;
+  flex:0 0 auto;
+  width:var(--w);
+  height:var(--bh);
+  background-color:var(--c);
+  border-radius:1px 1px 0 0;
+  overflow:hidden;
+  transition:transform .34s var(--ease), filter .34s var(--ease);
+  box-shadow:
+    inset  1.5px 0 0 rgba(240,232,214,.46),
+    inset -1.5px 0 0 rgba(0,0,0,.62),
+    inset  4px 0 6px -3px rgba(255,246,228,.10),
+    inset -5px 0 7px -4px rgba(0,0,0,.5),
+    -1px 0 0 rgba(240,232,214,.16),
+    5px 0 8px -5px rgba(0,0,0,.8),
+    0 6px 9px -6px rgba(0,0,0,.85);
+}
+
+/* 天。本の厚みを示す上面をわずかに見せる */
+.spine::before{
+  content:"";
+  position:absolute;
+  left:.5px; right:.5px; top:0;
+  height:5px;
+  border-radius:1px 1px 0 0;
+  background:linear-gradient(180deg,
+    var(--e) 0%,
+    rgba(0,0,0,.45) 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+
+/* 上から当たる光。上端を明るく、足元を暗く */
+.spine::after{
+  content:"";
+  position:absolute; inset:5px 0 0;
+  background:linear-gradient(180deg,
+    rgba(255,244,224,.14) 0%,
+    transparent 26%,
+    transparent 68%,
+    rgba(0,0,0,.3) 100%);
+  pointer-events:none;
+}
+
+/* 写真のない本。書名は入れず、色と比率だけで置く */
+.spine--plain::after{
+  background:
+    linear-gradient(180deg,
+      rgba(255,244,224,.14) 0%, transparent 26%,
+      transparent 68%, rgba(0,0,0,.42) 100%),
+    linear-gradient(180deg,
+      transparent 26%,
+      rgba(233,224,206,.13) 27% 47%,
+      transparent 48%);
+  filter:blur(1.1px);
+}
+
+.spine:hover,.spine:focus-visible{
+  transform:translateY(-7px);
+  filter:brightness(1.1);
+  outline:none;
+  z-index:2;
+}
+
+/* --- 平台（手前の什器） -------------------------------------
+   箱ではなく台。天板の上に本を載せ、床に影を落とす。 */
+.platform{
+  position:relative; z-index:2;
+  width:min(100%,720px);
+  margin:clamp(26px,6vh,52px) auto 0;
+  display:flex; flex-direction:column;
+}
+/* 床に落ちる影。せり出しの要 */
+.platform::after{
+  content:"";
+  position:absolute; z-index:-1;
+  left:-4%; right:-4%; bottom:-14px;
+  height:34px;
+  border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 40%,
+    rgba(0,0,0,.78) 0%, rgba(0,0,0,.42) 52%, transparent 76%);
+  filter:blur(3px);
+}
+
+/* 天板と小口 */
+.platform__slab{
+  position:relative;
+  height:calc(var(--board) + 13px);
+  border-radius:1px;
+  background:
+    linear-gradient(180deg,
+      var(--wood-lit)  0%,
+      var(--wood-mid)  22%,
+      var(--wood-dark) 40%,
+      var(--wood-edge) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(201,168,118,.3),
+    0 10px 14px -8px rgba(0,0,0,.85);
+}
+.platform__slab::before{
+  content:""; position:absolute; inset:0;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,.18) 0 1px,
+      rgba(201,168,118,.04) 1px 2px,
+      transparent 2px 9px);
+  opacity:.7;
+}
+
+.platform__books{
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:clamp(8px,2.6vw,20px);
+  padding:0 clamp(10px,3vw,18px) 0;
+  perspective:760px;
+  perspective-origin:50% 120%;
+}
+
+/* 平置きの本。表紙を上に、大きく、やや傾けて */
+.lying{
+  --lw: calc(var(--w) * var(--px-per-mm) * var(--lying-scale) * 1px);
+  position:relative;
+  flex:0 0 auto;
+  width:var(--lw);
+  aspect-ratio:var(--w) / var(--h);
+  border-radius:2px;
+  background-color:var(--c);
+  overflow:hidden;
+  transform-origin:50% 100%;
+  transform:rotateX(38deg) rotate(var(--rot));
+  box-shadow:
+    0 16px 22px -10px rgba(0,0,0,.92),
+    0 3px 4px rgba(0,0,0,.6),
+    inset 0 0 0 .5px rgba(233,224,206,.14);
+  transition:transform .34s var(--ease), box-shadow .34s var(--ease);
+}
+
+/* 紙の束の厚み */
+.lying::before{
+  content:"";
+  position:absolute; left:1.5px; right:1.5px; top:100%;
+  height:4px;
+  border-radius:0 0 2px 2px;
+  background:linear-gradient(180deg, var(--e), #8d8371);
+  box-shadow:0 2px 4px rgba(0,0,0,.55);
+}
+
+.lying:hover,.lying:focus-visible{
+  transform:rotateX(38deg) rotate(var(--rot)) translateY(-7px);
+  box-shadow:0 24px 30px -12px rgba(0,0,0,.95), 0 4px 6px rgba(0,0,0,.6);
+  outline:none;
+  z-index:2;
+}
+
+/* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
+   本を大きくするのではなく、見える冊数を増やす。 */
+.spine:nth-child(n+7){ display:none; }
+.platform__books .lying:nth-child(n+4){ display:none; }
+
+@media (min-width:768px){
+  .spine:nth-child(n+7){ display:block; }
+  .spine:nth-child(n+11){ display:none; }
+  .platform__books .lying:nth-child(n+4){ display:block; }
+  .platform__books .lying:nth-child(n+6){ display:none; }
+}
+@media (min-width:1200px){
+  .spine:nth-child(n+11){ display:block; }
+  .spine:nth-child(n+15){ display:none; }
+  .platform__books .lying:nth-child(n+6){ display:block; }
+}
+
+
+/* 書影。什器に対して面で乗るよう、要素いっぱいに敷く */
+.spine img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:fill;
+}
+.lying img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+}
