@@ -4,7 +4,7 @@
    立体感は「什器→床」「本→棚板」「本→隣の本」の三種の影で出す。
    ============================================================ */
 
-.market{ position:relative; padding-top:clamp(30px,7vh,58px); }
+.market{ position:relative; padding-top:clamp(120px,20vh,230px); }
 
 .market__sign{
   position:relative; z-index:3;
@@ -33,10 +33,10 @@
       rgba(0,0,0,.60) 0 2px,
       rgba(201,168,118,.12) 2px 3px,
       transparent 3px 30px),
-    linear-gradient(180deg, rgba(20,13,8,.06) 0%, rgba(18,12,8,.26) 54%, rgba(12,8,5,.62) 100%),
+    linear-gradient(180deg, rgba(20,13,8,.06) 0%, rgba(18,12,8,.24) 46%, rgba(11,8,6,.72) 82%, #0B0806 100%),
     url("../assets/images/wood-floor.webp");
   background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 420px auto;
+  background-size:auto, auto, 840px auto;
   box-shadow:inset 0 3px 12px -3px rgba(0,0,0,.8);
 }
 /* 床板。手前に向かって間隔が広がるように見せる */
@@ -60,7 +60,7 @@
     linear-gradient(180deg, rgba(16,11,7,.34) 0%, rgba(16,11,7,.52) 44%, rgba(10,7,4,.7) 100%),
     url("../assets/images/wood-board.webp");
   background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 340px auto;
+  background-size:auto, auto, 680px auto;
   border-radius:2px;
   padding:var(--board) var(--board) 0;
   box-shadow:
@@ -83,7 +83,7 @@
       rgba(0,0,0,.80) 100%),
     url("../assets/images/wood-board.webp");
   background-repeat:no-repeat, repeat;
-  background-size:auto, 340px auto;
+  background-size:auto, 680px auto;
   box-shadow:
     0 -7px 12px -6px rgba(0,0,0,.72),
     inset 0 1px 0 rgba(201,168,118,.24);
@@ -103,7 +103,7 @@
     linear-gradient(180deg, rgba(22,15,10,.30) 0%, rgba(22,15,10,.34) 100%),
     url("../assets/images/wood-backboard.webp");
   background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 300px auto;
+  background-size:auto, auto, 600px auto;
 }
 
 /* --- 背表紙 -------------------------------------------------
@@ -224,7 +224,7 @@
       rgba(0,0,0,.78) 100%),
     url("../assets/images/wood-board.webp");
   background-repeat:no-repeat, repeat;
-  background-size:auto, 340px auto;
+  background-size:auto, 680px auto;
   box-shadow:
     inset 0 2px 0 rgba(201,168,118,.34),
     inset 0 -1px 0 rgba(0,0,0,.6),
@@ -348,5 +348,33 @@
       rgba(255,255,255,.02) 0 1px,
       rgba(0,0,0,.022) 1px 3px);
   filter:blur(.4px);
+  pointer-events:none;
+}
+
+
+/* --- 場面の変わり目 -------------------------------------------
+   壁と床の境目は部屋のかたちだが、床が終わって壁に戻る境目は
+   実際の部屋には存在しない。線を出さず、暗がりを挟んでつなぐ。
+   什器（z-index 1・2）より下、床（z-index 0・先に描かれる）より上に置く。 */
+.market::before,
+.aisle::before{
+  content:"";
+  position:absolute; z-index:0;
+  left:50%; top:0;
+  width:100vw; height:clamp(96px,16vh,200px);
+  transform:translateX(-50%);
+  background:linear-gradient(180deg,
+    #0B0806 0%, rgba(11,8,6,.72) 34%, rgba(11,8,6,.24) 68%, transparent 100%);
+  pointer-events:none;
+}
+.market::after,
+.aisle::after{
+  content:"";
+  position:absolute; z-index:0;
+  left:50%; bottom:0;
+  width:100vw; height:clamp(96px,16vh,200px);
+  transform:translateX(-50%);
+  background:linear-gradient(0deg,
+    #0B0806 0%, rgba(11,8,6,.72) 34%, rgba(11,8,6,.24) 68%, transparent 100%);
   pointer-events:none;
 }
