@@ -4,7 +4,7 @@
    立体感は「什器→床」「本→棚板」「本→隣の本」の三種の影で出す。
    ============================================================ */
 
-.market{ position:relative; padding-top:clamp(120px,20vh,230px); }
+.market{ position:relative; padding-top:clamp(30px,7vh,58px); }
 
 .market__sign{
   position:relative; z-index:3;
@@ -33,7 +33,7 @@
       rgba(0,0,0,.60) 0 2px,
       rgba(201,168,118,.12) 2px 3px,
       transparent 3px 30px),
-    linear-gradient(180deg, rgba(20,13,8,.06) 0%, rgba(18,12,8,.24) 46%, rgba(11,8,6,.72) 82%, #0B0806 100%),
+    linear-gradient(180deg, rgba(20,13,8,.06) 0%, rgba(18,12,8,.26) 54%, rgba(12,8,5,.62) 100%),
     url("../assets/images/wood-floor.webp");
   background-repeat:no-repeat, no-repeat, repeat;
   background-size:auto, auto, 840px auto;
@@ -348,33 +348,5 @@
       rgba(255,255,255,.02) 0 1px,
       rgba(0,0,0,.022) 1px 3px);
   filter:blur(.4px);
-  pointer-events:none;
-}
-
-
-/* --- 場面の変わり目 -------------------------------------------
-   壁と床の境目は部屋のかたちだが、床が終わって壁に戻る境目は
-   実際の部屋には存在しない。線を出さず、暗がりを挟んでつなぐ。
-   什器（z-index 1・2）より下、床（z-index 0・先に描かれる）より上に置く。 */
-.market::before,
-.aisle::before{
-  content:"";
-  position:absolute; z-index:0;
-  left:50%; top:0;
-  width:100vw; height:clamp(96px,16vh,200px);
-  transform:translateX(-50%);
-  background:linear-gradient(180deg,
-    #0B0806 0%, rgba(11,8,6,.72) 34%, rgba(11,8,6,.24) 68%, transparent 100%);
-  pointer-events:none;
-}
-.market::after,
-.aisle::after{
-  content:"";
-  position:absolute; z-index:0;
-  left:50%; bottom:0;
-  width:100vw; height:clamp(96px,16vh,200px);
-  transform:translateX(-50%);
-  background:linear-gradient(0deg,
-    #0B0806 0%, rgba(11,8,6,.72) 34%, rgba(11,8,6,.24) 68%, transparent 100%);
   pointer-events:none;
 }

@@ -31,7 +31,7 @@
     linear-gradient(180deg,
       transparent 58%,
       rgba(22,15,10,.52) 82%,
-      #0B0806 100%),
+      var(--room-wall) 100%),
     url("../assets/images/cottage-in-forest.webp") center 42% / cover no-repeat;
   text-align:center;
 }
@@ -148,7 +148,7 @@
 .foot{
   position:relative;
   padding:clamp(64px,14vh,116px) 0 clamp(44px,9vh,72px);
-  background:linear-gradient(180deg, #0B0806 0%, #14100C 34%, #1b1410 100%);
+  background:linear-gradient(180deg, var(--room-wall) 0%, #1b1410 100%);
   text-align:center;
 }
 .foot__name{
