@@ -8,23 +8,17 @@
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   /* --- 森の視差 ---------------------------------------------
-     奥ほどゆっくり動かして奥行きを出す。ごく浅くかける。 */
+     スクロールに対して森をわずかに遅らせ、奥行きを出す。ごく浅くかける。 */
   function parallax() {
     var hero = document.querySelector('.hero');
-    var layers = [
-      { el: document.querySelector('.layer--far'),  rate: 0.06 },
-      { el: document.querySelector('.layer--mid'),  rate: 0.13 },
-      { el: document.querySelector('.layer--near'), rate: 0.22 }
-    ].filter(function (l) { return l.el; });
-    if (!hero || !layers.length) return;
+    var scene = document.querySelector('.hero__scene img');
+    if (!hero || !scene) return;
 
     var ticking = false;
     function apply() {
       var y = window.pageYOffset;
       if (y > hero.offsetHeight) { ticking = false; return; }
-      layers.forEach(function (l) {
-        l.el.style.transform = 'translate3d(0,' + (y * l.rate).toFixed(1) + 'px,0)';
-      });
+      scene.style.transform = 'translate3d(0,' + (y * 0.16).toFixed(1) + 'px,0) scale(1.06)';
       ticking = false;
     }
     window.addEventListener('scroll', function () {

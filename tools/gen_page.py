@@ -2,7 +2,7 @@
 import io, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-import gen_data as D, gen_forest as F
+import gen_data as D
 
 def market(idx, name, tiers, lying, note):
     t = []
@@ -54,7 +54,8 @@ PAGE = """<!DOCTYPE html>
 
 <header class="hero">
   <div class="hero__scene">
-%(forest)s
+    <img src="assets/images/hero-forest-portrait.webp" alt=""
+         fetchpriority="high" decoding="async">
   </div>
   <div class="hero__light"></div>
   <div class="hero__veil"></div>
@@ -111,7 +112,6 @@ PAGE = """<!DOCTYPE html>
 """
 
 html = PAGE % dict(
-    forest = F.build(),
     market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
                      '本棚に背表紙が2段、手前の平台に表紙を上にした本が並びます。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,

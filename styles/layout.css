@@ -19,7 +19,7 @@
   padding:clamp(88px,22vh,180px) 0 clamp(72px,16vh,140px);
   background:linear-gradient(
     180deg,
-    var(--forest-deep) 0%,
+    #10160F 0%,
     #221b16 42%,
     var(--room-wall) 100%);
   text-align:center;
@@ -36,26 +36,13 @@
 /* --- 店内。ここから下は一続きの空間 --------------------------- */
 .room{
   position:relative;
+  /* 板の質感は写真。光と陰はCSSが持つ（重ねる順は上から光→影→素材） */
   background:
-    radial-gradient(120% 60% at 50% 0%,
-      rgba(201,168,118,.05) 0%, transparent 60%),
-    linear-gradient(180deg,
-      var(--room-wall) 0%,
-      #261c15 50%,
-      var(--room-wall) 100%);
-}
-
-/* 壁板の縦目。均一な茶色の面に見えないように */
-.room::before{
-  content:"";
-  position:absolute; inset:0;
-  background-image:repeating-linear-gradient(
-    90deg,
-    rgba(0,0,0,.16) 0 1px,
-    rgba(255,255,255,.012) 1px 3px,
-    rgba(0,0,0,0) 3px 74px);
-  opacity:.5;
-  pointer-events:none;
+    radial-gradient(120% 46% at 50% 0%, rgba(201,168,118,.07) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(14,10,7,.60) 0%, rgba(14,10,7,.70) 52%, rgba(14,10,7,.62) 100%),
+    url("../assets/images/wood-wall.webp");
+  background-repeat:no-repeat, no-repeat, repeat;
+  background-size:auto, auto, 300px 300px;
 }
 
 /* --- 通路（売り場の区切り） ----------------------------------- */
