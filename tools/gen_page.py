@@ -80,6 +80,7 @@ PAGE = """<!DOCTYPE html>
   <p>森のおくに、<br>小さな本屋があります。</p>
 </section>
 
+<div class="interior">
 <main class="room">
 %(market1)s
 
@@ -109,6 +110,7 @@ PAGE = """<!DOCTYPE html>
     </nav>
   </div>
 </footer>
+</div>
 
 </div>
 <script src="scripts/main.js"></script>
