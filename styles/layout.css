@@ -119,3 +119,34 @@
 @media (prefers-reduced-motion: reduce){
   .will-reveal{ opacity:1; transform:none; }
 }
+
+/* --- 上部の帯 -------------------------------------------------
+   森の上に薄く置く。スクロールで隠れる（固定はしない）。 */
+.topbar{
+  position:absolute; z-index:5;
+  top:0; left:0; right:0;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+  padding:clamp(14px,3.4vh,26px) clamp(14px,4.4vw,32px);
+  background:linear-gradient(180deg, rgba(10,14,10,.42) 0%, transparent 100%);
+  pointer-events:none;
+}
+.topbar > *{ pointer-events:auto; }
+.topbar__logo{
+  margin:0;
+  font-size:clamp(14px,4vw,18px);
+  letter-spacing:.28em; text-indent:.28em;
+  color:var(--paper);
+  text-shadow:0 1px 10px rgba(0,0,0,.7);
+}
+.topbar button{
+  background:none; border:none; padding:6px; cursor:pointer;
+  line-height:0; color:var(--paper);
+  filter:drop-shadow(0 1px 6px rgba(0,0,0,.7));
+}
+.topbar button:focus-visible{ outline:2px solid var(--paper-dim); outline-offset:3px; border-radius:3px; }
+.topbar__menu svg{ width:22px; height:16px; }
+.topbar__search svg{ width:20px; height:20px; }
+.topbar svg path,.topbar svg circle{
+  stroke:currentColor; stroke-width:1.6; fill:none; stroke-linecap:round;
+}

@@ -35,8 +35,8 @@
      潰れて指で触れないため、下駄（base）を履かせて増分（gain）を
      圧縮する。厚い順・薄い順の並びは保たれる。 */
   --lying-scale: .74;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
-  --spine-base:  22;        /* px：最も薄い本でも確保する幅 */
-  --spine-gain:  0.84;      /* px／背幅1mmあたりの増分 */
+  --spine-base:  30;        /* px：最も薄い本でも確保する幅 */
+  --spine-gain:  1.15;      /* px／背幅1mmあたりの増分 */
 
   /* --- 棚に収まる範囲 --- */
   --h-min:       120;       /* mm：これ以下は同じ高さに揃える */
@@ -48,6 +48,13 @@
 
   --measure:     30em;
 
+  /* --- 紙と布の斑 -----------------------------------------------
+     繰り返し模様は、それ自体が「機械が描いた絵」に見える。
+     不規則な濃淡を重ね、一冊ずつ違う傷み方に見せる。 */
+  --grain-fine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23f)'/%3E%3C/svg%3E");
+  --grain-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.016' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23m)'/%3E%3C/svg%3E");
+
+
   /* --- 1冊ごとに上書きされる値の既定 ---------------------------
      --h 判型(mm) / --t 背幅(mm) / --w 判横(mm)
      --c 背表紙の色 / --e 小口（紙）の色 / --rot 平置きの傾き */
@@ -57,10 +64,10 @@
 }
 
 @media (min-width: 768px){
-  :root{ --px-per-mm:.72; --spine-base:33; --spine-gain:1.16; --lying-scale:.80; }
+  :root{ --px-per-mm:.72; --spine-base:45; --spine-gain:1.30; --lying-scale:.80; }
 }
 @media (min-width: 1200px){
-  :root{ --px-per-mm:.76; --spine-base:29; --spine-gain:1.06; --lying-scale:.76; }
+  :root{ --px-per-mm:.76; --spine-base:34; --spine-gain:1.27; --lying-scale:.76; }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }

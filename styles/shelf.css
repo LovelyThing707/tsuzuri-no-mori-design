@@ -153,7 +153,7 @@
   min-height:calc(var(--h-max) * var(--px-per-mm) * 1px * .52);
   background:
     linear-gradient(180deg, rgba(0,0,0,.66) 0%, rgba(0,0,0,.14) 16%, transparent 32%),
-    linear-gradient(180deg, rgba(30,19,11,.06) 0%, rgba(24,15,9,.16) 100%),
+    linear-gradient(180deg, rgba(24,15,9,.12) 0%, rgba(20,12,7,.24) 100%),
     url("../assets/images/wood-backboard.webp");
   background-repeat:no-repeat, no-repeat, repeat;
   background-size:auto, auto, 600px auto;
@@ -190,8 +190,8 @@
   overflow:hidden;
   transition:transform .34s var(--ease), filter .34s var(--ease);
   box-shadow:
-    inset  1.5px 0 0 rgba(240,232,214,.46),
-    inset -1.5px 0 0 rgba(0,0,0,.62),
+    inset  2px 0 1px -1px rgba(240,232,214,.50),
+    inset -2px 0 1px -1px rgba(0,0,0,.66),
     inset  4px 0 6px -3px rgba(255,246,228,.10),
     inset -5px 0 7px -4px rgba(0,0,0,.5),
     -1px 0 0 rgba(240,232,214,.16),
@@ -224,8 +224,19 @@
   pointer-events:none;
 }
 
-/* 写真のない本。書名は入れず、布や紙の質感だけで置く。
-   平らな色面のままだと、木の写真の横で紙に見えない。 */
+/* 写真のない本。書名は入れず、紙と布の傷み方だけで置く。
+   規則正しい模様を使わないこと。それが「機械的」の正体だった。 */
+.spine--plain{
+  background-image:var(--grain-fine), var(--grain-mottle);
+  background-size:150px 150px, 320px 320px;
+  background-blend-mode:overlay, soft-light;
+}
+/* 一冊ずつ斑の出方をずらす。同じ模様の繰り返しに見せない */
+.spine--plain:nth-child(3n)  { background-position:38% 12%, 60% 30%; }
+.spine--plain:nth-child(3n+1){ background-position:71% 55%, 18% 72%; }
+.spine--plain:nth-child(3n+2){ background-position:12% 84%, 84% 8%; }
+.spine--plain:nth-child(5n)  { background-position:55% 40%, 32% 55%; }
+
 .spine--plain::after{
   background:
     /* 上からの光と、足元の落ち込み */
@@ -237,14 +248,7 @@
       rgba(255,248,232,.13) 0%,
       rgba(255,248,232,.06) 24%,
       rgba(0,0,0,.10) 60%,
-      rgba(0,0,0,.40) 100%),
-    /* 布目 */
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,.028) 0 1px,
-      rgba(0,0,0,.03) 1px 2px),
-    repeating-linear-gradient(180deg,
-      rgba(255,255,255,.022) 0 1px,
-      rgba(0,0,0,.026) 1px 3px);
+      rgba(0,0,0,.40) 100%);
 }
 
 /* 天と地の帯。装丁の切り替えに見える細い線 */
@@ -303,19 +307,20 @@
 
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
    本を大きくするのではなく、見える冊数を増やす。 */
-.spine:nth-child(n+9){ display:none; }
+.spine:nth-child(n+7){ display:none; }
 .row--flat .lying:nth-child(n+5){ display:none; }
 
 @media (min-width:768px){
-  .spine:nth-child(n+9){ display:block; }
-  .spine:nth-child(n+13){ display:none; }
+  .spine:nth-child(n+7){ display:block; }
+  .spine:nth-child(n+11){ display:none; }
   .row--flat .lying:nth-child(n+5){ display:block; }
   .row--flat .lying:nth-child(n+6){ display:none; }
 }
 @media (min-width:1200px){
-  .spine:nth-child(n+13){ display:block; }
-  .spine:nth-child(n+17){ display:none; }
+  .spine:nth-child(n+11){ display:block; }
+  .spine:nth-child(n+15){ display:none; }
   .row--flat .lying:nth-child(n+6){ display:block; }
+  .row--flat .lying:nth-child(n+7){ display:none; }
 }
 
 
@@ -367,4 +372,50 @@
       rgba(0,0,0,.022) 1px 3px);
   filter:blur(.4px);
   pointer-events:none;
+}
+
+/* --- テーマ名の行 ---------------------------------------------
+   15〜16冊に入りきらない本への入口として「すべて見る」を置く。 */
+.market__head{
+  position:relative; z-index:3;
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:14px;
+  margin:0 0 clamp(14px,3vh,26px);
+}
+.market__head .market__sign{ margin:0; text-align:left; }
+.market__head .market__sign::after{ margin-left:0; }
+.market__all{
+  flex:0 0 auto;
+  font-size:12px; letter-spacing:.14em;
+  color:var(--paper-dim); text-decoration:none;
+  padding:4px 2px;
+  border-bottom:1px solid transparent;
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.market__all::after{ content:"\203A"; margin-left:.5em; }
+.market__all:hover,.market__all:focus-visible{
+  color:var(--paper); border-bottom-color:rgba(233,224,206,.4);
+}
+
+/* --- 店主のおすすめの立て札 ------------------------------------ */
+.signcard{
+  flex:0 0 auto;
+  align-self:flex-end;
+  width:clamp(58px,15vw,88px);
+  aspect-ratio:3/4;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:2px;
+  background:linear-gradient(180deg, #2E3A31 0%, #202A23 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(201,168,118,.26),
+    inset 0 1px 0 rgba(255,246,228,.16),
+    0 8px 12px -7px rgba(0,0,0,.9);
+  transform-origin:50% 100%;
+  transform:rotateX(11deg) rotate(-1.2deg);
+}
+.signcard span{
+  font-size:clamp(9.5px,2.5vw,12px);
+  line-height:1.6; letter-spacing:.08em;
+  color:var(--paper-dim);
+  text-align:center;
 }

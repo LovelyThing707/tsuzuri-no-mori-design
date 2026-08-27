@@ -14,6 +14,7 @@ def market(idx, name, tiers, lying, note):
           </div>"""
     FLAT = """          <div class="tier tier--flat">
             <ul class="row row--flat">
+              <li class="signcard"><span>店主の<br>おすすめ</span></li>
 %s
             </ul>
             <div class="board board--front"></div>
@@ -23,7 +24,10 @@ def market(idx, name, tiers, lying, note):
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
-      <h2 class="market__sign" id="theme-%d">%s</h2>
+      <div class="market__head">
+        <h2 class="market__sign" id="theme-%d">%s</h2>
+        <a class="market__all" href="#">すべて見る</a>
+      </div>
     </div>
     <div class="scene">
       <div class="scene__floor"></div>
@@ -57,6 +61,16 @@ PAGE = """<!DOCTYPE html>
 </head>
 <body>
 <div class="page">
+
+<header class="topbar">
+  <button type="button" class="topbar__menu" aria-label="メニューを開く">
+    <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M1 2h22M1 9h22M1 16h22"/></svg>
+  </button>
+  <p class="topbar__logo">綴りの森</p>
+  <button type="button" class="topbar__search" aria-label="本をさがす">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
+  </button>
+</header>
 
 <header class="hero">
   <div class="hero__scene">

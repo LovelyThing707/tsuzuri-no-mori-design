@@ -17,6 +17,16 @@
 <body>
 <div class="page">
 
+<header class="topbar">
+  <button type="button" class="topbar__menu" aria-label="メニューを開く">
+    <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M1 2h22M1 9h22M1 16h22"/></svg>
+  </button>
+  <p class="topbar__logo">綴りの森</p>
+  <button type="button" class="topbar__search" aria-label="本をさがす">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
+  </button>
+</header>
+
 <header class="hero">
   <div class="hero__scene">
     <picture>
@@ -46,7 +56,10 @@
 
   <section class="market" aria-labelledby="theme-1">
     <div class="wrap">
-      <h2 class="market__sign" id="theme-1">子供に読みたい本</h2>
+      <div class="market__head">
+        <h2 class="market__sign" id="theme-1">子供に読みたい本</h2>
+        <a class="market__all" href="#">すべて見る</a>
+      </div>
     </div>
     <div class="scene">
       <div class="scene__floor"></div>
@@ -56,54 +69,55 @@
           <div class="case__box">
           <div class="tier">
             <ul class="row">
-        <li class="spine spine--plain" style="--h:210;--t:21;--c:#7A6A52;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:218;--t:16;--c:#6F2027;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:152;--t:12;--c:#B5A58A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:236;--t:28;--c:#4A5D52;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:205;--t:15;--c:#241A14;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:214;--t:25;--c:#E4E0D6;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:222;--t:33;--c:#8A4B3C;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:198;--t:9;--c:#D8CDB5;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:208;--t:24;--c:#3C4A5E;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:216;--t:17;--c:#94795A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:202;--t:13;--c:#2F3B33;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:226;--t:26;--c:#6E2F38;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:148;--t:10;--c:#A8654A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:212;--t:30;--c:#55402E;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:192;--t:31;--c:#5B6E63;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:240;--t:14;--c:#C2A87E;--e:#DED3BC"></li>
+        <li class="spine spine--plain" style="--h:210;--t:21;--c:#746B5E;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:218;--t:16;--c:#66363B;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:152;--t:12;--c:#A89F8F;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:236;--t:28;--c:#535E58;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:205;--t:15;--c:#221A15;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:214;--t:25;--c:#D7D4CD;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:222;--t:33;--c:#7D5950;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:198;--t:9;--c:#C9C2B3;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:208;--t:24;--c:#49515D;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:216;--t:17;--c:#887968;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:202;--t:13;--c:#3A423D;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:226;--t:26;--c:#674247;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:148;--t:10;--c:#946F60;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:212;--t:30;--c:#55483D;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:192;--t:31;--c:#626D67;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:240;--t:14;--c:#B0A189;--e:#CFC8B9"></li>
             </ul>
             <div class="board"></div>
           </div>
           <div class="tier">
             <ul class="row">
-        <li class="spine spine--plain" style="--h:206;--t:18;--c:#3A3F4A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:220;--t:11;--c:#C4B79A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:196;--t:19;--c:#8FA9B5;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:232;--t:31;--c:#5E4B36;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:204;--t:14;--c:#6B5B7A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:214;--t:23;--c:#8F6A45;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:150;--t:8;--c:#241A14;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:224;--t:11;--c:#9FBFCB;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:208;--t:20;--c:#46543F;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:218;--t:27;--c:#7C4230;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:200;--t:16;--c:#B0A184;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:212;--t:12;--c:#333A44;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:228;--t:29;--c:#6A5340;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:194;--t:15;--c:#9A8258;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:226;--t:34;--c:#6E4A3C;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:190;--t:17;--c:#A9927A;--e:#DED3BC"></li>
+        <li class="spine spine--plain" style="--h:206;--t:18;--c:#44484E;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:220;--t:11;--c:#B6AE9D;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:196;--t:19;--c:#93A2A9;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:232;--t:31;--c:#5C5144;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:204;--t:14;--c:#6D6476;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:214;--t:23;--c:#816D58;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:150;--t:8;--c:#241C16;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:224;--t:11;--c:#A1B5BC;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:208;--t:20;--c:#4E564A;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:218;--t:27;--c:#714F45;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:200;--t:16;--c:#A39B8A;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:212;--t:12;--c:#3E4349;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:228;--t:29;--c:#66594E;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:194;--t:15;--c:#8C7F68;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:226;--t:34;--c:#69544C;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:190;--t:17;--c:#9D9082;--e:#CFC8B9"></li>
             </ul>
             <div class="board"></div>
           </div>
           <div class="tier tier--flat">
             <ul class="row row--flat">
-        <li class="lying lying--plain" style="--h:224;--w:160;--c:#9FBFCB;--e:#F1EBDE;--rot:-1.6deg"></li>
-        <li class="lying lying--plain" style="--h:212;--w:150;--c:#E4E0D6;--e:#F4F1E9;--rot:1.2deg"></li>
-        <li class="lying lying--plain" style="--h:218;--w:152;--c:#6F2027;--e:#ECE3D2;--rot:-0.9deg"></li>
-        <li class="lying lying--plain" style="--h:206;--w:146;--c:#6B5B48;--e:#E2D8C2;--rot:1.5deg"></li>
-        <li class="lying lying--plain" style="--h:230;--w:164;--c:#3E4C43;--e:#DED3BC;--rot:-1.3deg"></li>
-        <li class="lying lying--plain" style="--h:198;--w:140;--c:#9A7F5C;--e:#E7DCC4;--rot:0.9deg"></li>
+              <li class="signcard"><span>店主の<br>おすすめ</span></li>
+        <li class="lying lying--plain" style="--h:224;--w:160;--c:#A1B5BC;--e:#E3DED3;--rot:-1.6deg"></li>
+        <li class="lying lying--plain" style="--h:212;--w:150;--c:#D7D4CD;--e:#E7E4DC;--rot:1.2deg"></li>
+        <li class="lying lying--plain" style="--h:218;--w:152;--c:#66363B;--e:#DDD7CA;--rot:-0.9deg"></li>
+        <li class="lying lying--plain" style="--h:206;--w:146;--c:#685F54;--e:#D3CCBD;--rot:1.5deg"></li>
+        <li class="lying lying--plain" style="--h:230;--w:164;--c:#48504B;--e:#CFC8B9;--rot:-1.3deg"></li>
+        <li class="lying lying--plain" style="--h:198;--w:140;--c:#8D7E6A;--e:#D7D0BF;--rot:0.9deg"></li>
             </ul>
             <div class="board board--front"></div>
           </div>
@@ -125,7 +139,10 @@
 
   <section class="market" aria-labelledby="theme-2">
     <div class="wrap">
-      <h2 class="market__sign" id="theme-2">夜に読む本</h2>
+      <div class="market__head">
+        <h2 class="market__sign" id="theme-2">夜に読む本</h2>
+        <a class="market__all" href="#">すべて見る</a>
+      </div>
     </div>
     <div class="scene">
       <div class="scene__floor"></div>
@@ -135,33 +152,34 @@
           <div class="case__box">
           <div class="tier">
             <ul class="row">
-        <li class="spine spine--plain" style="--h:212;--t:16;--c:#2B3340;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:154;--t:10;--c:#A99878;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:220;--t:24;--c:#4B3A5C;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:204;--t:16;--c:#6F2027;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:198;--t:19;--c:#1F2A22;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:234;--t:32;--c:#5A4130;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:216;--t:13;--c:#C9BBA0;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:208;--t:22;--c:#3F4A57;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:148;--t:19;--c:#8FA9B5;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:226;--t:26;--c:#70503A;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:202;--t:11;--c:#241A14;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:214;--t:28;--c:#87614C;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:196;--t:14;--c:#8E9A8C;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:222;--t:17;--c:#5C4658;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:238;--t:30;--c:#43506B;--e:#DED3BC"></li>
-        <li class="spine spine--plain" style="--h:194;--t:21;--c:#7E6B4F;--e:#DED3BC"></li>
+        <li class="spine spine--plain" style="--h:212;--t:16;--c:#383D45;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:154;--t:10;--c:#9C9381;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:220;--t:24;--c:#51475B;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:204;--t:16;--c:#66363B;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:198;--t:19;--c:#2B332E;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:234;--t:32;--c:#594A3F;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:216;--t:13;--c:#BAB2A2;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:208;--t:22;--c:#4A5158;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:148;--t:19;--c:#93A2A9;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:226;--t:26;--c:#6A574A;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:202;--t:11;--c:#20180F;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:214;--t:28;--c:#7D675C;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:196;--t:14;--c:#8E958D;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:222;--t:17;--c:#5D505B;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:238;--t:30;--c:#505867;--e:#CFC8B9"></li>
+        <li class="spine spine--plain" style="--h:194;--t:21;--c:#776C5C;--e:#CFC8B9"></li>
             </ul>
             <div class="board"></div>
           </div>
           <div class="tier tier--flat">
             <ul class="row row--flat">
-        <li class="lying lying--plain" style="--h:210;--w:148;--c:#8FA9B5;--e:#E7DCC4;--rot:-1.4deg"></li>
-        <li class="lying lying--plain" style="--h:222;--w:158;--c:#2E2A38;--e:#DCD1B8;--rot:1.1deg"></li>
-        <li class="lying lying--plain" style="--h:204;--w:144;--c:#7A4A3E;--e:#E2D8C2;--rot:-1.7deg"></li>
-        <li class="lying lying--plain" style="--h:228;--w:162;--c:#4A5546;--e:#E9E0CE;--rot:1.4deg"></li>
-        <li class="lying lying--plain" style="--h:200;--w:142;--c:#8B7350;--e:#DED3BC;--rot:-1.0deg"></li>
-        <li class="lying lying--plain" style="--h:216;--w:154;--c:#514257;--e:#E7DCC4;--rot:1.8deg"></li>
+              <li class="signcard"><span>店主の<br>おすすめ</span></li>
+        <li class="lying lying--plain" style="--h:210;--w:148;--c:#93A2A9;--e:#D7D0BF;--rot:-1.4deg"></li>
+        <li class="lying lying--plain" style="--h:222;--w:158;--c:#38363F;--e:#CDC6B5;--rot:1.1deg"></li>
+        <li class="lying lying--plain" style="--h:204;--w:144;--c:#72564F;--e:#D3CCBD;--rot:-1.7deg"></li>
+        <li class="lying lying--plain" style="--h:228;--w:162;--c:#51584F;--e:#DAD4C7;--rot:1.4deg"></li>
+        <li class="lying lying--plain" style="--h:200;--w:142;--c:#80735F;--e:#CFC8B9;--rot:-1.0deg"></li>
+        <li class="lying lying--plain" style="--h:216;--w:154;--c:#554C59;--e:#D7D0BF;--rot:1.8deg"></li>
             </ul>
             <div class="board board--front"></div>
           </div>
