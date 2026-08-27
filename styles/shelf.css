@@ -90,6 +90,16 @@
     0 30px 38px -24px rgba(0,0,0,.92),
     inset 0 1px 0 rgba(201,168,118,.24);
 }
+/* 使用感。新品の均一さを崩す。伸ばして敷くので継ぎ目は出ない */
+.case::after{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  border-radius:inherit;
+  background:url("../assets/images/wear-overlay.webp") center / 100% 100% no-repeat;
+  mix-blend-mode:multiply;
+  opacity:.34;
+  pointer-events:none;
+}
 
 /* 箱の内側。左右と天井の落ち込みで奥行きを出す */
 .case__box{
@@ -100,6 +110,19 @@
     inset -20px 0 26px -16px rgba(0,0,0,.94),
     inset 0 22px 26px -16px rgba(0,0,0,.9),
     inset 0 -10px 18px -12px rgba(0,0,0,.7);
+}
+/* 棚の中の灯り。上から暖かい光が落ちてくる */
+.case__box::before{
+  content:"";
+  position:absolute; inset:0; z-index:3;
+  background:
+    radial-gradient(120% 62% at 50% -6%,
+      rgba(214,178,116,.20) 0%,
+      rgba(201,168,118,.09) 34%,
+      transparent 68%),
+    linear-gradient(180deg, transparent 58%, rgba(0,0,0,.16) 100%);
+  mix-blend-mode:soft-light;
+  pointer-events:none;
 }
 
 .tier{ position:relative; }
@@ -232,31 +255,38 @@
   pointer-events:none;
 }
 
-/* 写真のない本。書名は入れず、紙と布の傷み方だけで置く。
-   規則正しい模様を使わないこと。それが「機械的」の正体だった。 */
+/* 写真のない本。装丁の素材を写真で敷く。
+   古書店の棚は、布装と紙装が混ざっている。1種類で揃えると新品の列に見える。 */
 .spine--plain{
-  background-image:var(--grain-fine), var(--grain-mottle);
-  background-size:150px 150px, 320px 320px;
-  background-blend-mode:overlay, soft-light;
+  background-image:url("../assets/images/paper-aged.webp");
+  background-size:300px auto;
+  background-blend-mode:multiply;
 }
-/* 一冊ずつ斑の出方をずらす。同じ模様の繰り返しに見せない */
-.spine--plain:nth-child(3n)  { background-position:38% 12%, 60% 30%; }
-.spine--plain:nth-child(3n+1){ background-position:71% 55%, 18% 72%; }
-.spine--plain:nth-child(3n+2){ background-position:12% 84%, 84% 8%; }
-.spine--plain:nth-child(5n)  { background-position:55% 40%, 32% 55%; }
+/* 布装の本を混ぜる */
+.spine--plain:nth-child(3n+2){
+  background-image:url("../assets/images/cloth-linen.webp");
+  background-size:260px auto;
+}
+/* 素材の出方を一冊ずつずらす。タイルは本より大きいので継ぎ目は出ない */
+.spine--plain:nth-child(4n+1){ background-position:12%  8%; }
+.spine--plain:nth-child(4n+2){ background-position:63% 41%; }
+.spine--plain:nth-child(4n+3){ background-position:29% 77%; }
+.spine--plain:nth-child(4n+4){ background-position:85% 22%; }
+.spine--plain:nth-child(5n)  { background-position:47% 58%; }
+.spine--plain:nth-child(7n)  { background-position:73% 90%; }
 
 .spine--plain::after{
   background:
     /* 上からの光と、足元の落ち込み */
     linear-gradient(180deg,
-      rgba(255,246,228,.16) 0%, transparent 22%,
-      transparent 70%, rgba(0,0,0,.34) 100%),
+      rgba(255,246,228,.14) 0%, transparent 22%,
+      transparent 70%, rgba(0,0,0,.32) 100%),
     /* 背は丸い。光は左上から。左端は縁の光を消さないよう暗くしない */
     linear-gradient(90deg,
-      rgba(255,248,232,.13) 0%,
-      rgba(255,248,232,.06) 24%,
+      rgba(255,248,232,.12) 0%,
+      rgba(255,248,232,.05) 24%,
       rgba(0,0,0,.10) 60%,
-      rgba(0,0,0,.40) 100%);
+      rgba(0,0,0,.38) 100%);
 }
 
 /* 天と地の帯。装丁の切り替えに見える細い線 */
@@ -348,6 +378,14 @@
 /* --- 書影のない平置き本 --------------------------------------
    表紙は面積が大きいぶん、単色だと紙に見えない。
    書名や絵柄は描かず、カバーの面の構成だけを出す。 */
+.lying--plain{
+  background-image:url("../assets/images/cover-stock.webp");
+  background-size:340px auto;
+  background-blend-mode:multiply;
+}
+.lying--plain:nth-child(3n){ background-position:70% 30%; }
+.lying--plain:nth-child(4n){ background-position:22% 66%; }
+
 .lying--plain::after{
   content:"";
   position:absolute; inset:0;
