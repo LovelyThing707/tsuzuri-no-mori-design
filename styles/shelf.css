@@ -447,7 +447,7 @@
 .signcard{
   flex:0 0 auto;
   align-self:flex-end;
-  width:clamp(58px,15vw,88px);
+  width:clamp(44px,11.5vw,66px);
   aspect-ratio:3/4;
   display:flex; align-items:center; justify-content:center;
   border-radius:2px;
@@ -496,3 +496,60 @@
 .spine:nth-child(3n+1)::before{ height:4px; }
 .spine:nth-child(3n+2)::before{ height:6px; }
 .spine:nth-child(4n+3)::before{ height:5.5px; }
+
+/* ============================================================
+   什器を絵にする（スマートフォン）
+   CSSで組んだ枠は、線が数式どおりで硬い。棚そのものを1枚の絵にし、
+   本だけをその中に置く。本の寸法算出はこれまでどおり。
+   段の位置は画像を実測して合わせている。
+   ============================================================ */
+@media (max-width:767px){
+  .case{
+    /* 画像の比率。中の座標もこの比率が前提 */
+    aspect-ratio:900 / 1407;
+    width:min(100%,420px);
+    padding:0;
+    background:url("../assets/images/case-portrait.webp") center / 100% 100% no-repeat;
+    box-shadow:0 26px 34px -24px rgba(0,0,0,.9);
+  }
+  /* 枠・棚板・台輪は絵の中にあるので描かない */
+  .case::after,
+  .case__box::before,
+  .board,
+  .case__base{ display:none; }
+
+  .case__box{ position:absolute; inset:0; box-shadow:none; }
+
+  /* 実測値：柱の内側は 11.0%〜88.8% */
+  .tier{
+    position:absolute;
+    left:11.0%; right:11.2%;
+  }
+  /* 実測値：段の内側（上端／高さ） */
+  .tier:nth-child(1){ top:6.4%;  height:24.5%; }
+  .tier:nth-child(2){ top:33.1%; height:24.0%; }
+  .tier--flat       { top:61.4%; height:26.0%; }
+
+  /* 棚板は絵の中。行は段いっぱいに広げ、本を底に揃える */
+  .row{
+    position:absolute; inset:0;
+    min-height:0; padding:0;
+    background:none;
+    align-items:flex-end;
+  }
+  /* 本が棚板に落とす影。これがないと本が浮いて見える */
+  .row::after,
+  .row--flat::after{
+    content:""; position:absolute; z-index:0;
+    left:-2%; right:-2%; bottom:-2px; height:10px;
+    background:radial-gradient(60% 100% at 50% 0%,rgba(0,0,0,.42),rgba(0,0,0,0) 72%);
+    pointer-events:none;
+  }
+  .spine,.lying,.signcard{ position:relative; z-index:1; }
+  .row--flat{
+    position:absolute; inset:0;
+    padding:0; background:none;
+    align-items:flex-end; justify-content:center;
+    gap:clamp(6px,2vw,14px);
+  }
+}
