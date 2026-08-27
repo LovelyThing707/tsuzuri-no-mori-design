@@ -75,9 +75,17 @@
       rgba(255,244,220,.24) 0, rgba(255,244,220,.06) 4px,
       rgba(0,0,0,.30) var(--frame), transparent var(--frame)),
     linear-gradient(180deg, rgba(46,28,14,.04) 0%, rgba(20,12,6,.14) 100%),
+    /* 柱は縦木目。棚板の横木目と使い分ける */
+    linear-gradient(transparent, transparent),
+    url("../assets/images/wood-board-vertical.webp"),
+    url("../assets/images/wood-board-vertical.webp"),
     url("../assets/images/wood-board.webp");
-  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,repeat;
-  background-size:auto,auto,auto,auto,680px auto;
+  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,
+                    no-repeat,repeat-y,repeat-y,repeat;
+  background-position:0 0,0 0,0 0,0 0,
+                      0 0,left top,right top,0 0;
+  background-size:auto,auto,auto,auto,
+                  auto,var(--frame) 420px,var(--frame) 420px,680px auto;
   box-shadow:
     0 30px 38px -24px rgba(0,0,0,.92),
     inset 0 1px 0 rgba(201,168,118,.24);
@@ -419,3 +427,34 @@
   color:var(--paper-dim);
   text-align:center;
 }
+
+
+/* --- 並びを崩す -----------------------------------------------
+   完全に直立した長方形が等間隔で並ぶのは、棚ではなく定規。
+   本ごとにわずかな傾き・前後・天の高さの差をつける。 */
+.spine{
+  transform-origin:50% 100%;
+  transform:rotate(var(--lean,0deg));
+}
+.spine:hover,.spine:focus-visible{
+  transform:rotate(var(--lean,0deg)) translateY(-7px);
+}
+
+/* 傾き。1度前後に留める。倒れて見えるほどつけない */
+.spine:nth-child(7n+1){ --lean:.7deg;  }
+.spine:nth-child(7n+2){ --lean:-.5deg; }
+.spine:nth-child(7n+3){ --lean:.3deg;  }
+.spine:nth-child(7n+4){ --lean:-.9deg; }
+.spine:nth-child(7n+5){ --lean:.5deg;  }
+.spine:nth-child(7n+6){ --lean:-.3deg; }
+.spine:nth-child(7n+7){ --lean:.9deg;  }
+
+/* 前後。奥に入っている本は光が回りにくく、少し暗い */
+.spine:nth-child(5n+2){ filter:brightness(.93); }
+.spine:nth-child(5n+4){ filter:brightness(.96); }
+.spine:nth-child(9n+5){ filter:brightness(1.04); }
+
+/* 天の高さ。きれいに切り揃わないようにする */
+.spine:nth-child(3n+1)::before{ height:4px; }
+.spine:nth-child(3n+2)::before{ height:6px; }
+.spine:nth-child(4n+3)::before{ height:5.5px; }

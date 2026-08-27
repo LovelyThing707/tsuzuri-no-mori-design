@@ -67,7 +67,7 @@
   :root{ --px-per-mm:.72; --spine-base:45; --spine-gain:1.30; --lying-scale:.80; }
 }
 @media (min-width: 1200px){
-  :root{ --px-per-mm:.76; --spine-base:34; --spine-gain:1.27; --lying-scale:.76; }
+  :root{ --px-per-mm:.76; --spine-base:32; --spine-gain:1.24; --lying-scale:.76; }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
