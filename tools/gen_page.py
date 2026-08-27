@@ -61,8 +61,8 @@ PAGE = """<!DOCTYPE html>
 <header class="hero">
   <div class="hero__scene">
     <picture>
-      <source media="(min-width:768px)" srcset="assets/images/cottage-in-forest.webp">
-      <img src="assets/images/cottage-in-forest.webp" alt=""
+      <source media="(min-width:768px)" srcset="assets/images/hero-forest-landscape.webp">
+      <img src="assets/images/hero-forest-portrait.webp" alt=""
            fetchpriority="high" decoding="async">
     </picture>
   </div>
