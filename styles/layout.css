@@ -13,37 +13,6 @@
   padding-inline:18px;
 }
 
-/* --- 森から店内へ入る転換 ------------------------------------ */
-.threshold{
-  position:relative;
-  min-height:84svh;
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-start;
-  padding:clamp(56px,13vh,110px) 0 clamp(40px,9vh,80px);
-  /* 森 → 店 → 店内 と、色をつなげたまま場面だけ変える */
-  background:
-    linear-gradient(180deg,
-      #10160F 0%,
-      rgba(16,22,15,.86) 12%,
-      rgba(16,22,15,.34) 34%,
-      transparent 52%),
-    linear-gradient(180deg,
-      transparent 58%,
-      rgba(22,15,10,.52) 82%,
-      var(--room-wall) 100%),
-    url("../assets/images/cottage-in-forest.webp") center 42% / cover no-repeat;
-  text-align:center;
-}
-.threshold p{
-  margin:0 auto;
-  max-width:22em;
-  font-size:clamp(15px,4.1vw,19px);
-  line-height:2.4;
-  letter-spacing:.16em;
-  color:var(--paper-dim);
-}
-
 /* --- 店内。ここから下は一続きの空間 --------------------------- */
 /* 店内。壁の写真はここに1枚だけ敷き、売り場もフッターもこの上に乗せる。
    要素ごとに敷くとタイルの位置がずれて、継ぎ目の線になる。 */
@@ -72,79 +41,13 @@
   pointer-events:none;
 }
 
-/* --- 通路（売り場の区切り） ----------------------------------- */
+/* --- 売り場の区切り -------------------------------------------
+   広く空けると別の部屋に見える。上の平台が見えているうちに
+   下の棚が現れる程度の間隔に留める。 */
 .aisle{
   position:relative;
-  padding:clamp(56px,13vh,110px) 0 clamp(64px,15vh,124px);
-}
-
-/* 窓・窓台・鉢を収める枠。鉢の位置はここを基準にする */
-.aisle__inner{
-  position:relative;
-  min-height:150px;
-}
-
-/* 窓。外の森がのぞく */
-.window{
-  position:relative;
-  margin-inline:auto;
-  width:clamp(104px,29vw,168px);
-  aspect-ratio:3/4;
-  border-radius:2px 2px 0 0;
-  background:
-    linear-gradient(180deg, #3d4a3c 0%, #2b3a2d 46%, #223026 100%);
-  box-shadow:
-    inset 0 0 0 4px var(--wood-dark),
-    inset 0 0 22px rgba(0,0,0,.55),
-    0 0 46px 12px rgba(201,168,118,.10);
-}
-/* 窓の外の木立 */
-.window::before{
-  content:"";
-  position:absolute; inset:4px;
-  background:url("../assets/images/window-view.webp") center / cover no-repeat;
-  /* 古いガラス越しに見えている感じに、ごくわずかに滲ませる */
-  filter:blur(.7px) saturate(.9);
-}
-/* 桟 */
-.window::after{
-  content:"";
-  position:absolute; inset:4px;
-  background:
-    linear-gradient(90deg, transparent calc(50% - 1.5px), var(--wood-edge) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
-    linear-gradient(180deg, transparent calc(46% - 1.5px), var(--wood-edge) calc(46% - 1.5px) calc(46% + 1.5px), transparent calc(46% + 1.5px));
-  opacity:.9;
-}
-
-/* 窓台。板の小口を見せて、鉢が載る面を作る */
-.sill{
-  position:relative; z-index:2;
-  width:calc(clamp(104px,29vw,168px) + clamp(26px,7vw,44px));
-  height:11px;
-  margin:0 auto;
-  background:
-    linear-gradient(180deg,
-      rgba(255,240,214,.28) 0%,
-      rgba(0,0,0,.10) 26%,
-      rgba(0,0,0,.52) 70%,
-      rgba(0,0,0,.8) 100%),
-    url("../assets/images/wood-board.webp");
-  background-repeat:no-repeat, repeat;
-  background-size:auto, 680px auto;
-  box-shadow:
-    inset 0 1px 0 rgba(201,168,118,.34),
-    0 8px 12px -7px rgba(0,0,0,.85);
-}
-
-/* 鉢植え。窓台の上に置く。接地の影はCSSで付ける */
-.plant{
-  position:absolute; z-index:3;
-  left:50%;
-  margin-left:calc(clamp(104px,29vw,168px) / -2 - clamp(4px,1.4vw,10px));
-  bottom:11px;
-  width:clamp(46px,12.5vw,74px);
-  height:auto;
-  filter:drop-shadow(0 5px 5px rgba(0,0,0,.85));
+  padding:clamp(22px,4.2vh,40px) 0 clamp(24px,4.6vh,44px);
+  text-align:center;
 }
 
 /* 窓から差し込む光。強い光線にはしない */
@@ -153,12 +56,28 @@
   left:50%; top:0;
   width:min(84vw,520px); height:100%;
   transform:translateX(-50%);
-  background:radial-gradient(56% 46% at 50% 22%,
-    rgba(201,168,118,.13) 0%,
-    rgba(201,168,118,.05) 44%,
-    transparent 72%);
+  background:radial-gradient(56% 60% at 50% 40%,
+    rgba(201,168,118,.11) 0%,
+    rgba(201,168,118,.04) 46%,
+    transparent 74%);
   pointer-events:none;
 }
+
+/* つぎの売り場へ */
+.aisle__next{
+  position:relative; z-index:2;
+  display:inline-flex; flex-direction:column; align-items:center; gap:7px;
+  padding:9px 20px;
+  color:var(--paper-dim);
+  text-decoration:none;
+  font-size:12.5px; letter-spacing:.24em; text-indent:.24em;
+  transition:color .3s var(--ease);
+}
+.aisle__next:hover,
+.aisle__next:focus-visible{ color:var(--paper); }
+.aisle__next svg{ width:19px; height:12px; overflow:visible; }
+.aisle__next path{ stroke:currentColor; stroke-width:1.3; fill:none;
+  stroke-linecap:round; stroke-linejoin:round; }
 
 /* --- フッター ------------------------------------------------ */
 .foot{

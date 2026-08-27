@@ -4,11 +4,11 @@
    立体感は「什器→床」「本→棚板」「本→隣の本」の三種の影で出す。
    ============================================================ */
 
-.market{ position:relative; padding-top:clamp(30px,7vh,58px); }
+.market{ position:relative; padding-top:clamp(18px,3.6vh,32px); }
 
 .market__sign{
   position:relative; z-index:3;
-  margin:0 0 clamp(20px,4.6vh,36px);
+  margin:0 0 clamp(14px,3vh,26px);
   text-align:center;
   font-size:clamp(15px,4.2vw,19px);
   letter-spacing:.28em; text-indent:.28em;
@@ -20,7 +20,7 @@
   background:linear-gradient(90deg,transparent,rgba(201,168,118,.55),transparent);
 }
 
-.scene{ position:relative; padding-bottom:clamp(26px,6vh,52px); }
+.scene{ position:relative; padding-bottom:clamp(12px,2.6vh,24px); }
 
 /* 床。壁との境をはっきり見せ、什器が床に載っていることを示す */
 .scene__floor{
@@ -53,49 +53,95 @@
     rgba(0,0,0,.42) 0%, rgba(0,0,0,.14) 22%, transparent 46%);
 }
 
-/* --- 本棚（奥の什器）。やや小さく、コントラストを控えめに --- */
-.shelf{
+/* --- 什器 ---------------------------------------------------
+   本棚と平台をひとつの箱として組む。平台は最下段。
+   板の面は写真、稜線と陰影はCSS。厚みと奥行きを出すのが要。 */
+.case{
   position:relative; z-index:1;
   width:min(100%,880px);
   margin-inline:auto;
-  transform:scale(.965);
-  transform-origin:50% 100%;
-  filter:saturate(.92) brightness(.94);
+  padding:var(--frame) var(--frame) 0;
+  border-radius:3px 3px 2px 2px;
   background:
-    linear-gradient(90deg, rgba(0,0,0,.34) 0%, transparent 7%, transparent 93%, rgba(0,0,0,.38) 100%),
-    linear-gradient(180deg, rgba(16,11,7,.34) 0%, rgba(16,11,7,.52) 44%, rgba(10,7,4,.7) 100%),
-    url("../assets/images/wood-board.webp");
-  background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 680px auto;
-  border-radius:2px;
-  padding:var(--board) var(--board) 0;
-  box-shadow:
-    0 26px 34px -22px rgba(0,0,0,.9),
-    inset 0 1px 0 rgba(201,168,118,.14);
-}
-
-.shelf__tier{ position:relative; }
-
-/* 棚板。手前に小口の厚みを見せる */
-.shelf__board{
-  position:relative;
-  height:var(--board);
-  margin:0 calc(var(--board) * -1);
-  background:
+    /* 左右の柱。木口が見えるよう縦の縞を重ねる */
+    linear-gradient(90deg,
+      rgba(0,0,0,.42) 0, rgba(255,240,214,.10) 2px,
+      rgba(0,0,0,.16) var(--frame), transparent var(--frame)),
+    linear-gradient(270deg,
+      rgba(0,0,0,.46) 0, rgba(255,240,214,.07) 2px,
+      rgba(0,0,0,.20) var(--frame), transparent var(--frame)),
+    /* 天板の上面に当たる光 */
     linear-gradient(180deg,
-      rgba(255,238,210,.20) 0%,
-      rgba(0,0,0,.10) 30%,
-      rgba(0,0,0,.58) 78%,
-      rgba(0,0,0,.80) 100%),
+      rgba(255,244,220,.24) 0, rgba(255,244,220,.06) 4px,
+      rgba(0,0,0,.30) var(--frame), transparent var(--frame)),
+    linear-gradient(180deg, rgba(14,9,6,.30) 0%, rgba(14,9,6,.44) 100%),
     url("../assets/images/wood-board.webp");
-  background-repeat:no-repeat, repeat;
-  background-size:auto, 680px auto;
+  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,repeat;
+  background-size:auto,auto,auto,auto,680px auto;
   box-shadow:
-    0 -7px 12px -6px rgba(0,0,0,.72),
+    0 30px 38px -24px rgba(0,0,0,.92),
     inset 0 1px 0 rgba(201,168,118,.24);
 }
 
-/* 本が並ぶ面。什器の側面よりわずかに明るくして足元を分離する */
+/* 箱の内側。左右と天井の落ち込みで奥行きを出す */
+.case__box{
+  position:relative;
+  border-radius:1px;
+  box-shadow:
+    inset  14px 0 20px -14px rgba(0,0,0,.86),
+    inset -14px 0 20px -14px rgba(0,0,0,.90),
+    inset 0 16px 20px -14px rgba(0,0,0,.86);
+}
+
+.tier{ position:relative; }
+
+/* 棚板。上面に光、手前の小口は暗く。下の段へ影を落とす */
+.board{
+  position:relative; z-index:2;
+  height:var(--board);
+  margin:0 calc(var(--frame) * -1);
+  background:
+    linear-gradient(180deg,
+      rgba(255,242,216,.34) 0%,
+      rgba(255,242,216,.10) 22%,
+      rgba(0,0,0,.42) 62%,
+      rgba(0,0,0,.82) 100%),
+    url("../assets/images/wood-board.webp");
+  background-repeat:no-repeat,repeat;
+  background-size:auto,680px auto;
+  box-shadow:
+    0 -8px 13px -7px rgba(0,0,0,.8),
+    0 7px 10px -6px rgba(0,0,0,.72);
+}
+
+/* 平台の前板。棚板より厚く見せ、台であることを示す */
+.board--front{
+  height:calc(var(--board) + 9px);
+  background:
+    linear-gradient(180deg,
+      rgba(255,242,216,.30) 0%,
+      rgba(255,242,216,.08) 18%,
+      rgba(0,0,0,.50) 58%,
+      rgba(0,0,0,.88) 100%),
+    url("../assets/images/wood-board.webp");
+  background-repeat:no-repeat,repeat;
+  background-size:auto,680px auto;
+}
+
+/* 台輪。床に接する部分 */
+.case__base{
+  height:calc(var(--board) + 6px);
+  margin:0;
+  border-radius:0 0 2px 2px;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,.9) 100%),
+    url("../assets/images/wood-board.webp");
+  background-repeat:no-repeat,repeat;
+  background-size:auto,680px auto;
+  box-shadow:0 16px 20px -12px rgba(0,0,0,.95);
+}
+
+/* 本が並ぶ面。背板は什器の側面より明るくして、暗い背表紙の足元を分離する */
 .row{
   position:relative;
   display:flex;
@@ -110,6 +156,23 @@
     url("../assets/images/wood-backboard.webp");
   background-repeat:no-repeat, no-repeat, repeat;
   background-size:auto, auto, 600px auto;
+}
+
+/* 最下段の平台。表紙を上にして寝かせるため、面を手前に倒して見せる */
+.row--flat{
+  align-items:flex-end;
+  justify-content:center;
+  gap:clamp(8px,2.6vw,20px);
+  padding:clamp(14px,3.2vh,26px) clamp(10px,3vw,18px) 0;
+  min-height:0;
+  perspective:760px;
+  perspective-origin:50% 120%;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.20) 14%, transparent 30%),
+    linear-gradient(180deg, rgba(26,18,12,.24) 0%, rgba(20,14,9,.44) 100%),
+    url("../assets/images/wood-board.webp");
+  background-repeat:no-repeat, no-repeat, repeat;
+  background-size:auto, auto, 680px auto;
 }
 
 /* --- 背表紙 -------------------------------------------------
@@ -197,65 +260,13 @@
   z-index:2;
 }
 
-/* --- 平台（手前の什器） -------------------------------------
-   箱ではなく台。天板の上に本を載せ、床に影を落とす。 */
-.platform{
-  position:relative; z-index:2;
-  width:min(100%,720px);
-  margin:clamp(26px,6vh,52px) auto 0;
-  display:flex; flex-direction:column;
-}
-/* 床に落ちる影。せり出しの要 */
-.platform::after{
-  content:"";
-  position:absolute; z-index:-1;
-  left:-7%; right:-7%; bottom:-22px;
-  height:48px;
-  border-radius:50%;
-  background:radial-gradient(50% 50% at 50% 38%,
-    rgba(0,0,0,.88) 0%, rgba(0,0,0,.55) 46%, transparent 74%);
-  filter:blur(5px);
-}
-
-/* 天板と小口 */
-.platform__slab{
-  position:relative;
-  height:calc(var(--board) + 26px);
-  border-radius:1px;
-  background:
-    linear-gradient(180deg,
-      rgba(255,240,214,.26) 0%,
-      rgba(0,0,0,.06) 24%,
-      rgba(0,0,0,.48) 62%,
-      rgba(0,0,0,.78) 100%),
-    url("../assets/images/wood-board.webp");
-  background-repeat:no-repeat, repeat;
-  background-size:auto, 680px auto;
-  box-shadow:
-    inset 0 2px 0 rgba(201,168,118,.34),
-    inset 0 -1px 0 rgba(0,0,0,.6),
-    0 14px 18px -8px rgba(0,0,0,.9);
-}
-/* 台の脚元。床との間に暗がりを作って接地させる */
-.platform__slab::after{
-  content:"";
-  position:absolute; left:2%; right:2%; top:100%;
-  height:10px;
-  background:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,.25) 70%, transparent);
-}
-.platform__books{
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  gap:clamp(8px,2.6vw,20px);
-  padding:0 clamp(10px,3vw,18px) 0;
-  perspective:760px;
-  perspective-origin:50% 120%;
-}
-
 /* 平置きの本。表紙を上に、大きく、やや傾けて */
 .lying{
   --lw: calc(var(--w) * var(--px-per-mm) * var(--lying-scale) * 1px);
+  /* 寝かせると見た目は縮むが、場所取りは立てたままの高さで行われる。
+     余った分を差し引いて、平台の段に無駄な空きが出ないようにする。 */
+  --lh: calc(var(--h) * var(--px-per-mm) * var(--lying-scale) * 1px);
+  margin-top: calc(var(--lh) * -0.22);
   position:relative;
   flex:0 0 auto;
   width:var(--lw);
@@ -292,18 +303,18 @@
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
    本を大きくするのではなく、見える冊数を増やす。 */
 .spine:nth-child(n+7){ display:none; }
-.platform__books .lying:nth-child(n+4){ display:none; }
+.row--flat .lying:nth-child(n+4){ display:none; }
 
 @media (min-width:768px){
   .spine:nth-child(n+7){ display:block; }
   .spine:nth-child(n+11){ display:none; }
-  .platform__books .lying:nth-child(n+4){ display:block; }
-  .platform__books .lying:nth-child(n+6){ display:none; }
+  .row--flat .lying:nth-child(n+4){ display:block; }
+  .row--flat .lying:nth-child(n+6){ display:none; }
 }
 @media (min-width:1200px){
   .spine:nth-child(n+11){ display:block; }
   .spine:nth-child(n+15){ display:none; }
-  .platform__books .lying:nth-child(n+6){ display:block; }
+  .row--flat .lying:nth-child(n+6){ display:block; }
 }
 
 

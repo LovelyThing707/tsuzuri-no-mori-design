@@ -33,7 +33,7 @@
   width:100%; height:100%;
   object-fit:cover;
   /* 縦画面は枝と実が残るよう上寄りで切る */
-  object-position:50% 34%;
+  object-position:50% 46%;
   display:block;
   will-change:transform;
 }
@@ -46,7 +46,7 @@
 .hero__light{
   position:absolute; inset:0;
   background:
-    radial-gradient(34% 40% at 24% 2%, rgba(201,168,118,.10), transparent 70%);
+    radial-gradient(38% 44% at 26% 2%, rgba(201,168,118,.14), transparent 72%);
   mix-blend-mode:screen;
   pointer-events:none;
 }
@@ -54,12 +54,12 @@
 /* 下端を暗く落として次のセクションへつなぐ */
 .hero__veil{
   position:absolute; left:0; right:0; bottom:0;
-  height:52%;
+  height:46%;
   background:linear-gradient(180deg,
     transparent 0%,
-    rgba(16,22,18,.30) 40%,
-    rgba(16,22,18,.72) 76%,
-    #10160F 100%);
+    rgba(16,22,18,.18) 42%,
+    rgba(16,22,18,.58) 78%,
+    #0B0806 100%);
   pointer-events:none;
 }
 

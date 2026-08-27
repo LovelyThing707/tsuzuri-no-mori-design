@@ -34,7 +34,7 @@
      幅は厚みに比例させない。実寸のままだと薄い本が線のように
      潰れて指で触れないため、下駄（base）を履かせて増分（gain）を
      圧縮する。厚い順・薄い順の並びは保たれる。 */
-  --lying-scale: .98;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
+  --lying-scale: .90;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
   --spine-base:  30;        /* px：最も薄い本でも確保する幅 */
   --spine-gain:  1.15;      /* px／背幅1mmあたりの増分 */
 
@@ -42,7 +42,8 @@
   --h-min:       120;       /* mm：これ以下は同じ高さに揃える */
   --h-max:       250;       /* mm：これ以上は棚からはみ出させない */
 
-  --board:       11px;      /* 棚板の厚み（小口） */
+  --board:       12px;      /* 棚板の厚み（小口） */
+  --frame:       clamp(13px,3.6vw,22px);  /* 什器の枠。柱と天板の見付け */
   --ease:        cubic-bezier(.22,.68,.24,1);
 
   --measure:     30em;
@@ -56,10 +57,10 @@
 }
 
 @media (min-width: 768px){
-  :root{ --px-per-mm:.72; --spine-base:34; --spine-gain:1.28; --lying-scale:1.02; }
+  :root{ --px-per-mm:.72; --spine-base:34; --spine-gain:1.28; --lying-scale:.96; }
 }
 @media (min-width: 1200px){
-  :root{ --px-per-mm:.76; --spine-base:35; --spine-gain:1.32; --lying-scale:.94; }
+  :root{ --px-per-mm:.76; --spine-base:33; --spine-gain:1.27; --lying-scale:.88; }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }

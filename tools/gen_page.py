@@ -5,12 +5,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
 
 def market(idx, name, tiers, lying, note):
-    t = []
-    for books in tiers:
-        t.append('        <div class="shelf__tier">\n'
-                 '          <ul class="row">\n%s\n          </ul>\n'
-                 '          <div class="shelf__board"></div>\n'
-                 '        </div>' % D.tier(books))
+    """本棚と平台をひとつの什器として組む。平台は最下段。"""
+    TIER = """          <div class="tier">
+            <ul class="row">
+%s
+            </ul>
+            <div class="board"></div>
+          </div>"""
+    FLAT = """          <div class="tier tier--flat">
+            <ul class="row row--flat">
+%s
+            </ul>
+            <div class="board board--front"></div>
+          </div>"""
+    t = [TIER % D.tier(b) for b in tiers]
+    t.append(FLAT % D.platform(lying))
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
@@ -20,18 +29,15 @@ def market(idx, name, tiers, lying, note):
       <div class="scene__floor"></div>
       <div class="wrap">
         <p class="sr-only">%s</p>
-        <div class="shelf" aria-hidden="true">
+        <div class="case" aria-hidden="true">
+          <div class="case__box">
 %s
-        </div>
-        <div class="platform" aria-hidden="true">
-          <ul class="platform__books">
-%s
-          </ul>
-          <div class="platform__slab"></div>
+          </div>
+          <div class="case__base"></div>
         </div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, '\n'.join(t), D.platform(lying))
+  </section>""" % (idx, idx, name, note, "\n".join(t))
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">
@@ -55,8 +61,8 @@ PAGE = """<!DOCTYPE html>
 <header class="hero">
   <div class="hero__scene">
     <picture>
-      <source media="(min-width:768px)" srcset="assets/images/hero-forest-landscape.webp">
-      <img src="assets/images/hero-forest-portrait.webp" alt=""
+      <source media="(min-width:768px)" srcset="assets/images/cottage-in-forest.webp">
+      <img src="assets/images/cottage-in-forest.webp" alt=""
            fetchpriority="high" decoding="async">
     </picture>
   </div>
@@ -76,24 +82,16 @@ PAGE = """<!DOCTYPE html>
   </a>
 </header>
 
-<section class="threshold">
-  <p>森のおくに、<br>小さな本屋があります。</p>
-</section>
-
 <div class="interior">
 <main class="room">
 %(market1)s
 
   <div class="aisle">
     <div class="aisle__light"></div>
-    <div class="wrap">
-      <div class="aisle__inner">
-        <div class="window"></div>
-        <div class="sill"></div>
-        <img class="plant" src="assets/images/plant.webp" alt=""
-             loading="lazy" decoding="async">
-      </div>
-    </div>
+    <a class="aisle__next" href="#theme-2">
+      <span>つぎの森へ</span>
+      <svg viewBox="0 0 20 12" aria-hidden="true"><path d="M2 2 L10 9.6 L18 2"/></svg>
+    </a>
   </div>
 
 %(market2)s
@@ -120,9 +118,9 @@ PAGE = """<!DOCTYPE html>
 
 html = PAGE % dict(
     market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
-                     '本棚に背表紙が2段、手前の平台に表紙を上にした本が並びます。'),
+                     'ひとつの本棚に、背表紙の段が2段と、最下段の平台が並びます。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,
-                     '本棚に背表紙が1段、手前の平台に表紙を上にした本が並びます。'),
+                     'ひとつの本棚に、背表紙の段が1段と、最下段の平台が並びます。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)
 print('index.html:', len(html.splitlines()), 'lines')
