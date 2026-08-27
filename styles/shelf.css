@@ -74,7 +74,7 @@
     linear-gradient(180deg,
       rgba(255,244,220,.24) 0, rgba(255,244,220,.06) 4px,
       rgba(0,0,0,.30) var(--frame), transparent var(--frame)),
-    linear-gradient(180deg, rgba(14,9,6,.30) 0%, rgba(14,9,6,.44) 100%),
+    linear-gradient(180deg, rgba(46,28,14,.04) 0%, rgba(20,12,6,.14) 100%),
     url("../assets/images/wood-board.webp");
   background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,repeat;
   background-size:auto,auto,auto,auto,680px auto;
@@ -88,9 +88,10 @@
   position:relative;
   border-radius:1px;
   box-shadow:
-    inset  14px 0 20px -14px rgba(0,0,0,.86),
-    inset -14px 0 20px -14px rgba(0,0,0,.90),
-    inset 0 16px 20px -14px rgba(0,0,0,.86);
+    inset  20px 0 26px -16px rgba(0,0,0,.92),
+    inset -20px 0 26px -16px rgba(0,0,0,.94),
+    inset 0 22px 26px -16px rgba(0,0,0,.9),
+    inset 0 -10px 18px -12px rgba(0,0,0,.7);
 }
 
 .tier{ position:relative; }
@@ -102,10 +103,10 @@
   margin:0 calc(var(--frame) * -1);
   background:
     linear-gradient(180deg,
-      rgba(255,242,216,.34) 0%,
-      rgba(255,242,216,.10) 22%,
-      rgba(0,0,0,.42) 62%,
-      rgba(0,0,0,.82) 100%),
+      rgba(255,246,224,.52) 0%,
+      rgba(255,246,224,.16) 18%,
+      rgba(0,0,0,.20) 52%,
+      rgba(0,0,0,.72) 100%),
     url("../assets/images/wood-board.webp");
   background-repeat:no-repeat,repeat;
   background-size:auto,680px auto;
@@ -152,7 +153,7 @@
   min-height:calc(var(--h-max) * var(--px-per-mm) * 1px * .52);
   background:
     linear-gradient(180deg, rgba(0,0,0,.66) 0%, rgba(0,0,0,.14) 16%, transparent 32%),
-    linear-gradient(180deg, rgba(22,15,10,.30) 0%, rgba(22,15,10,.34) 100%),
+    linear-gradient(180deg, rgba(30,19,11,.06) 0%, rgba(24,15,9,.16) 100%),
     url("../assets/images/wood-backboard.webp");
   background-repeat:no-repeat, no-repeat, repeat;
   background-size:auto, auto, 600px auto;
@@ -165,8 +166,8 @@
   gap:clamp(8px,2.6vw,20px);
   padding:clamp(14px,3.2vh,26px) clamp(10px,3vw,18px) 0;
   min-height:0;
-  perspective:760px;
-  perspective-origin:50% 120%;
+  perspective:1100px;
+  perspective-origin:50% 96%;
   background:
     linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.20) 14%, transparent 30%),
     linear-gradient(180deg, rgba(26,18,12,.24) 0%, rgba(20,14,9,.44) 100%),
@@ -266,7 +267,7 @@
   /* 寝かせると見た目は縮むが、場所取りは立てたままの高さで行われる。
      余った分を差し引いて、平台の段に無駄な空きが出ないようにする。 */
   --lh: calc(var(--h) * var(--px-per-mm) * var(--lying-scale) * 1px);
-  margin-top: calc(var(--lh) * -0.22);
+  margin-top: calc(var(--lh) * -0.03);
   position:relative;
   flex:0 0 auto;
   width:var(--lw);
@@ -275,7 +276,7 @@
   background-color:var(--c);
   overflow:hidden;
   transform-origin:50% 100%;
-  transform:rotateX(38deg) rotate(var(--rot));
+  transform:rotateX(11deg) rotate(var(--rot));
   box-shadow:
     0 16px 22px -10px rgba(0,0,0,.92),
     0 3px 4px rgba(0,0,0,.6),
@@ -294,7 +295,7 @@
 }
 
 .lying:hover,.lying:focus-visible{
-  transform:rotateX(38deg) rotate(var(--rot)) translateY(-7px);
+  transform:rotateX(11deg) rotate(var(--rot)) translateY(-7px);
   box-shadow:0 24px 30px -12px rgba(0,0,0,.95), 0 4px 6px rgba(0,0,0,.6);
   outline:none;
   z-index:2;
@@ -302,18 +303,18 @@
 
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
    本を大きくするのではなく、見える冊数を増やす。 */
-.spine:nth-child(n+7){ display:none; }
-.row--flat .lying:nth-child(n+4){ display:none; }
+.spine:nth-child(n+9){ display:none; }
+.row--flat .lying:nth-child(n+5){ display:none; }
 
 @media (min-width:768px){
-  .spine:nth-child(n+7){ display:block; }
-  .spine:nth-child(n+11){ display:none; }
-  .row--flat .lying:nth-child(n+4){ display:block; }
+  .spine:nth-child(n+9){ display:block; }
+  .spine:nth-child(n+13){ display:none; }
+  .row--flat .lying:nth-child(n+5){ display:block; }
   .row--flat .lying:nth-child(n+6){ display:none; }
 }
 @media (min-width:1200px){
-  .spine:nth-child(n+11){ display:block; }
-  .spine:nth-child(n+15){ display:none; }
+  .spine:nth-child(n+13){ display:block; }
+  .spine:nth-child(n+17){ display:none; }
   .row--flat .lying:nth-child(n+6){ display:block; }
 }
 
