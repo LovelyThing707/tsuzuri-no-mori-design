@@ -18,8 +18,8 @@
    要素ごとに敷くとタイルの位置がずれて、継ぎ目の線になる。 */
 .interior{
   position:relative;
-  background:url("../assets/images/wood-wall.webp") repeat;
-  background-size:300px 600px;
+  background:url("../assets/images/wall-boards.webp") repeat;
+  background-size:500px 500px;
 }
 
 .room{
@@ -27,7 +27,7 @@
   /* 光と陰だけを重ねる。素材は .interior が持つ */
   background:
     radial-gradient(120% 46% at 50% 0%, rgba(201,168,118,.07) 0%, transparent 62%),
-    linear-gradient(180deg, rgba(14,10,7,.60) 0%, rgba(14,10,7,.70) 52%, rgba(14,10,7,.62) 100%);
+    linear-gradient(180deg, rgba(14,10,7,.14) 0%, rgba(14,10,7,.22) 52%, rgba(14,10,7,.16) 100%);
 }
 
 /* 森から店内へ入るところ。木目が唐突に現れないよう、上端で受ける */
@@ -57,8 +57,8 @@
   width:min(84vw,520px); height:100%;
   transform:translateX(-50%);
   background:radial-gradient(56% 60% at 50% 40%,
-    rgba(201,168,118,.11) 0%,
-    rgba(201,168,118,.04) 46%,
+    rgba(201,168,118,.05) 0%,
+    rgba(201,168,118,.02) 46%,
     transparent 74%);
   pointer-events:none;
 }
@@ -85,7 +85,7 @@
   padding:clamp(64px,14vh,116px) 0 clamp(44px,9vh,72px);
   /* 素材は .interior が続けている。ここは足元を静かに落とすだけ */
   background:linear-gradient(180deg,
-    rgba(14,10,7,.62) 0%, rgba(14,10,7,.74) 46%, rgba(10,7,5,.92) 100%);
+    rgba(14,10,7,.18) 0%, rgba(14,10,7,.42) 46%, rgba(10,7,5,.86) 100%);
   text-align:center;
 }
 .foot__name{
@@ -150,3 +150,42 @@
 .topbar svg path,.topbar svg circle{
   stroke:currentColor; stroke-width:1.6; fill:none; stroke-linecap:round;
 }
+
+/* ============================================================
+   壁に這う苔
+   画面の左右の縁にだけ出す。中央は空けておく。
+   什器と文字が主役なので、真ん中に緑を置くと読みにくくなる。
+   区切りごとに縦の切り出し位置を変え、同じ模様の反復にしない。
+   ============================================================ */
+.market::before, .market::after,
+.aisle::before,  .aisle::after,
+.foot::before,   .foot::after{
+  content:"";
+  position:absolute; z-index:0;
+  width:clamp(76px,16vw,200px);
+  background-image:url("../assets/images/wall-moss-edge.webp");
+  background-repeat:no-repeat;
+  background-size:100% auto;
+  pointer-events:none;
+  /* 上下は溶かす。切り落とすと、そこに横一直線ができてしまう */
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 14%,#000 84%,transparent 100%);
+  mask-image:linear-gradient(180deg,transparent 0%,#000 14%,#000 84%,transparent 100%);
+  opacity:.92;
+}
+/* 右側は左右反転。苔が画面の右の縁から入ってくる */
+.market::after, .aisle::after, .foot::after{ right:0; transform:scaleX(-1); }
+.market::before, .aisle::before, .foot::before{ left:0; }
+
+.market::before, .market::after{ top:0; height:min(66%,760px); }
+.aisle::before,  .aisle::after { top:0; height:100%; }
+.foot::before,   .foot::after  { bottom:0; height:clamp(110px,20vh,240px); }
+
+/* 縦の切り出しをずらす。同じ絵でも見えている部分が違う */
+.market::before{ background-position:left 0%; }
+.market::after { background-position:left 100%; }
+.market:nth-of-type(even)::before{ background-position:left 62%; }
+.market:nth-of-type(even)::after { background-position:left 28%; }
+.aisle::before { background-position:left 34%; }
+.aisle::after  { background-position:left 76%; }
+.foot::before  { background-position:left 52%; }
+.foot::after   { background-position:left 12%; }

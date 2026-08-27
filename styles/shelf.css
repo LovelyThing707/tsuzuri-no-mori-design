@@ -23,28 +23,18 @@
 .scene{ position:relative; padding-bottom:clamp(12px,2.6vh,24px); }
 
 /* 床。壁との境をはっきり見せ、什器が床に載っていることを示す */
+/* 什器の足元。床材は敷かない（板壁が続いている）。
+   什器が壁の手前に立っていることを、落ち影だけで示す。 */
 .scene__floor{
   position:absolute; z-index:0;
   left:50%; bottom:0;
   width:100vw; height:52%;
   transform:translateX(-50%);
-  background:
-    linear-gradient(180deg,
-      rgba(0,0,0,.60) 0 2px,
-      rgba(201,168,118,.12) 2px 3px,
-      transparent 3px 30px),
-    linear-gradient(180deg, rgba(20,13,8,.06) 0%, rgba(18,12,8,.20) 56%, rgba(16,11,7,.40) 100%),
-    url("../assets/images/wood-floor.webp");
-  background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 840px auto;
-  box-shadow:inset 0 3px 12px -3px rgba(0,0,0,.8);
-  /* 下端は暗く落とさず、素材ごと薄れさせて壁につなぐ。
-     奥（上端）の見切りは部屋のかたちなので、そのまま残す。 */
-  -webkit-mask-image:linear-gradient(180deg,
-    #000 0%, #000 58%, rgba(0,0,0,.55) 82%, transparent 100%);
-  mask-image:linear-gradient(180deg,
-    #000 0%, #000 58%, rgba(0,0,0,.55) 82%, transparent 100%);
+  background:linear-gradient(180deg,
+    transparent 0%, rgba(18,12,8,.10) 62%, rgba(16,11,7,.26) 100%);
+  pointer-events:none;
 }
+
 /* 床板。手前に向かって間隔が広がるように見せる */
 .scene__floor::after{
   content:""; position:absolute; inset:0;

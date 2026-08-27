@@ -18,7 +18,7 @@
   /* --- 光・紙 --- */
   --light-warm:  #C9A876;
   --paper:       #E9E0CE;
-  --paper-dim:   #B9AE99;
+  --paper-dim:   #D2C6AE;   /* 壁を明るくしたぶん、控えめな文字も持ち上げる */
 
   /* --- 屋内（店内） --- */
   --room-wall:   #241A13;
