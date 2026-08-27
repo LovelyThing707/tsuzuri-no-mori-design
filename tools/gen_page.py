@@ -10,17 +10,17 @@ def market(idx, name, tiers, lying, note):
             <ul class="row">
 %s
             </ul>
-            <div class="board"></div>
           </div>"""
     FLAT = """          <div class="tier tier--flat">
             <ul class="row row--flat">
               <li class="signcard"><span>店主の<br>おすすめ</span></li>
 %s
             </ul>
-            <div class="board board--front"></div>
           </div>"""
     t = [TIER % D.tier(b) for b in tiers]
     t.append(FLAT % D.platform(lying))
+    # 什器は絵。背表紙の段数ごとに絵を出し分けるので、段数をクラスで持たせる
+    shelves = 'case--%dshelf' % len(tiers)
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
@@ -33,15 +33,14 @@ def market(idx, name, tiers, lying, note):
       <div class="scene__floor"></div>
       <div class="wrap">
         <p class="sr-only">%s</p>
-        <div class="case" aria-hidden="true">
+        <div class="case %s" aria-hidden="true">
           <div class="case__box">
 %s
           </div>
-          <div class="case__base"></div>
         </div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, "\n".join(t))
+  </section>""" % (idx, idx, name, note, shelves, "\n".join(t))
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">

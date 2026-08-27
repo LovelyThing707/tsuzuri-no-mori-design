@@ -34,7 +34,7 @@
      幅は厚みに比例させない。実寸のままだと薄い本が線のように
      潰れて指で触れないため、下駄（base）を履かせて増分（gain）を
      圧縮する。厚い順・薄い順の並びは保たれる。 */
-  --lying-scale: .88;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
+  --lying-scale: .82;       /* 平台の本の倍率。画面幅に収まる範囲で大きく */
   --spine-base:  26;        /* px：最も薄い本でも確保する幅 */
   --spine-gain:  0.92;      /* px／背幅1mmあたりの増分 */
 
@@ -64,10 +64,10 @@
 }
 
 @media (min-width: 768px){
-  :root{ --px-per-mm:.72; --spine-base:45; --spine-gain:1.30; --lying-scale:.80; }
+  :root{ --px-per-mm:.46; --spine-base:38; --spine-gain:1.10; --lying-scale:1.05; }
 }
 @media (min-width: 1200px){
-  :root{ --px-per-mm:.76; --spine-base:32; --spine-gain:1.24; --lying-scale:.76; }
+  :root{ --px-per-mm:.51; --spine-base:29; --spine-gain:0.95; --lying-scale:1.05; }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
