@@ -5,20 +5,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
 
 def market(idx, name, tiers, lying, note):
-    """本棚と平台をひとつの什器として組む。平台は最下段。"""
+    """背表紙の棚と平台は別の什器。平台は棚の手前に、隙間なく置く。"""
     TIER = """          <div class="tier">
             <ul class="row">
 %s
             </ul>
           </div>"""
-    FLAT = """          <div class="tier tier--flat">
-            <ul class="row row--flat">
-              <li class="signcard"><span>店主の<br>おすすめ</span></li>
-%s
-            </ul>
-          </div>"""
     t = [TIER % D.tier(b) for b in tiers]
-    t.append(FLAT % D.platform(lying))
+    flat = """      <div class="platform" aria-hidden="true">
+        <ul class="platform__row">
+          <li class="signcard"><span>店主の<br>おすすめ</span></li>
+%s
+        </ul>
+      </div>""" % D.platform(lying)
     # 什器は絵。背表紙の段数ごとに絵を出し分けるので、段数をクラスで持たせる
     shelves = 'case--%dshelf' % len(tiers)
     return """
@@ -30,17 +29,15 @@ def market(idx, name, tiers, lying, note):
       </div>
     </div>
     <div class="scene">
-      <div class="scene__floor"></div>
-      <div class="wrap">
-        <p class="sr-only">%s</p>
-        <div class="case %s" aria-hidden="true">
-          <div class="case__box">
+      <p class="sr-only">%s</p>
+      <div class="case %s" aria-hidden="true">
+        <div class="case__box">
 %s
-          </div>
         </div>
       </div>
+%s
     </div>
-  </section>""" % (idx, idx, name, note, shelves, "\n".join(t))
+  </section>""" % (idx, idx, name, note, shelves, "\n".join(t), flat)
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">
@@ -131,9 +128,9 @@ PAGE = """<!DOCTYPE html>
 
 html = PAGE % dict(
     market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
-                     'ひとつの本棚に、背表紙の段が2段と、最下段の平台が並びます。'),
+                     '背表紙の棚が2段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,
-                     'ひとつの本棚に、背表紙の段が1段と、最下段の平台が並びます。'),
+                     '背表紙の棚が1段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)
 print('index.html:', len(html.splitlines()), 'lines')

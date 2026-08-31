@@ -1,7 +1,8 @@
 /* ============================================================
-   売り場 — 本棚（奥）と平台（手前）
-   什器はこげ茶の木。板には小口の厚みを見せる。
-   立体感は「什器→床」「本→棚板」「本→隣の本」の三種の影で出す。
+   売り場の什器
+   背表紙の棚と平台は「別の什器」。平台は棚の手前に、隙間なく置く。
+   什器はどちらも絵で、CSSは本だけを描く。
+   棚は画面の外まで続く（左右に壁を見せない）。
    ============================================================ */
 
 .market{ position:relative; padding-top:clamp(18px,3.6vh,32px); }
@@ -16,287 +17,154 @@
 }
 .market__sign::after{
   content:""; display:block;
-  width:38px; height:1px; margin:.85em auto 0;
-  background:linear-gradient(90deg,transparent,rgba(201,168,118,.55),transparent);
+  width:52px; height:1px; margin:.8em auto 0;
+  background:linear-gradient(90deg,transparent,rgba(210,198,174,.5),transparent);
 }
 
-.scene{ position:relative; padding-bottom:clamp(12px,2.6vh,24px); }
+.scene{ position:relative; padding-bottom:clamp(10px,2.4vh,22px); }
 
-/* 床。壁との境をはっきり見せ、什器が床に載っていることを示す */
-/* 什器の足元。床材は敷かない（板壁が続いている）。
-   什器が壁の手前に立っていることを、落ち影だけで示す。 */
-.scene__floor{
-  position:absolute; z-index:0;
-  left:50%; bottom:0;
-  width:100vw; height:52%;
-  transform:translateX(-50%);
-  background:linear-gradient(180deg,
-    transparent 0%, rgba(18,12,8,.10) 62%, rgba(16,11,7,.26) 100%);
+/* --- 背表紙の棚 ---------------------------------------------
+   画面いっぱい。棚は左右の画面外へ続くので、横に繰り返す。
+   絵の実測値（2062x638）：
+     天板 0〜4.7% ／ 1段目 4.7〜42.5% ／ 棚板 42.5〜52.2%
+     2段目 52.2〜90.8% ／ 地板 90.8〜100% */
+.case{
+  position:relative; z-index:1;
+  width:100vw; margin-inline:calc(50% - 50vw);
+  height:var(--case-h);
+  background-image:url("../assets/images/case-shelf.webp");
+  background-repeat:repeat-x;
+  background-size:auto 100%;
+  background-position:center top;
+}
+/* 1段の絵（2062x286）：天板 0〜8.7% ／ 段 8.7〜88.1% ／ 地板 88.1〜100%
+   段の高さが2段の絵とそろうよう、全体の高さを 0.476 倍にする */
+.case--1shelf{
+  background-image:url("../assets/images/case-shelf-1.webp");
+  height:var(--case1-h);
+}
+.case__box{ position:absolute; inset:0; }
+
+.tier{ position:absolute; left:0; right:0; }
+.case--2shelf .tier:nth-child(1){ top:4.7%;  height:37.8%; }
+.case--2shelf .tier:nth-child(2){ top:52.2%; height:38.6%; }
+.case--1shelf .tier:nth-child(1){ top:8.7%;  height:79.4%; }
+
+/* 本は段の床に立つ。入りきらないぶんは画面の外へ続く */
+.row{
+  position:absolute; inset:0;
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:0; padding:0; margin:0; list-style:none;
+  overflow:hidden;
+}
+/* 本が棚板に落とす影。これがないと本が浮いて見える */
+.row::after{
+  content:""; position:absolute; z-index:0;
+  left:0; right:0; bottom:-2px; height:10px;
+  background:radial-gradient(70% 100% at 50% 0%,rgba(0,0,0,.42),rgba(0,0,0,0) 74%);
   pointer-events:none;
 }
 
-/* 床板。手前に向かって間隔が広がるように見せる */
-.scene__floor::after{
-  content:""; position:absolute; inset:0;
-  /* 奥ほど暗く。床が奥へ続いて見えるように */
-  background:linear-gradient(180deg,
-    rgba(0,0,0,.42) 0%, rgba(0,0,0,.14) 22%, transparent 46%);
-}
-
-/* --- 什器 ---------------------------------------------------
-   本棚と平台をひとつの箱として組む。平台は最下段。
-   板の面は写真、稜線と陰影はCSS。厚みと奥行きを出すのが要。 */
-.case{
-  position:relative;
-  z-index:1;
-  width:min(100%,880px);
-  margin-inline:auto;
-}
-
-/* 箱の内側。左右と天井の落ち込みで奥行きを出す */
-.case__box{
-  position:relative;
-}
-
-.tier{ position:relative; }
-
-
-
-
-/* 本が並ぶ面。背板は什器の側面より明るくして、暗い背表紙の足元を分離する */
-.row{
-  position:relative;
-  display:flex;
-  align-items:flex-end;
-  justify-content:flex-start;
-  gap:0;
-}
-
-/* 最下段の平台。表紙を上にして寝かせるため、面を手前に倒して見せる */
-.row--flat{
-  align-items:flex-end;
-  justify-content:center;
-  min-height:0;
-  perspective:1100px;
-  perspective-origin:50% 96%;
-}
-
-/* --- 背表紙 -------------------------------------------------
-   幅＝背幅（圧縮済み）、高さ＝判型。どちらも1冊ずつ異なる。 */
+/* --- 背表紙 --------------------------------------------------
+   幅＝厚み（判型・ページ数から算出）、高さ＝判型。
+   実寸のままだと1冊が数pxになって触れないため、幅だけは下駄を履かせている。 */
 .spine{
   --w:  calc((var(--spine-base) + var(--t) * var(--spine-gain)) * var(--u));
   --bh: calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--px-per-mm) * var(--u));
-  position:relative;
+  position:relative; z-index:1;
   flex:0 0 auto;
-  width:var(--w);
-  height:var(--bh);
+  width:var(--w); height:var(--bh);
   background-color:var(--c);
   border-radius:1px 1px 0 0;
-  overflow:hidden;
   transition:transform .34s var(--ease), filter .34s var(--ease);
   box-shadow:
-    inset  2px 0 1px -1px rgba(240,232,214,.50),
-    inset -2px 0 1px -1px rgba(0,0,0,.66),
-    inset  4px 0 6px -3px rgba(255,246,228,.10),
-    inset -5px 0 7px -4px rgba(0,0,0,.5),
-    -1px 0 0 rgba(240,232,214,.16),
-    5px 0 8px -5px rgba(0,0,0,.8),
-    0 6px 9px -6px rgba(0,0,0,.85),
-    0 -4px 7px -2px rgba(0,0,0,.55);
+    inset  2px 0 1px -1px rgba(240,232,214,.42),
+    inset -2px 0 1px -1px rgba(0,0,0,.55),
+     1px 0 0 rgba(0,0,0,.35),
+    -1px 0 0 rgba(240,232,214,.12),
+     0 5px 8px -6px rgba(0,0,0,.85),
+     0 -4px 7px -2px rgba(0,0,0,.5);
 }
-
-/* 天。本の厚みを示す上面をわずかに見せる */
-.spine::before{
-  content:"";
-  position:absolute;
-  left:.5px; right:.5px; top:0;
-  height:5px;
-  border-radius:1px 1px 0 0;
-  background:linear-gradient(180deg,
-    var(--e) 0%,
-    var(--e) 42%,
-    rgba(0,0,0,.45) 100%);
-  box-shadow:0 1px 2px rgba(0,0,0,.5);
-}
-
-/* 上から当たる光。上端を明るく、足元を暗く */
-.spine::after{
-  content:"";
-  position:absolute; inset:5px 0 0 2px;
-  background:linear-gradient(180deg,
-    rgba(255,244,224,.14) 0%,
-    transparent 26%,
-    transparent 68%,
-    rgba(0,0,0,.3) 100%);
-  pointer-events:none;
-}
-
-/* 写真のない本。装丁の素材を写真で敷く。
-   古書店の棚は、布装と紙装が混ざっている。1種類で揃えると新品の列に見える。 */
-.spine--plain{
-  background-image:url("../assets/images/paper-aged.webp");
-  background-size:300px auto;
-  background-blend-mode:multiply;
-}
-/* 布装の本を混ぜる */
-.spine--plain:nth-child(3n+2){
-  background-image:url("../assets/images/cloth-linen.webp");
-  background-size:260px auto;
-}
-/* 素材の出方を一冊ずつずらす。タイルは本より大きいので継ぎ目は出ない */
-.spine--plain:nth-child(4n+1){ background-position:12%  8%; }
-.spine--plain:nth-child(4n+2){ background-position:63% 41%; }
-.spine--plain:nth-child(4n+3){ background-position:29% 77%; }
-.spine--plain:nth-child(4n+4){ background-position:85% 22%; }
-.spine--plain:nth-child(5n)  { background-position:47% 58%; }
-.spine--plain:nth-child(7n)  { background-position:73% 90%; }
-
-.spine--plain::after{
-  background:
-    /* 上からの光と、足元の落ち込み */
-    linear-gradient(180deg,
-      rgba(255,246,228,.14) 0%, transparent 22%,
-      transparent 70%, rgba(0,0,0,.32) 100%),
-    /* 背は丸い。光は左上から。左端は縁の光を消さないよう暗くしない */
-    linear-gradient(90deg,
-      rgba(255,248,232,.12) 0%,
-      rgba(255,248,232,.05) 24%,
-      rgba(0,0,0,.10) 60%,
-      rgba(0,0,0,.38) 100%);
-}
-
-/* 天と地の帯。装丁の切り替えに見える細い線 */
-.spine--plain::before{
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.5),
-    0 6px 0 -5px rgba(0,0,0,.28);
-}
-
-.spine:hover,.spine:focus-visible{
-  transform:translateY(-7px);
-  filter:brightness(1.1);
-  outline:none;
-  z-index:2;
-}
-
-/* 平置きの本。表紙を上に、大きく、やや傾けて */
-.lying{
-  --lw: calc(var(--w) * var(--px-per-mm) * var(--lying-scale) * var(--u));
-  /* 寝かせると見た目は縮むが、場所取りは立てたままの高さで行われる。
-     余った分を差し引いて、平台の段に無駄な空きが出ないようにする。 */
-  --lh: calc(var(--h) * var(--px-per-mm) * var(--lying-scale) * var(--u));
-  margin-top: calc(var(--lh) * -0.03);
-  position:relative;
-  flex:0 0 auto;
-  width:var(--lw);
-  aspect-ratio:var(--w) / var(--h);
-  border-radius:2px;
-  background-color:var(--c);
-  overflow:hidden;
-  transform-origin:50% 100%;
-  transform:rotateX(11deg) rotate(var(--rot));
-  box-shadow:
-    0 16px 22px -10px rgba(0,0,0,.92),
-    0 3px 4px rgba(0,0,0,.6),
-    inset 0 0 0 .5px rgba(233,224,206,.14);
-  transition:transform .34s var(--ease), box-shadow .34s var(--ease);
-}
-
-/* 紙の束の厚み */
-.lying::before{
-  content:"";
-  position:absolute; left:1.5px; right:1.5px; top:100%;
-  height:4px;
-  border-radius:0 0 2px 2px;
-  background:linear-gradient(180deg, var(--e), #8d8371);
-  box-shadow:0 2px 4px rgba(0,0,0,.55);
-}
-
-.lying:hover,.lying:focus-visible{
-  transform:rotateX(11deg) rotate(var(--rot)) translateY(-7px);
-  box-shadow:0 24px 30px -12px rgba(0,0,0,.95), 0 4px 6px rgba(0,0,0,.6);
-  outline:none;
-  z-index:2;
-}
-
-/* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
-   本を大きくするのではなく、見える冊数を増やす。 */
-.spine:nth-child(n+7){ display:none; }
-.row--flat .lying:nth-child(n+5){ display:none; }
-
-@media (min-width:768px){
-  .spine:nth-child(n+7){ display:block; }
-  .spine:nth-child(n+11){ display:none; }
-  .row--flat .lying:nth-child(n+5){ display:block; }
-  .row--flat .lying:nth-child(n+7){ display:none; }
-}
-@media (min-width:1200px){
-  .spine:nth-child(n+11){ display:block; }
-  .spine:nth-child(n+15){ display:none; }
-  .row--flat .lying:nth-child(n+7){ display:block; }
-}
-
-
-/* 書影の受け口。商品の画像が入ると、この指定のまま面で乗る */
-.spine img{
+/* 天（紙の束）。上からの光を受ける。本の輪郭はここで出る */
+/* 書影。判型・厚みから決めた枠にそのまま収める */
+.spine img,.flat img{
   position:absolute; inset:0;
   width:100%; height:100%;
   object-fit:fill;
+  border-radius:inherit;
+  display:block;
 }
-.lying img{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  object-fit:cover;
-}
-
-
-/* --- 書影のない平置き本 --------------------------------------
-   表紙は面積が大きいぶん、単色だと紙に見えない。
-   書名や絵柄は描かず、カバーの面の構成だけを出す。 */
-.lying--plain{
-  background-image:url("../assets/images/cover-stock.webp");
-  background-size:340px auto;
-  background-blend-mode:multiply;
-}
-.lying--plain:nth-child(3n){ background-position:70% 30%; }
-.lying--plain:nth-child(4n){ background-position:22% 66%; }
-
-.lying--plain::after{
+.spine::before{
   content:"";
-  position:absolute; inset:0;
-  border-radius:2px;
-  background:
-    /* 左端の折り返し（そで）と背側の陰 */
-    linear-gradient(90deg,
-      rgba(0,0,0,.34) 0 2px,
-      rgba(255,248,232,.16) 2px 4px,
-      transparent 4px 12%,
-      transparent 88%,
-      rgba(0,0,0,.20) 100%),
-    /* 上からの光 */
-    linear-gradient(180deg,
-      rgba(255,248,232,.20) 0%,
-      transparent 24%,
-      transparent 74%,
-      rgba(0,0,0,.24) 100%),
-    /* 絵柄のあたり。輪郭を持たせず、ぼかした面として置く */
-    radial-gradient(58% 34% at 50% 66%,
-      rgba(255,250,236,.14) 0%, transparent 72%),
-    /* 題字のあたり */
-    linear-gradient(180deg,
-      transparent 16%,
-      rgba(20,14,10,.16) 19% 27%,
-      transparent 30%),
-    /* 紙目 */
-    repeating-linear-gradient(180deg,
-      rgba(255,255,255,.02) 0 1px,
-      rgba(0,0,0,.022) 1px 3px);
-  filter:blur(.4px);
-  pointer-events:none;
+  position:absolute; left:.5px; right:.5px; top:0;
+  height:5px;
+  border-radius:1px 1px 0 0;
+  background:linear-gradient(180deg, var(--e) 0%, var(--e) 42%, rgba(0,0,0,.45) 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.5);
 }
 
-/* --- テーマ名の行 ---------------------------------------------
-   15〜16冊に入りきらない本への入口として「すべて見る」を置く。 */
+/* --- 平台。別の什器 -----------------------------------------
+   棚の手前にせり出す。絵の中に床と影が入っているので、床に置かれて見える。
+   絵の実測値（1153x1024）：天板 0〜46.7% ／ 小口 46.7〜53.1% ／ 幕板・脚・床 53.1〜100% */
+.platform{
+  position:relative; z-index:2;
+  width:100vw; margin-inline:calc(50% - 50vw);
+  height:var(--plat-h);
+  margin-top:calc(var(--plat-h) * -0.03);   /* 棚とくっつける */
+  background-image:url("../assets/images/platform.webp");
+  background-repeat:repeat-x;
+  background-size:auto 100%;
+  background-position:center top;
+}
+/* 天板の面。ここに本を寝かせる */
+.platform__row{
+  position:absolute; z-index:1;
+  left:0; right:0; top:0; height:46.7%;
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:calc(var(--flat-gap) * var(--u));
+  padding:0 calc(14px * var(--u)); margin:0; list-style:none;
+  perspective:1000px;
+  perspective-origin:50% 130%;
+}
+
+/* 平置き。机に置いてある状態。表紙が上を向く */
+.flat{
+  --fw: calc(var(--w) * var(--px-per-mm) * var(--u));
+  --fh: calc(var(--h) * var(--px-per-mm) * var(--u));
+  position:relative;
+  flex:0 0 auto;
+  width:var(--fw); height:var(--fh);
+  background-color:var(--c);
+  border-radius:1px;
+  transform-origin:50% 100%;
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot));
+  box-shadow:0 2px 3px rgba(0,0,0,.5), 0 10px 14px -8px rgba(0,0,0,.7);
+  transition:transform .34s var(--ease);
+}
+/* 小口。寝かせた本の厚みが手前に見える */
+.flat::after{
+  content:"";
+  position:absolute; left:1px; right:1px; bottom:-3px;
+  height:3px; border-radius:0 0 1px 1px;
+  background:linear-gradient(180deg, var(--e, #DCD3BE), rgba(0,0,0,.5));
+}
+.flat:hover,.flat:focus-visible{
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) translateY(-3px);
+}
+
+/* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
+   本を大きくするのではなく、見える冊数を増やす。
+   背表紙は棚が画面外まで続くので、入るだけ入る（切り取りで自然に途切れる）。
+   平台は冊数を決めて置く。 */
+.platform__row .flat:nth-child(n+5){ display:none; }
+@media (min-width:768px){
+  .platform__row .flat:nth-child(n+5){ display:block; }
+  .platform__row .flat:nth-child(n+9){ display:none; }
+}
+@media (min-width:1200px){
+  .platform__row .flat:nth-child(n+9){ display:block; }
+  .platform__row .flat:nth-child(n+13){ display:none; }
+}
 .market__head{
   position:relative; z-index:3;
   display:flex; align-items:baseline; justify-content:space-between;
@@ -345,15 +213,12 @@
 /* --- 並びを崩す -----------------------------------------------
    完全に直立した長方形が等間隔で並ぶのは、棚ではなく定規。
    本ごとにわずかな傾き・前後・天の高さの差をつける。 */
-.spine{
-  transform-origin:50% 100%;
-  transform:rotate(var(--lean,0deg));
-}
+/* 一冊ずつわずかに傾ける。定規で引いたように揃わないように */
+.spine{ transform-origin:50% 100%; transform:rotate(var(--lean,0deg)); }
 .spine:hover,.spine:focus-visible{
-  transform:rotate(var(--lean,0deg)) translateY(-7px);
+  transform:rotate(var(--lean,0deg)) translateY(-5px);
+  filter:brightness(1.06);
 }
-
-/* 傾き。1度前後に留める。倒れて見えるほどつけない */
 .spine:nth-child(7n+1){ --lean:.7deg;  }
 .spine:nth-child(7n+2){ --lean:-.5deg; }
 .spine:nth-child(7n+3){ --lean:.3deg;  }
@@ -372,92 +237,3 @@
 .spine:nth-child(3n+2)::before{ height:6px; }
 .spine:nth-child(4n+3)::before{ height:5.5px; }
 
-/* ============================================================
-   什器そのものを絵にする
-   CSSで枠を組むと線が数式どおりに揃い、どうしても硬くなる。
-   棚は1枚の木の絵にし、CSSは本だけを描く。
-   本の寸法算出（判型→高さ／厚み→背幅）はこれまでどおり。
-   段の位置は絵を実測して合わせている。
-   背表紙の段数で絵を出し分ける（空の棚板を残さないため）。
-   ============================================================ */
-.case{
-  /* 本の寸法は棚の実幅を基準に決める。--u がその単位 */
-  container-type:inline-size;
-  padding:0;
-  background-repeat:no-repeat;
-  background-position:center;
-  background-size:100% 100%;
-  box-shadow:0 26px 34px -24px rgba(0,0,0,.9);
-}
-.case__box{ position:absolute; inset:0; }
-
-.tier{ position:absolute; }
-
-/* 行は段いっぱいに広げ、本を段の床に揃える */
-.row,
-.row--flat{
-  position:absolute; inset:0;
-  align-items:flex-end;
-  justify-content:center;      /* 余りを左右に等分する */
-}
-.row--flat{ justify-content:center; gap:calc(var(--flat-gap,8) * var(--u)); }
-
-/* 本が棚板に落とす影。これがないと本が浮いて見える */
-.row::after,
-.row--flat::after{
-  content:""; position:absolute; z-index:0;
-  left:-2%; right:-2%; bottom:-2px; height:10px;
-  background:radial-gradient(60% 100% at 50% 0%,rgba(0,0,0,.42),rgba(0,0,0,0) 72%);
-  pointer-events:none;
-}
-.spine,.lying,.signcard{ position:relative; z-index:1; }
-
-/* ---- スマートフォン：縦長の絵 ---------------------------------- */
-@media (max-width:767px){
-  .case{ width:min(100%,420px); --u:calc(100cqw / 354); }
-
-  /* 背表紙2段＋面陳1段 */
-  .case--2shelf{
-    aspect-ratio:900 / 1407;
-    background-image:url("../assets/images/case-portrait.webp");
-  }
-  .case--2shelf .tier{ left:11.0%; right:11.2%; }
-  .case--2shelf .tier:nth-child(1){ top:6.4%;  height:24.4%; }
-  .case--2shelf .tier:nth-child(2){ top:33.1%; height:24.0%; }
-  .case--2shelf .tier--flat       { top:61.4%; height:26.0%; }
-
-  /* 背表紙1段＋面陳1段。棚板が1枚少ない絵に差し替える */
-  .case--1shelf{
-    aspect-ratio:900 / 1009;
-    background-image:url("../assets/images/case-portrait-1shelf.webp");
-  }
-  .case--1shelf .tier{ left:11.0%; right:11.2%; }
-  .case--1shelf .tier:nth-child(1){ top:8.9%;  height:34.0%; }
-  .case--1shelf .tier--flat       { top:46.2%; height:36.3%; }
-}
-
-/* ---- タブレット・パソコン：横長の絵 ---------------------------- */
-@media (min-width:768px){
-  .case{ --u:calc(100cqw / 798); --card-w:66; --card-fs:12; --flat-gap:14; }
-
-  .case--2shelf{
-    aspect-ratio:1536 / 1024;
-    background-image:url("../assets/images/case-landscape.webp");
-  }
-  .case--2shelf .tier{ left:10.9%; right:11.0%; }
-  .case--2shelf .tier:nth-child(1){ top:6.4%;  height:22.9%; }
-  .case--2shelf .tier:nth-child(2){ top:32.1%; height:21.9%; }
-  .case--2shelf .tier--flat       { top:58.0%; height:23.6%; }
-
-  .case--1shelf{
-    aspect-ratio:1536 / 759;
-    background-image:url("../assets/images/case-landscape-1shelf.webp");
-  }
-  .case--1shelf .tier{ left:10.9%; right:11.0%; }
-  .case--1shelf .tier:nth-child(1){ top:8.6%;  height:30.9%; }
-  .case--1shelf .tier--flat       { top:43.4%; height:31.9%; }
-}
-
-@media (min-width:1200px){
-  .case{ --u:calc(100cqw / 880); }
-}

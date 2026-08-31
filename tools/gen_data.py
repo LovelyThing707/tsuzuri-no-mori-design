@@ -1,98 +1,76 @@
 # -*- coding: utf-8 -*-
-"""index.html の反復部分（背表紙・平置き・森）を組み立てる。"""
+"""index.html の反復部分（背表紙・平置き）を組み立てる。"""
 
 IMG = 'assets/images/'
 
-# 書影は使わない。第1稿は色と比率だけで組む。
-# 判型・背幅は実際の書籍の寸法域から採り、大小の差が見えるようにしている。
-
-# 写真のない本は色と比率だけ。書名は入れない。
-# 暗い背表紙（#241A14 など）を各段に必ず混ぜ、什器に溶けないか確認できるようにする。
-def P(h, t, c, e='#D3C9B5'):
-    return dict(h=h, t=t, c=c, e=e)
-
-TIER_A1 = [
-    P(210, 21, '#786E5A'),
-    P(218, 16, '#6E2E30'),
-    P(152, 12, '#ACA28B'),
-    P(236, 28, '#516058'),
-    P(205, 15, '#241B13'),
-    P(214, 25, '#D9D5CB'),
-    P(222, 33, '#855848'),
-    P(198,  9, '#CDC3AF'),
-    P(208, 24, '#465760'),
-    P(216, 17, '#8E7C62'),
-    P(202, 13, '#39433D'),
-    P(226, 26, '#6D3C3F'),
-    P(148, 10, '#9D7057'),
-    P(212, 30, '#594A39'),
-    P(192, 31, '#606F67'),
-    P(240, 14, '#B7A682')
-]
-TIER_A2 = [
-    P(206, 18, '#424B50'),
-    P(220, 11, '#BAB099'),
-    P(196, 19, '#8FAAAD'),
-    P(232, 31, '#605440'),
-    P(204, 14, '#676179'),
-    P(214, 23, '#887151'),
-    P(150,  8, '#261D14'),
-    P(224, 11, '#9CC0C1'),
-    P(208, 20, '#4D5848'),
-    P(218, 27, '#794F3D'),
-    P(200, 16, '#A79D86'),
-    P(212, 12, '#3C464B'),
-    P(228, 29, '#6A5B4A'),
-    P(194, 15, '#928462'),
-    P(226, 34, '#6E5447'),
-    P(190, 17, '#A2937D')
-]
-TIER_B1 = [
-    P(212, 16, '#364147'),
-    P(154, 10, '#A1977C'),
-    P(220, 24, '#4B435E'),
-    P(204, 16, '#6E2E30'),
-    P(198, 19, '#2A342E'),
-    P(234, 32, '#5E4C3A'),
-    P(216, 13, '#BEB39E'),
-    P(208, 22, '#48555A'),
-    P(148, 19, '#8FAAAD'),
-    P(226, 26, '#705944'),
-    P(202, 11, '#21190E'),
-    P(214, 28, '#836856'),
-    P(196, 14, '#8D968C'),
-    P(222, 17, '#5F4E5D'),
-    P(238, 30, '#4C5E6B'),
-    P(194, 21, '#7C6F57')
+# クライアント様よりご指定の4冊。
+#   高さ  … ご指定の判型から（要件定義書 2-2 の対応表どおり）
+#   厚み  … 実測値（mm）
+#   幅    … 判型の幅
+# 「同じ本を複数置く形で構わない」とのことなので、この4冊を繰り返します。
+REAL = [
+ dict(key='suika',  h=297, t=11, w=210, c='#A9CDDC', e='#F1EBDE',
+      sp='spine-suika-no-pool.webp',         cv='cover-suika-no-pool.webp'),
+ dict(key='monte',  h=148, t=19, w=105, c='#A9CDDB', e='#E7DCC4',
+      sp='spine-monteleggio.webp',           cv='cover-monteleggio.webp'),
+ dict(key='kagaku', h=210, t=25, w=148, c='#F0EEE9', e='#F4F1E9',
+      sp='spine-kagaku-no-ohanashi-25.webp', cv='cover-kagaku-no-ohanashi-25.webp'),
+ dict(key='aya',    h=210, t=16, w=148, c='#6F2027', e='#ECE3D2',
+      sp='spine-aya-to-majo.webp',           cv='cover-aya-to-majo.webp'),
 ]
 
-LYING_A = [
-    dict(h=224, w=160, c='#9CC0C1', e='#E6DFD0', rot='-1.6deg'),
-    dict(h=212, w=150, c='#D9D5CB', e='#E9E5DA', rot='1.2deg'),
-    dict(h=218, w=152, c='#6E2E30', e='#E0D8C7', rot='-0.9deg'),
-    dict(h=206, w=146, c='#6C6151', e='#D7CDB9', rot='1.5deg'),
-    dict(h=230, w=164, c='#47514B', e='#D3C9B5', rot='-1.3deg'),
-    dict(h=198, w=140, c='#938264', e='#DBD2BB', rot='0.9deg'),
-]
-LYING_B = [
-    dict(h=210, w=148, c='#8FAAAD', e='#DBD2BB', rot='-1.4deg'),
-    dict(h=222, w=158, c='#343541', e='#D1C8B1', rot='1.1deg'),
-    dict(h=204, w=144, c='#785549', e='#D7CDB9', rot='-1.7deg'),
-    dict(h=228, w=162, c='#505A4D', e='#DDD5C4', rot='1.4deg'),
-    dict(h=200, w=142, c='#867759', e='#D3C9B5', rot='-1.0deg'),
-    dict(h=216, w=154, c='#564A5B', e='#DBD2BB', rot='1.8deg'),
-]
+# 1冊ずつわずかに傾ける。同じ本が並ぶので、傾きだけは変える。
+LEAN = [0.0, -0.7, 0.5, -0.4, 0.8, -0.2, 0.6, -0.9, 0.3, -0.5, 0.9, -0.3]
+
+
+def row_books(n, offset=0):
+    """4冊を繰り返して n 冊ぶんの並びを作る。並び順は売り場ごとにずらす。"""
+    out = []
+    for i in range(n):
+        b = dict(REAL[(i + offset) % len(REAL)])
+        b['lean'] = LEAN[(i + offset * 3) % len(LEAN)]
+        out.append(b)
+    return out
+
+
+def flat_books(n, offset=0):
+    """平台に寝かせる本。表紙を上に向ける。"""
+    out = []
+    for i in range(n):
+        b = dict(REAL[(i + offset) % len(REAL)])
+        b['rot'] = LEAN[(i * 2 + offset) % len(LEAN)] * 1.6
+        out.append(b)
+    return out
+
 
 def spine_li(b):
-    st = '--h:%d;--t:%d;--c:%s;--e:%s' % (b['h'], b['t'], b['c'], b['e'])
-    return '        <li class="spine spine--plain" style="%s"></li>' % st
+    st = '--h:%d;--t:%d;--c:%s;--e:%s;--lean:%.1fdeg' % (
+        b['h'], b['t'], b['c'], b['e'], b['lean'])
+    return ('        <li class="spine" style="%s">'
+            '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'
+            % (st, IMG, b['sp']))
 
-def lying_li(b):
-    st = '--h:%d;--w:%d;--c:%s;--e:%s;--rot:%s' % (b['h'], b['w'], b['c'], b['e'], b['rot'])
-    return '        <li class="lying lying--plain" style="%s"></li>' % st
+
+def flat_li(b):
+    st = '--h:%d;--w:%d;--c:%s;--rot:%.1fdeg' % (
+        b['h'], b['w'], b['c'], b['rot'])
+    return ('        <li class="flat" style="%s">'
+            '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'
+            % (st, IMG, b['cv']))
+
 
 def tier(books):
     return '\n'.join(spine_li(b) for b in books)
 
+
 def platform(books):
-    return '\n'.join(lying_li(b) for b in books)
+    return '\n'.join(flat_li(b) for b in books)
+
+
+# 画面幅いっぱいに広げるため、いちばん広い画面でも足りる冊数を出しておき、
+# 入りきらないぶんは CSS で隠す。
+TIER_A1 = row_books(64, 0)
+TIER_A2 = row_books(64, 2)
+TIER_B1 = row_books(64, 1)
+LYING_A = flat_books(14, 0)
+LYING_B = flat_books(14, 2)
