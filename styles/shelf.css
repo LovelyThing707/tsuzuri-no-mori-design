@@ -126,7 +126,7 @@
 }
 /* 天（紙の束）。上からの光を受ける。本の輪郭はここで出る */
 /* 書影。判型・厚みから決めた枠にそのまま収める */
-.spine img,.flat img{
+.spine img,.flat > img{
   position:absolute; inset:0;
   width:100%; height:100%;
   object-fit:fill;
@@ -179,11 +179,44 @@
   border-radius:1px;
   transform-origin:50% 100%;
   transform-style:preserve-3d;
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot));
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) rotateY(var(--yaw,0deg));
   box-shadow:0 3px 4px rgba(0,0,0,.45);
   transition:transform .34s var(--ease);
 }
-/* 小口（紙の束）。表紙の面と直角に立て、手前から厚みが見えるようにする */
+/* 背（左の面）。棚の背表紙と同じ絵を使う。書名が見える */
+.flat__spine,
+.flat__fore{
+  position:absolute; top:0; bottom:0;
+  width:var(--fe);
+  overflow:hidden;
+  /* 面は本の内側を向いているので、こちらから見えるのは裏側になる。
+     裏を消すと側面が出ないため、裏を見せたうえで中身を左右反転して戻す。 */
+  backface-visibility:visible;
+}
+.flat__spine{
+  left:0;
+  transform-origin:0 50%;
+  transform:rotateY(90deg);
+  background:var(--c);
+  box-shadow:inset -2px 0 4px -2px rgba(0,0,0,.55);
+}
+.flat__spine img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:fill;
+  display:block;
+  transform:scaleX(-1);   /* 裏から見るぶんを打ち消す */
+}
+/* 小口（右の面）。紙の束の断面 */
+.flat__fore{
+  right:0;
+  transform-origin:100% 50%;
+  transform:rotateY(-90deg);
+  background:linear-gradient(90deg,#a4977e 0%,#ddd3bb 32%,#f2ebdc 70%,#e3dac3 100%);
+  box-shadow:inset 2px 0 4px -2px rgba(0,0,0,.45);
+}
+
+/* 地（手前の面）。表紙の面と直角に立て、手前から厚みが見えるようにする */
 .flat::after{
   content:"";
   position:absolute; left:0; right:0; top:100%;
@@ -195,7 +228,7 @@
   border-radius:0 0 1px 1px;
 }
 .flat:hover,.flat:focus-visible{
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(6px);
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) rotateY(var(--yaw,0deg)) translateZ(8px);
 }
 
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
