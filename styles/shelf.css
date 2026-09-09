@@ -179,7 +179,7 @@
   border-radius:1px;
   transform-origin:50% 100%;
   transform-style:preserve-3d;
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) rotateY(var(--yaw,0deg));
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot));
   box-shadow:0 3px 4px rgba(0,0,0,.45);
   transition:transform .34s var(--ease);
 }
@@ -228,7 +228,7 @@
   border-radius:0 0 1px 1px;
 }
 .flat:hover,.flat:focus-visible{
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) rotateY(var(--yaw,0deg)) translateZ(8px);
+  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(8px);
 }
 
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------

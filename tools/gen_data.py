@@ -60,12 +60,6 @@ def flat_books(n, seed=0):
     for k in idx:
         b = dict(REAL[k])
         b['rot'] = round(rnd.uniform(-1.6, 1.6), 1)
-        # 首を振らせて側面を見せる。真正面だと板のように見えるため。
-        # 実測：正の角度で左の面（背・書名）、負で右の面（小口・白い紙）が出る。
-        # 5度前後では遠近法に負けて向きが定まらないので、10度以上振る。
-        # 書名の見える背を多めに、小口も混ぜる。
-        sign = 1 if rnd.random() < 0.62 else -1
-        b['yaw'] = round(sign * rnd.uniform(10.0, 17.0), 1)
         out.append(b)
     return out
 
@@ -80,8 +74,8 @@ def spine_li(b):
 
 def flat_li(b):
     # --t（厚み）も渡す。寝かせた本の小口をページ数から出すため
-    st = '--h:%d;--w:%d;--t:%d;--c:%s;--rot:%.1fdeg;--yaw:%.1fdeg' % (
-        b['h'], b['w'], b['t'], b['c'], b['rot'], b['yaw'])
+    st = '--h:%d;--w:%d;--t:%d;--c:%s;--rot:%.1fdeg' % (
+        b['h'], b['w'], b['t'], b['c'], b['rot'])
     # 寝かせた本は箱。表紙のほかに、背（左）・小口（右）・地（手前）の面がある。
     return ('        <li class="flat" style="%s">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async">'
