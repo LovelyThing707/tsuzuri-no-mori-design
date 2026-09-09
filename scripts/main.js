@@ -52,15 +52,49 @@
     });
   }
 
+  /* --- 棚に入りきらない本を下げる ----------------------------
+     棚は柱で幅が決まっている。入りきらない本をそのままにすると、
+     柱のきわで本が縦に切れてしまう。入る冊数だけを残す。
+     見た目の正しさなので、動きを減らす設定でも必ず動かす。 */
+  function fitShelves() {
+    var rows = document.querySelectorAll('.case .row');
+    Array.prototype.forEach.call(rows, function (row) {
+      var books = row.querySelectorAll('.spine');
+      Array.prototype.forEach.call(books, function (b) { b.classList.remove('is-over'); });
+      var avail = row.getBoundingClientRect().width - 4;
+      var used = 0, full = false;
+      Array.prototype.forEach.call(books, function (b) {
+        if (full) { b.classList.add('is-over'); return; }
+        var w = parseFloat(window.getComputedStyle(b).width) || b.offsetWidth;
+        if (used + w <= avail) { used += w; }
+        else { full = true; b.classList.add('is-over'); }
+      });
+    });
+  }
+
+  var fitTimer;
+  function onResize() {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitShelves, 120);
+  }
+
   function start() {
     if (reduced.matches) return;
     parallax();
     reveal();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
+  function boot() {
+    fitShelves();       /* 動きの設定に関わらず必ず行う */
     start();
+  }
+
+  window.addEventListener('resize', onResize, { passive: true });
+  window.addEventListener('load', fitShelves);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();

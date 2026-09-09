@@ -104,6 +104,9 @@
 /* --- 背表紙 --------------------------------------------------
    幅＝厚み（判型・ページ数から算出）、高さ＝判型。
    実寸のままだと1冊が数pxになって触れないため、幅だけは下駄を履かせている。 */
+/* 棚に入りきらない本。scripts/main.js が付ける */
+.spine.is-over{ display:none; }
+
 .spine{
   --w:  calc((var(--spine-base) + var(--t) * var(--spine-gain)) * var(--u));
   --bh: calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--px-per-mm) * var(--u));
@@ -155,7 +158,7 @@
 /* 天板の面。ここに本を寝かせる */
 .platform__row{
   position:absolute; z-index:1;
-  left:0; right:0; top:0; height:46.7%;
+  left:0; right:0; top:0; height:37%;
   display:flex; align-items:flex-end; justify-content:space-evenly;
   gap:calc(var(--flat-gap) * var(--u));
   padding:0 calc(10px * var(--u)); margin:0; list-style:none;

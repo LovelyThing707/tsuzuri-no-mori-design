@@ -34,7 +34,7 @@
   --plat-h:      clamp(180px,27vh,300px);
   --u:           calc(var(--case-h) / 582);
   --flat-tilt:   36deg;    /* 寝かせる角度。表紙の文字が読める範囲で */
-  --flat-scale:  .65;      /* 平置きは天板の面に収める。背表紙とは別の尺度 */
+  --flat-scale:  .54;      /* 平置きは天板の面に収める。背表紙とは別の尺度 */
   --flat-gap:    10;
   --px-per-mm:   0.68;
 
