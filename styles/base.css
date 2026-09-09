@@ -30,11 +30,12 @@
      画面が広がっても本は大きくせず、見える冊数を増やす。 */
   /* 什器の高さ。段の高さがここで決まり、本の寸法もこれに追従する */
   --case-h:      clamp(400px,59.5vh,580px);
-  --case1-h:     calc(var(--case-h) * .476);
+  --case1-h:     calc(var(--case-h) * .501);
   --plat-h:      clamp(180px,27vh,300px);
   --u:           calc(var(--case-h) / 582);
   --flat-tilt:   36deg;    /* 寝かせる角度。表紙の文字が読める範囲で */
   --flat-scale:  .54;      /* 平置きは天板の面に収める。背表紙とは別の尺度 */
+  --flat-edge-gain: 2.0;   /* 小口の誇張。実寸だと紙のように薄く見えるため */
   --flat-gap:    10;
   --px-per-mm:   0.68;
 

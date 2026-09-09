@@ -82,9 +82,9 @@
 .tier{ left:clamp(24px,6.5vw,54px); right:clamp(24px,6.5vw,54px); }
 
 .tier{ position:absolute; }
-.case--2shelf .tier:nth-child(1){ top:4.7%;  height:37.8%; }
-.case--2shelf .tier:nth-child(2){ top:52.2%; height:38.6%; }
-.case--1shelf .tier:nth-child(1){ top:8.7%;  height:79.4%; }
+.case--2shelf .tier:nth-child(1){ top:4.9%;  height:40.1%; }
+.case--2shelf .tier:nth-child(2){ top:54.7%; height:40.2%; }
+.case--1shelf .tier:nth-child(1){ top:9.8%;  height:80.1%; }
 
 /* 本は段の床に立つ。入りきらないぶんは画面の外へ続く */
 .row{
@@ -171,7 +171,7 @@
   --fw: calc(var(--w) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   --fh: calc(var(--h) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う */
-  --fe: calc(var(--t) * var(--px-per-mm) * var(--u) * var(--flat-scale));
+  --fe: calc(var(--t) * var(--px-per-mm) * var(--u) * var(--flat-scale) * var(--flat-edge-gain));
   position:relative;
   flex:0 0 auto;
   width:var(--fw); height:var(--fh);

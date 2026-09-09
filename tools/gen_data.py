@@ -19,26 +19,47 @@ REAL = [
       sp='spine-aya-to-majo.webp',           cv='cover-aya-to-majo.webp'),
 ]
 
-# 1冊ずつわずかに傾ける。同じ本が並ぶので、傾きだけは変える。
-LEAN = [0.0, -0.7, 0.5, -0.4, 0.8, -0.2, 0.6, -0.9, 0.3, -0.5, 0.9, -0.3]
+# 4冊を順番どおりに繰り返すと、同じ並びが規則的に現れて
+# 「背表紙の画像をただ並べました」に見える。順不同に散らす。
+# 毎回同じ結果になるよう、乱数は種を固定する（ビルドを再現可能にするため）。
+import random
 
 
-def row_books(n, offset=0):
-    """4冊を繰り返して n 冊ぶんの並びを作る。並び順は売り場ごとにずらす。"""
+def _shuffled(n, seed):
+    """4冊を順不同に n 冊ぶん並べる。
+
+    ただの乱数だと、種によっては最初の十数冊に同じ本ばかり出る。
+    実際に見えているのは先頭の10〜19冊なので、そこで偏ると目立つ。
+    4冊をひと組として組の中で並べ替え、それをつなぐ方式にする。
+    どの4冊を取っても4種類そろい、並び順は組ごとに変わる。
+    """
+    rnd = random.Random(seed)
     out = []
-    for i in range(n):
-        b = dict(REAL[(i + offset) % len(REAL)])
-        b['lean'] = LEAN[(i + offset * 3) % len(LEAN)]
+    while len(out) < n:
+        block = list(range(len(REAL)))
+        rnd.shuffle(block)
+        out.extend(block)
+    return out[:n], rnd
+
+
+def row_books(n, seed=0):
+    """背表紙の並び。順序も傾きも売り場ごとに変える。"""
+    idx, rnd = _shuffled(n, seed)
+    out = []
+    for k in idx:
+        b = dict(REAL[k])
+        b['lean'] = round(rnd.uniform(-0.9, 0.9), 1)
         out.append(b)
     return out
 
 
-def flat_books(n, offset=0):
+def flat_books(n, seed=0):
     """平台に寝かせる本。表紙を上に向ける。"""
+    idx, rnd = _shuffled(n, seed)
     out = []
-    for i in range(n):
-        b = dict(REAL[(i + offset) % len(REAL)])
-        b['rot'] = LEAN[(i * 2 + offset) % len(LEAN)] * 1.6
+    for k in idx:
+        b = dict(REAL[k])
+        b['rot'] = round(rnd.uniform(-1.6, 1.6), 1)
         out.append(b)
     return out
 
@@ -70,8 +91,8 @@ def platform(books):
 
 # 画面幅いっぱいに広げるため、いちばん広い画面でも足りる冊数を出しておき、
 # 入りきらないぶんは CSS で隠す。
-TIER_A1 = row_books(64, 0)
-TIER_A2 = row_books(64, 2)
-TIER_B1 = row_books(64, 1)
-LYING_A = flat_books(14, 0)
-LYING_B = flat_books(14, 2)
+TIER_A1 = row_books(64, seed=11)
+TIER_A2 = row_books(64, seed=23)
+TIER_B1 = row_books(64, seed=37)
+LYING_A = flat_books(14, seed=53)
+LYING_B = flat_books(14, seed=71)
