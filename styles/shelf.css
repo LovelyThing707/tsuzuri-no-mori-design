@@ -44,6 +44,16 @@
   height:var(--case1-h);
 }
 .case__box{ position:absolute; inset:0; }
+/* 柱ぎわの陰。棚に入りきらない本は柱の後ろへ回り込むように見せる。
+   本(z:1)より上、柱(z:3)より下に置く。 */
+.case__box::after{
+  content:"";
+  position:absolute; inset:0; z-index:2;
+  pointer-events:none;
+  box-shadow:
+    inset  26px 0 30px -20px rgba(0,0,0,.9),
+    inset -26px 0 30px -20px rgba(0,0,0,.9);
+}
 
 /* 左右の柱。棚が画面の外へ続くのではなく、
    画面の幅にちょうど収まった1台の本棚に見えるようにする。
