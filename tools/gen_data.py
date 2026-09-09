@@ -52,8 +52,9 @@ def spine_li(b):
 
 
 def flat_li(b):
-    st = '--h:%d;--w:%d;--c:%s;--rot:%.1fdeg' % (
-        b['h'], b['w'], b['c'], b['rot'])
+    # --t（厚み）も渡す。寝かせた本の小口をページ数から出すため
+    st = '--h:%d;--w:%d;--t:%d;--c:%s;--rot:%.1fdeg' % (
+        b['h'], b['w'], b['t'], b['c'], b['rot'])
     return ('        <li class="flat" style="%s">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'
             % (st, IMG, b['cv']))

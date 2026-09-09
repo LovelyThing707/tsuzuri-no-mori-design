@@ -14,7 +14,6 @@ def market(idx, name, tiers, lying, note):
     t = [TIER % D.tier(b) for b in tiers]
     flat = """      <div class="platform" aria-hidden="true">
         <ul class="platform__row">
-          <li class="signcard"><span>店主の<br>おすすめ</span></li>
 %s
         </ul>
       </div>""" % D.platform(lying)
