@@ -3,6 +3,7 @@ import io, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
+import gen_pages as G
 
 def market(idx, name, tiers, lying, note):
     """背表紙の棚と平台は別の什器。平台は棚の手前に、隙間なく置く。"""
@@ -62,9 +63,18 @@ PAGE = """<!DOCTYPE html>
     <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M1 2h22M1 9h22M1 16h22"/></svg>
   </button>
   <p class="topbar__logo">綴りの森</p>
-  <button type="button" class="topbar__search" aria-label="本をさがす">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
-  </button>
+  <div class="topbar__right">
+    <button type="button" class="topbar__search" aria-label="本をさがす">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
+    </button>
+    <button type="button" class="topbar__cart" id="cart-open" aria-label="カートを見る">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 5h3l2.2 10.4a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.6L21 8H7"/>
+        <circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/>
+      </svg>
+      <span class="n" id="cart-n" hidden>0</span>
+    </button>
+  </div>
 </header>
 
 <header class="hero">
@@ -110,10 +120,11 @@ PAGE = """<!DOCTYPE html>
   <div class="wrap">
     <p class="foot__name">綴りの森</p>
     <nav class="foot__links" aria-label="サイト内の案内">
-      <a href="#">綴りの森について</a>
-      <a href="#">お問い合わせ</a>
-      <a href="#">特定商取引法に基づく表記</a>
-      <a href="#">プライバシーポリシー</a>
+      <a href="#" data-doc="about">綴りの森について</a>
+      <a href="#" data-doc="blog">お知らせ</a>
+      <a href="#" data-doc="contact">お問い合わせ</a>
+      <a href="#" data-doc="tokusho">特定商取引法に基づく表記</a>
+      <a href="#" data-doc="privacy">プライバシーポリシー</a>
     </nav>
   </div>
 </footer>
@@ -148,6 +159,46 @@ PAGE = """<!DOCTYPE html>
     </div>
   </div>
 </div>
+
+<!-- 固定ページ。要件定義書 2-7 のページ構成 -->
+<div class="doc" id="doc" hidden>
+  <header class="doc__bar">
+    <button class="doc__back" type="button" data-doc-close>
+      <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
+      <span>棚にもどる</span>
+    </button>
+    <p class="doc__crumb">綴りの森</p>
+  </header>
+  <div class="doc__body">
+%(pages)s
+  </div>
+</div>
+
+<!-- カート。決済と配送の入力は Shopify 標準（要件定義書 2-6） -->
+<div class="cart" id="cart" hidden>
+  <div class="cart__scrim" data-cart-close></div>
+  <aside class="cart__panel" role="dialog" aria-modal="true" aria-labelledby="cart-h">
+    <header class="cart__head">
+      <h2 class="cart__h" id="cart-h">カート</h2>
+      <button class="cart__close" type="button" data-cart-close aria-label="閉じる">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
+      </button>
+    </header>
+    <ul class="cart__list" id="cart-list"></ul>
+    <p class="cart__empty" id="cart-empty">まだ何も入っていません。</p>
+    <div class="cart__foot">
+      <dl class="cart__sum">
+        <div><dt>小計</dt><dd id="cart-sub">0円</dd></div>
+        <div><dt>送料</dt><dd class="cart__ship">購入手続きの画面で計算いたします</dd></div>
+      </dl>
+      <button class="cart__go" type="button" id="cart-go" disabled>購入手続きへ</button>
+      <p class="cart__note">お支払いと配送のご入力は、Shopifyの購入手続きの画面へ進みます。</p>
+    </div>
+  </aside>
+</div>
+
+<!-- カートに入れたときの手応え -->
+<p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
 <!-- 商品詳細。Shopifyでは商品ごとに自動で作られる画面 -->
 <div class="item" id="item" hidden>
@@ -228,6 +279,7 @@ PAGE = """<!DOCTYPE html>
 
 html = PAGE % dict(
     books   = D.book_json(),
+    pages   = G.pages_html(),
     market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
                      '背表紙の棚が2段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,

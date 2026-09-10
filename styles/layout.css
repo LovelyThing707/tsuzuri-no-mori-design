@@ -189,3 +189,6 @@
 .aisle::after  { background-position:left 76%; }
 .foot::before  { background-position:left 52%; }
 .foot::after   { background-position:left 12%; }
+
+/* 上の帯の右側。さがす と カート */
+.topbar__right{ display:flex; align-items:center; gap:clamp(4px,1.5vw,12px); }

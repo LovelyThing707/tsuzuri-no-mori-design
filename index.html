@@ -22,9 +22,18 @@
     <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M1 2h22M1 9h22M1 16h22"/></svg>
   </button>
   <p class="topbar__logo">綴りの森</p>
-  <button type="button" class="topbar__search" aria-label="本をさがす">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
-  </button>
+  <div class="topbar__right">
+    <button type="button" class="topbar__search" aria-label="本をさがす">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="M15.6 15.6L21 21"/></svg>
+    </button>
+    <button type="button" class="topbar__cart" id="cart-open" aria-label="カートを見る">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 5h3l2.2 10.4a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.6L21 8H7"/>
+        <circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/>
+      </svg>
+      <span class="n" id="cart-n" hidden>0</span>
+    </button>
+  </div>
 </header>
 
 <header class="hero">
@@ -340,10 +349,11 @@
   <div class="wrap">
     <p class="foot__name">綴りの森</p>
     <nav class="foot__links" aria-label="サイト内の案内">
-      <a href="#">綴りの森について</a>
-      <a href="#">お問い合わせ</a>
-      <a href="#">特定商取引法に基づく表記</a>
-      <a href="#">プライバシーポリシー</a>
+      <a href="#" data-doc="about">綴りの森について</a>
+      <a href="#" data-doc="blog">お知らせ</a>
+      <a href="#" data-doc="contact">お問い合わせ</a>
+      <a href="#" data-doc="tokusho">特定商取引法に基づく表記</a>
+      <a href="#" data-doc="privacy">プライバシーポリシー</a>
     </nav>
   </div>
 </footer>
@@ -378,6 +388,157 @@
     </div>
   </div>
 </div>
+
+<!-- 固定ページ。要件定義書 2-7 のページ構成 -->
+<div class="doc" id="doc" hidden>
+  <header class="doc__bar">
+    <button class="doc__back" type="button" data-doc-close>
+      <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
+      <span>棚にもどる</span>
+    </button>
+    <p class="doc__crumb">綴りの森</p>
+  </header>
+  <div class="doc__body">
+    <article class="doc__page" data-page="about" hidden>
+      <h2 class="doc__title">綴りの森について</h2>
+<p class="doc__lead">本を選ぶ楽しみを、そのままに。</p>
+
+<p>本屋で本を選ぶとき、私たちは目当ての一冊だけを見ているわけではありません。
+棚の前に立ち、背表紙を目で追い、厚みや高さの違いを眺めながら、
+思いがけない一冊に手が伸びる。あの時間そのものが、本を買うことの楽しさでした。</p>
+
+<p>綴りの森は、その時間をそのまま持ち帰れないかと考えて作った書店です。
+画面のなかの棚には、実際の本と同じ高さ、同じ厚みで本が並びます。
+判型とページ数から一冊ずつ大きさを出しているので、
+文庫のとなりに大きな絵本が立っている、あの不揃いな眺めが生まれます。</p>
+
+<p>並べ方も、ジャンルの一覧ではなく「売り場」で考えています。
+夜に読む本、子供に読みたい本。棚ごとにひとつのテーマがあり、
+背表紙の段の手前には、店主が選んだ数冊が表紙を上にして置かれています。</p>
+
+<p>森のなかに、小さな店がひとつ。
+ゆっくり歩いて、棚の前で立ち止まっていただければと思います。</p>
+    </article>
+    <article class="doc__page" data-page="tokusho" hidden>
+      <h2 class="doc__title">特定商取引法に基づく表記</h2>
+<p class="doc__note">この画面は、記載する項目を並べたものです。
+内容は運営者様よりご提供いただき、公開までに確定いたします。</p>
+<dl class="doc__kv">
+<div><dt>販売業者</dt><dd><span class="doc__need">ご提供をお願いいたします</span></dd></div>
+<div><dt>運営統括責任者</dt><dd><span class="doc__need">ご提供をお願いいたします</span></dd></div>
+<div><dt>所在地</dt><dd><span class="doc__need">ご提供をお願いいたします</span></dd></div>
+<div><dt>電話番号</dt><dd><span class="doc__need">ご提供をお願いいたします</span><br><span class="doc__sub">受付時間もあわせてお知らせください</span></dd></div>
+<div><dt>メールアドレス</dt><dd><span class="doc__need">ご提供をお願いいたします</span></dd></div>
+<div><dt>販売価格</dt><dd>各商品ページに表示する価格（税込）</dd></div>
+<div><dt>商品代金以外の必要料金</dt><dd>送料、および決済手数料<br><span class="doc__sub">金額の決定後に記載いたします</span></dd></div>
+<div><dt>お支払い方法</dt><dd>クレジットカード、その他（Shopifyの決済で選べるもの）</dd></div>
+<div><dt>お支払い時期</dt><dd>ご注文時にお支払いが確定いたします</dd></div>
+<div><dt>引渡し時期</dt><dd><span class="doc__need">ご提供をお願いいたします</span><br><span class="doc__sub">ご注文から発送までの目安をお知らせください</span></dd></div>
+<div><dt>返品・交換について</dt><dd><span class="doc__need">ご提供をお願いいたします</span><br><span class="doc__sub">不良品の場合と、お客様都合の場合を分けて記載いたします</span></dd></div>
+</dl>
+    </article>
+    <article class="doc__page" data-page="privacy" hidden>
+      <h2 class="doc__title">プライバシーポリシー</h2>
+<p class="doc__note">この画面は、記載する項目を並べたものです。
+最終的な文面は、公開までに確定いたします。</p>
+
+<h4>取得する情報</h4>
+<p>ご注文の際に、お名前、ご住所、電話番号、メールアドレス、
+お支払いに関する情報をお預かりいたします。
+お支払いの情報は決済代行事業者が取り扱い、当店では保持いたしません。</p>
+
+<h4>利用目的</h4>
+<p>商品の発送、ご連絡、お問い合わせへの回答のために利用いたします。
+ご案内のメールをお送りする場合は、事前に同意をいただきます。</p>
+
+<h4>第三者への提供</h4>
+<p>法令に基づく場合を除き、ご本人の同意なく第三者に提供することはございません。
+配送のために、必要な範囲で配送事業者にお渡しいたします。</p>
+
+<h4>開示・訂正・削除</h4>
+<p>お預かりしている情報の開示、訂正、削除をご希望の場合は、
+下記のお問い合わせよりご連絡ください。</p>
+
+<h4>お問い合わせ窓口</h4>
+<p><span class="doc__need">ご提供をお願いいたします</span></p>
+    </article>
+    <article class="doc__page" data-page="contact" hidden>
+      <h2 class="doc__title">お問い合わせ</h2>
+<p>ご注文について、書籍について、そのほかお気づきのことがございましたら、
+こちらからお知らせください。</p>
+
+<form class="doc__form" onsubmit="return false;">
+  <label class="doc__f">
+    <span>お名前</span>
+    <input type="text" name="name" autocomplete="name">
+  </label>
+  <label class="doc__f">
+    <span>メールアドレス</span>
+    <input type="email" name="email" autocomplete="email">
+  </label>
+  <label class="doc__f">
+    <span>ご用件</span>
+    <select name="topic">
+      <option>ご注文について</option>
+      <option>書籍について</option>
+      <option>その他</option>
+    </select>
+  </label>
+  <label class="doc__f">
+    <span>お問い合わせ内容</span>
+    <textarea name="body" rows="6"></textarea>
+  </label>
+  <button class="doc__send" type="submit">送信する</button>
+  <p class="doc__note">この画面は見た目の確認用です。実際の送信は行われません。</p>
+</form>
+    </article>
+    <article class="doc__page" data-page="blog" hidden>
+      <h2 class="doc__title">お知らせ</h2>
+<p>入荷のご案内や、棚の入れ替えについてお知らせいたします。</p>
+<p class="doc__note">Shopifyの標準機能を使います。公開後、運営者様ご自身で
+記事を追加・編集していただけます。この画面は、記事の並び方の見本です。</p>
+
+<ul class="doc__posts">
+  <li>
+    <p class="doc__date">2026年2月</p>
+    <h4>綴りの森をひらきました</h4>
+    <p>森のなかの小さな書店です。棚をのぞいてみてください。</p>
+  </li>
+  <li>
+    <p class="doc__date">2026年2月</p>
+    <h4>「夜に読む本」の棚をつくりました</h4>
+    <p>眠る前のひとときに置いておきたい本を集めています。</p>
+  </li>
+</ul>
+    </article>
+  </div>
+</div>
+
+<!-- カート。決済と配送の入力は Shopify 標準（要件定義書 2-6） -->
+<div class="cart" id="cart" hidden>
+  <div class="cart__scrim" data-cart-close></div>
+  <aside class="cart__panel" role="dialog" aria-modal="true" aria-labelledby="cart-h">
+    <header class="cart__head">
+      <h2 class="cart__h" id="cart-h">カート</h2>
+      <button class="cart__close" type="button" data-cart-close aria-label="閉じる">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
+      </button>
+    </header>
+    <ul class="cart__list" id="cart-list"></ul>
+    <p class="cart__empty" id="cart-empty">まだ何も入っていません。</p>
+    <div class="cart__foot">
+      <dl class="cart__sum">
+        <div><dt>小計</dt><dd id="cart-sub">0円</dd></div>
+        <div><dt>送料</dt><dd class="cart__ship">購入手続きの画面で計算いたします</dd></div>
+      </dl>
+      <button class="cart__go" type="button" id="cart-go" disabled>購入手続きへ</button>
+      <p class="cart__note">お支払いと配送のご入力は、Shopifyの購入手続きの画面へ進みます。</p>
+    </div>
+  </aside>
+</div>
+
+<!-- カートに入れたときの手応え -->
+<p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
 <!-- 商品詳細。Shopifyでは商品ごとに自動で作られる画面 -->
 <div class="item" id="item" hidden>

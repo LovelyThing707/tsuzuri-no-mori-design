@@ -84,6 +84,16 @@
     reveal();
   }
 
+  /* --- 重なった画面 -------------------------------------------
+     画面はいくつも重なる。Escape で閉じるのは、いちばん上の一枚だけ。 */
+  function above(ids) {
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (el && !el.hidden) return true;
+    }
+    return false;
+  }
+
   /* --- 引き抜き ---------------------------------------------
      棚の本をタップすると、その本が棚から抜けて手前に出る。
      背表紙の位置から表紙の位置へ飛ばし、一続きの動きに見せる。 */
@@ -413,7 +423,7 @@
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !root.hidden &&
-          document.getElementById('peek').hidden) { e.stopPropagation(); close(); }
+          !above(['peek', 'cart', 'doc'])) { e.stopPropagation(); close(); }
     }, true);
 
     /* 商品詳細からも試し読みへ */
@@ -423,11 +433,187 @@
     });
   }
 
+  /* --- 手応えの表示 ----------------------------------------- */
+  var toastTimer;
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    window.requestAnimationFrame(function () { el.classList.add('is-on'); });
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      el.classList.remove('is-on');
+      window.setTimeout(function () { el.hidden = true; }, 300);
+    }, 2200);
+  }
+
+  /* --- 固定ページ -------------------------------------------
+     要件定義書 2-7 のページ構成。フッターの導線から開く。 */
+  function docs() {
+    var root = document.getElementById('doc');
+    if (!root) return;
+    var body = root.querySelector('.doc__body');
+
+    function open(key) {
+      var found = false;
+      root.querySelectorAll('.doc__page').forEach(function (pg) {
+        var on = pg.getAttribute('data-page') === key;
+        pg.hidden = !on;
+        if (on) found = true;
+      });
+      if (!found) return;
+      root.hidden = false;
+      body.scrollTop = 0;
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      document.body.classList.add('peek-open');
+      root.querySelector('.doc__back').focus({ preventScroll: true });
+    }
+    function close() {
+      root.classList.remove('is-open');
+      document.body.classList.remove('peek-open');
+      window.setTimeout(function () { root.hidden = true; },
+        reduced.matches ? 0 : 300);
+    }
+
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('[data-doc]');
+      if (link) { e.preventDefault(); open(link.getAttribute('data-doc')); return; }
+      if (e.target.closest('[data-doc-close]')) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !root.hidden && !above(['peek', 'cart'])) {
+        e.stopPropagation(); close();
+      }
+    }, true);
+  }
+
+  /* --- カート -----------------------------------------------
+     決済と配送の入力は Shopify 標準（要件定義書 2-6）。
+     ここは、そこへ渡るまでの見え方をつくる。 */
+  function cart() {
+    var root = document.getElementById('cart');
+    var raw = document.getElementById('book-data');
+    if (!root || !raw) return;
+    var BOOKS = JSON.parse(raw.textContent);
+    var list = document.getElementById('cart-list');
+    var empty = document.getElementById('cart-empty');
+    var sub = document.getElementById('cart-sub');
+    var go = document.getElementById('cart-go');
+    var badge = document.getElementById('cart-n');
+    var items = {};        /* key -> 冊数 */
+
+    function count() {
+      var n = 0;
+      for (var k in items) n += items[k];
+      return n;
+    }
+    function yen(v) { return v.toLocaleString('ja-JP') + '円'; }
+
+    function draw() {
+      var n = count();
+      badge.textContent = n;
+      badge.hidden = n === 0;
+      empty.hidden = n > 0;
+      go.disabled = n === 0;
+
+      var total = 0, html = '';
+      for (var k in items) {
+        var b = BOOKS[k], q = items[k];
+        total += b.price * q;
+        html +=
+          '<li class="cart__row" data-key="' + k + '">' +
+            '<div class="cart__thumb"><img src="' + b.cover + '" alt=""></div>' +
+            '<div class="cart__info">' +
+              '<p class="cart__name">' + b.title + '</p>' +
+              '<p class="cart__meta">' + b.pub + '／' + yen(b.price) + '（税込）</p>' +
+              '<div class="cart__qty">' +
+                '<button type="button" data-q="-1" aria-label="ひとつ減らす">−</button>' +
+                '<span>' + q + '</span>' +
+                '<button type="button" data-q="1" aria-label="ひとつ増やす">＋</button>' +
+                '<button type="button" class="cart__del" data-del>取り消す</button>' +
+              '</div>' +
+            '</div>' +
+          '</li>';
+      }
+      list.innerHTML = html;
+      sub.textContent = yen(total);
+    }
+
+    function add(key) {
+      if (!BOOKS[key]) return;
+      items[key] = (items[key] || 0) + 1;
+      draw();
+      toast('「' + BOOKS[key].title + '」をカートに入れました');
+    }
+
+    function open() {
+      root.hidden = false;
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      document.body.classList.add('peek-open');
+      root.querySelector('.cart__close').focus({ preventScroll: true });
+    }
+    function close() {
+      root.classList.remove('is-open');
+      document.body.classList.remove('peek-open');
+      window.setTimeout(function () { root.hidden = true; },
+        reduced.matches ? 0 : 320);
+    }
+
+    /* いま開いている本を、表紙の画像から割り出す */
+    function current() {
+      var src = null;
+      var it = document.getElementById('item');
+      if (it && !it.hidden) src = it.querySelector('.item__img').getAttribute('src');
+      else {
+        var pl = document.getElementById('pull');
+        if (pl && !pl.hidden) src = pl.querySelector('.pull__cover').getAttribute('src');
+      }
+      if (!src) return null;
+      for (var k in BOOKS) if (BOOKS[k].cover === src) return k;
+      return null;
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.pull__act--buy, .item__act--buy')) {
+        var k = current();
+        if (k) add(k);
+        return;
+      }
+      if (e.target.closest('#cart-open')) { open(); return; }
+      if (e.target.closest('[data-cart-close]')) { close(); return; }
+
+      var row = e.target.closest('.cart__row');
+      if (!row) return;
+      var key = row.getAttribute('data-key');
+      if (e.target.closest('[data-del]')) { delete items[key]; draw(); return; }
+      var q = e.target.closest('[data-q]');
+      if (q) {
+        items[key] += parseInt(q.getAttribute('data-q'), 10);
+        if (items[key] < 1) delete items[key];
+        draw();
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !root.hidden && !above(['peek'])) {
+        e.stopPropagation(); close();
+      }
+    }, true);
+
+    go.addEventListener('click', function () {
+      toast('この先はShopifyの購入手続きの画面へ進みます');
+    });
+
+    draw();
+  }
+
   function boot() {
     fitShelves();       /* 動きの設定に関わらず必ず行う */
     pullOut();          /* 同上。動きではなく機能なので */
     peek();
     item();
+    docs();
+    cart();
     start();
   }
 

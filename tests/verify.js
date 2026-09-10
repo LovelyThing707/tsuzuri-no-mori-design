@@ -265,7 +265,201 @@ async function screens(b) {
   }
 }
 
-/* ---- 3. どの画面幅でも崩れないか --------------------------------- */
+/* ---- 3. 固定ページとカート ---------------------------------------
+   固定ページは要件定義書 2-7、カートは 2-6。
+   決済そのものは Shopify 標準なので、そこへ渡るまでを見る。 */
+const DOCS = [
+  { k: 'about',    n: '綴りの森について' },
+  { k: 'blog',     n: 'お知らせ' },
+  { k: 'contact',  n: 'お問い合わせ' },
+  { k: 'tokusho',  n: '特定商取引法に基づく表記' },
+  { k: 'privacy',  n: 'プライバシーポリシー' },
+];
+
+async function pages(b) {
+  const yen = v => +v.replace(/[^\d]/g, '');
+
+  for (const vp of [{ n: 'phone', w: 390, h: 844 }, { n: 'desktop', w: 1440, h: 900 }]) {
+    const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, hasTouch: true });
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(URL, { waitUntil: 'networkidle' });
+
+    t(await p.evaluate(() => document.getElementById('doc').hidden),
+      `${vp.n}: 固定ページは最初は閉じている`);
+
+    /* --- 固定ページ --- */
+    for (const d of DOCS) {
+      await p.$eval(`footer [data-doc="${d.k}"]`, e => e.click());
+      await p.waitForTimeout(450);
+      const s = await p.evaluate(() => {
+        const r = document.getElementById('doc');
+        const on = [...r.querySelectorAll('.doc__page')].filter(e => !e.hidden);
+        return {
+          open: !r.hidden && r.classList.contains('is-open'),
+          shown: on.length,
+          key: on.length ? on[0].getAttribute('data-page') : '',
+          title: on.length ? on[0].querySelector('.doc__title').textContent : '',
+          text: on.length ? on[0].textContent.replace(/\s+/g, '').length : 0,
+          top: r.querySelector('.doc__body').scrollTop,
+          locked: document.body.classList.contains('peek-open'),
+          docW: document.documentElement.scrollWidth, winW: window.innerWidth,
+        };
+      });
+      t(s.open && s.shown === 1 && s.key === d.k, `${vp.n}: ${d.n} が開く（1枚だけ）`);
+      t(s.title === d.n, `${vp.n}: ${d.n} の見出し`);
+      t(s.text > 120, `${vp.n}: ${d.n} に中身がある（${s.text}字）`);
+      t(s.top === 0, `${vp.n}: ${d.n} は先頭から表示`);
+      t(s.locked, `${vp.n}: ${d.n} の裏の棚は動かない`);
+      t(s.docW <= s.winW + 1, `${vp.n}: ${d.n} で横にはみ出さない`);
+      await p.click('[data-doc-close]'); await p.waitForTimeout(400);
+      t(await p.evaluate(() => document.getElementById('doc').hidden),
+        `${vp.n}: ${d.n} を閉じられる`);
+    }
+
+    /* いただく箇所が、そのまま依頼一覧になっているか */
+    await p.$eval('footer [data-doc="tokusho"]', e => e.click());
+    await p.waitForTimeout(400);
+    let s = await p.evaluate(() => {
+      const pg = document.querySelector('[data-page="tokusho"]');
+      return { rows: pg.querySelectorAll('.doc__kv > div').length,
+               need: pg.querySelectorAll('.doc__need').length };
+    });
+    t(s.rows === 11, `${vp.n}: 特商法が11項目（${s.rows}）`);
+    t(s.need >= 6, `${vp.n}: いただく箇所に印がある（${s.need}件）`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+    t(await p.evaluate(() => document.getElementById('doc').hidden),
+      `${vp.n}: 固定ページはEscapeで閉じる`);
+
+    await p.$eval('footer [data-doc="contact"]', e => e.click());
+    await p.waitForTimeout(400);
+    s = await p.evaluate(() => {
+      const f = document.querySelector('[data-page="contact"] .doc__form');
+      return { fields: f.querySelectorAll('input,select,textarea').length,
+               send: !!f.querySelector('.doc__send') };
+    });
+    t(s.fields === 4, `${vp.n}: お問い合わせが4項目（${s.fields}）`);
+    t(s.send, `${vp.n}: お問い合わせに送信の導線`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+
+    /* --- カート --- */
+    s = await p.evaluate(() => ({
+      hidden: document.getElementById('cart').hidden,
+      badge: document.getElementById('cart-n').hidden,
+    }));
+    t(s.hidden && s.badge, `${vp.n}: カートは最初は空で、数も出ない`);
+
+    const sp = await p.$('.spine[data-book]');
+    await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
+    const key = await sp.getAttribute('data-book');
+    await sp.click(); await p.waitForTimeout(800);
+    await p.click('.pull__act--buy'); await p.waitForTimeout(400);
+
+    s = await p.evaluate(() => {
+      const to = document.getElementById('toast');
+      return { toast: !to.hidden && to.classList.contains('is-on'),
+               msg: to.textContent,
+               n: document.getElementById('cart-n').textContent,
+               shown: !document.getElementById('cart-n').hidden };
+    });
+    t(s.toast, `${vp.n}: カートに入れた手応えが出る`);
+    t(/カートに入れました/.test(s.msg), `${vp.n}: 何を入れたか分かる（${s.msg}）`);
+    t(s.shown && s.n === '1', `${vp.n}: 上の帯に1と出る`);
+
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    await p.click('#cart-open'); await p.waitForTimeout(500);
+    s = await p.evaluate(() => {
+      const r = document.getElementById('cart');
+      const row = r.querySelector('.cart__row');
+      return {
+        open: !r.hidden && r.classList.contains('is-open'),
+        rows: r.querySelectorAll('.cart__row').length,
+        cover: row ? row.querySelector('img').getAttribute('src') : '',
+        name: row ? row.querySelector('.cart__name').textContent : '',
+        sub: document.getElementById('cart-sub').textContent,
+        empty: document.getElementById('cart-empty').hidden,
+        go: document.getElementById('cart-go').disabled,
+        onscreen: r.querySelector('.cart__panel').getBoundingClientRect().right
+                    <= window.innerWidth + 1,
+        docW: document.documentElement.scrollWidth, winW: window.innerWidth,
+      };
+    });
+    t(s.open, `${vp.n}: カートが開く`);
+    t(s.rows === 1 && s.cover.includes(key), `${vp.n}: 入れた本が入っている（${s.name}）`);
+    t(/^[\d,]+円$/.test(s.sub), `${vp.n}: 小計が出る（${s.sub}）`);
+    t(s.empty && !s.go, `${vp.n}: 中身があれば購入手続きへ進める`);
+    t(s.onscreen && s.docW <= s.winW + 1, `${vp.n}: カートが画面に収まる`);
+
+    const one = s.sub;
+    await p.click('.cart__row [data-q="1"]'); await p.waitForTimeout(250);
+    s = await p.evaluate(() => ({
+      q: document.querySelector('.cart__qty span').textContent,
+      sub: document.getElementById('cart-sub').textContent,
+      n: document.getElementById('cart-n').textContent,
+    }));
+    t(s.q === '2' && s.n === '2', `${vp.n}: 冊数を増やせる`);
+    t(yen(s.sub) === yen(one) * 2, `${vp.n}: 小計が冊数に付いてくる（${s.sub}）`);
+
+    await p.click('.cart__row [data-q="-1"]'); await p.waitForTimeout(250);
+    t(await p.evaluate(() => document.querySelector('.cart__qty span').textContent) === '1',
+      `${vp.n}: 冊数を減らせる`);
+
+    await p.click('.cart__row [data-del]'); await p.waitForTimeout(250);
+    s = await p.evaluate(() => ({
+      rows: document.querySelectorAll('.cart__row').length,
+      empty: document.getElementById('cart-empty').hidden,
+      go: document.getElementById('cart-go').disabled,
+      badge: document.getElementById('cart-n').hidden,
+    }));
+    t(s.rows === 0 && !s.empty, `${vp.n}: 取り消すと空になる`);
+    t(s.go && s.badge, `${vp.n}: 空なら購入手続きへは進めない`);
+
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    t(await p.evaluate(() => document.getElementById('cart').hidden),
+      `${vp.n}: カートはEscapeで閉じる`);
+
+    /* 別の本を足したら、行が分かれるか */
+    const spines = await p.$$('.spine[data-book]');
+    let other = null;
+    for (const e of spines) {
+      if ((await e.getAttribute('data-book')) !== key) { other = e; break; }
+    }
+    for (const e of [sp, other]) {
+      await e.scrollIntoViewIfNeeded(); await p.waitForTimeout(200);
+      await e.click(); await p.waitForTimeout(700);
+      await p.click('.pull__act--buy'); await p.waitForTimeout(300);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    }
+    await p.click('#cart-open'); await p.waitForTimeout(500);
+    s = await p.evaluate(() => ({
+      rows: document.querySelectorAll('.cart__row').length,
+      n: document.getElementById('cart-n').textContent,
+    }));
+    t(s.rows === 2 && s.n === '2', `${vp.n}: 別の本は別の行になる`);
+
+    /* 閉じ方。狭い画面ではカートが画面いっぱいに出るので、
+       覆いの端がない。そのときは✕で閉じられればよい */
+    const scrim = await p.evaluate(() => {
+      const el = document.elementFromPoint(8, 8);
+      return !!(el && el.classList.contains('cart__scrim'));
+    });
+    if (scrim) {
+      await p.mouse.click(8, 8); await p.waitForTimeout(500);
+      t(await p.evaluate(() => document.getElementById('cart').hidden),
+        `${vp.n}: 覆いの端でカートが閉じる`);
+    } else {
+      await p.click('.cart__close'); await p.waitForTimeout(500);
+      t(await p.evaluate(() => document.getElementById('cart').hidden),
+        `${vp.n}: ✕でカートが閉じる`);
+    }
+
+    t(errs.length === 0,
+      `${vp.n}: 固定ページとカートでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await p.close();
+  }
+}
+
+/* ---- 4. どの画面幅でも崩れないか --------------------------------- */
 async function widths(b) {
   const p = await b.newPage({ reducedMotion: 'reduce' });
   const ws = [];
@@ -308,6 +502,7 @@ async function widths(b) {
   const b = await chromium.launch();
   await shelf(b);
   await screens(b);
+  await pages(b);
   await widths(b);
   await b.close();
   fail.forEach(l => console.log('  FAIL  ' + l));
