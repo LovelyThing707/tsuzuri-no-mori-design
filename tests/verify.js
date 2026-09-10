@@ -223,6 +223,36 @@ async function screens(b) {
     t(s.hidden, `${vp.n}: 引き抜きも閉じられる`);
     t(s.gone === 0, `${vp.n}: 抜いた本が棚に戻る`);
 
+    /* 商品詳細 */
+    await p.$eval('.spine[data-book]', e => e.click());
+    await p.waitForTimeout(700);
+    await p.click('.pull__more'); await p.waitForTimeout(700);
+    s = await p.evaluate(() => {
+      const it = document.getElementById('item');
+      return {
+        open: !it.hidden && it.classList.contains('is-open'),
+        title: it.querySelector('.item__title').textContent,
+        price: it.querySelector('.item__price').textContent,
+        specs: it.querySelectorAll('.item__spec > div').length,
+        paras: it.querySelectorAll('.item__desc p').length,
+        acts: it.querySelectorAll('.item__act').length,
+        cover: it.querySelector('.item__img').getAttribute('src'),
+        docW: document.documentElement.scrollWidth, winW: window.innerWidth,
+      };
+    });
+    t(s.open, `${vp.n}: 商品詳細が開く`);
+    t(s.title.length > 0, `${vp.n}: 商品詳細に書名（${s.title}）`);
+    t(/円/.test(s.price), `${vp.n}: 商品詳細に価格`);
+    t(s.specs === 6, `${vp.n}: 書誌が6項目（書名・著者訳者・出版社・判型・ページ数・価格）`);
+    t(s.paras >= 2, `${vp.n}: 紹介文が入る（${s.paras}段落）`);
+    t(s.acts === 2, `${vp.n}: カートに入れる／試し読み`);
+    t(s.cover.includes(key), `${vp.n}: 引き抜きで開いた本を引き継ぐ`);
+    t(s.docW <= s.winW + 1, `${vp.n}: 商品詳細で横にはみ出さない`);
+
+    await p.click('[data-item-close]'); await p.waitForTimeout(600);
+    t(await p.evaluate(() => document.getElementById('item').hidden), `${vp.n}: 商品詳細を閉じられる`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+
     const fl = await p.$('.flat[data-book]');
     await fl.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     await fl.click(); await p.waitForTimeout(700);

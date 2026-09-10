@@ -149,6 +149,50 @@ PAGE = """<!DOCTYPE html>
   </div>
 </div>
 
+<!-- 商品詳細。Shopifyでは商品ごとに自動で作られる画面 -->
+<div class="item" id="item" hidden>
+  <header class="item__bar">
+    <button class="item__back" type="button" data-item-close>
+      <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
+      <span>棚にもどる</span>
+    </button>
+    <p class="item__crumb">綴りの森</p>
+  </header>
+
+  <div class="item__body">
+    <div class="item__head">
+      <div class="item__cover"><img class="item__img" src="" alt=""></div>
+      <div class="item__buy">
+        <h2 class="item__title"></h2>
+        <p class="item__author"></p>
+        <p class="item__price"></p>
+        <div class="item__acts">
+          <button class="item__act item__act--buy" type="button">カートに入れる</button>
+          <button class="item__act item__act--read" type="button">試し読み</button>
+        </div>
+        <p class="item__note">定価販売です。送料は購入手続きの画面でご確認いただけます。</p>
+      </div>
+    </div>
+
+    <section class="item__sec">
+      <h3 class="item__h">この本について</h3>
+      <div class="item__desc"></div>
+    </section>
+
+    <section class="item__sec">
+      <h3 class="item__h">書誌</h3>
+      <dl class="item__spec">
+        <div><dt>書名</dt><dd class="item__s-title"></dd></div>
+        <div><dt>著者・訳者</dt><dd class="item__s-author"></dd></div>
+        <div><dt>出版社</dt><dd class="item__s-pub"></dd></div>
+        <div><dt>判型</dt><dd class="item__s-kata"></dd></div>
+        <div><dt>ページ数</dt><dd class="item__s-pages"></dd></div>
+        <div><dt>価格</dt><dd class="item__s-price"></dd></div>
+      </dl>
+    </section>
+  </div>
+</div>
+
 <!-- 試し読み。見開きを左右にめくり、つまんで拡大できる -->
 <div class="peek" id="peek" hidden>
   <div class="peek__stage" id="peek-stage">

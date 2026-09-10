@@ -352,10 +352,82 @@
     }, true);
   }
 
+  /* --- 商品詳細 ---------------------------------------------
+     Shopify では商品ごとに自動で作られる画面。
+     引き抜きの「商品の詳細を見る」から入り、閉じると棚に戻る。 */
+  function item() {
+    var root = document.getElementById('item');
+    var raw = document.getElementById('book-data');
+    if (!root || !raw) return;
+    var BOOKS = JSON.parse(raw.textContent);
+    var body = root.querySelector('.item__body');
+    var key = null;
+
+    function set(sel, txt) { root.querySelector(sel).textContent = txt; }
+
+    function fill(b) {
+      var img = root.querySelector('.item__img');
+      img.src = b.cover; img.alt = b.title + ' の表紙';
+      set('.item__title', b.title);
+      set('.item__author', b.author);
+      root.querySelector('.item__price').innerHTML =
+        b.price.toLocaleString('ja-JP') + '円<span>税込</span>';
+      root.querySelector('.item__desc').innerHTML =
+        b.desc.map(function (t) { return '<p>' + t + '</p>'; }).join('');
+      set('.item__s-title', b.title);
+      set('.item__s-author', b.author);
+      set('.item__s-pub', b.pub);
+      set('.item__s-kata', b.kata);
+      set('.item__s-pages', b.pages + 'ページ');
+      set('.item__s-price', b.price.toLocaleString('ja-JP') + '円（税込）');
+    }
+
+    function open(k) {
+      var b = BOOKS[k];
+      if (!b) return;
+      key = k;
+      fill(b);
+      root.hidden = false;
+      body.scrollTop = 0;
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      document.body.classList.add('peek-open');
+      root.querySelector('.item__back').focus({ preventScroll: true });
+    }
+    function close() {
+      root.classList.remove('is-open');
+      document.body.classList.remove('peek-open');
+      window.setTimeout(function () { root.hidden = true; },
+        reduced.matches ? 0 : 300);
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.pull__more')) {
+        e.preventDefault();
+        var cover = document.querySelector('.pull__cover');
+        var src = cover ? cover.getAttribute('src') : '';
+        /* 引き抜きで開いている本をそのまま引き継ぐ */
+        for (var k in BOOKS) if (BOOKS[k].cover === src) { open(k); break; }
+        return;
+      }
+      if (e.target.closest('[data-item-close]')) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !root.hidden &&
+          document.getElementById('peek').hidden) { e.stopPropagation(); close(); }
+    }, true);
+
+    /* 商品詳細からも試し読みへ */
+    root.querySelector('.item__act--read').addEventListener('click', function () {
+      var act = document.querySelector('.pull__act--read');
+      if (act) act.click();
+    });
+  }
+
   function boot() {
     fitShelves();       /* 動きの設定に関わらず必ず行う */
     pullOut();          /* 同上。動きではなく機能なので */
     peek();
+    item();
     start();
   }
 
