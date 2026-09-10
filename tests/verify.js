@@ -349,6 +349,28 @@ async function pages(b) {
     }));
     t(s.hidden && s.badge, `${vp.n}: カートは最初は空で、数も出ない`);
 
+    /* 書名の長い本で、帯が画面の外へはみ出していた */
+    const longest = await p.evaluate(() => {
+      const d = JSON.parse(document.getElementById('book-data').textContent);
+      return Object.keys(d).sort((a, b) => d[b].title.length - d[a].title.length)[0];
+    });
+    const lb = await p.$(`.spine[data-book="${longest}"]`);
+    await lb.scrollIntoViewIfNeeded(); await p.waitForTimeout(200);
+    await lb.click(); await p.waitForTimeout(800);
+    await p.click('.pull__act--buy'); await p.waitForTimeout(350);
+    s = await p.evaluate(() => {
+      const r = document.getElementById('toast').getBoundingClientRect();
+      return { l: Math.round(r.left), rt: Math.round(r.right), w: window.innerWidth };
+    });
+    t(s.l >= -1 && s.rt <= s.w + 1,
+      `${vp.n}: 書名が長くても手応えの帯が収まる（${s.l}〜${s.rt} / ${s.w}）`);
+    /* 一度空に戻してから先へ */
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    await p.click('#cart-open'); await p.waitForTimeout(500);
+    await p.$$eval('.cart__row [data-del]', es => es.forEach(e => e.click()));
+    await p.waitForTimeout(250);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+
     const sp = await p.$('.spine[data-book]');
     await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     const key = await sp.getAttribute('data-book');
@@ -385,6 +407,17 @@ async function pages(b) {
       };
     });
     t(s.open, `${vp.n}: カートが開く`);
+    /* 書名が長いと、ここが縦に折れたり端で切れたりしていた */
+    const del = await p.evaluate(() => {
+      const e = document.querySelector('.cart__del');
+      const r = e.getBoundingClientRect();
+      const rw = e.closest('.cart__row').getBoundingClientRect();
+      return { h: Math.round(r.height), w: Math.round(r.width),
+               over: Math.round(r.right - rw.right),
+               fs: parseFloat(getComputedStyle(e).fontSize) };
+    });
+    t(del.h <= del.fs * 2 && del.w >= del.fs * 3.5 && del.over <= 1,
+      `${vp.n}: 「取り消す」が1行で収まる（${del.w}×${del.h}px はみ出し${del.over}）`);
     t(s.rows === 1 && s.cover.includes(key), `${vp.n}: 入れた本が入っている（${s.name}）`);
     t(/^[\d,]+円$/.test(s.sub), `${vp.n}: 小計が出る（${s.sub}）`);
     t(s.empty && !s.go, `${vp.n}: 中身があれば購入手続きへ進める`);

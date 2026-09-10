@@ -962,15 +962,18 @@
 .cart__qty{
   display:flex; align-items:center; gap:10px; margin-top:.6em;
 }
-.cart__qty button{
+/* 冗数の−＋だけ。「取り消す」まで 26px になっていた */
+.cart__qty [data-q]{
   width:26px; height:26px;
   border:1px solid rgba(210,198,174,.3); border-radius:2px;
   background:none; color:var(--paper); cursor:pointer;
   font:inherit; font-size:14px; line-height:1;
 }
-.cart__qty button:hover,.cart__qty button:focus-visible{ background:rgba(210,198,174,.14); }
+.cart__qty [data-q]:hover,.cart__qty [data-q]:focus-visible{ background:rgba(210,198,174,.14); }
 .cart__qty span{ font-size:12.5px; min-width:1.4em; text-align:center; }
 .cart__del{
+  flex:0 0 auto;                 /* 書名が長いと、ここが1文字ずつ縦に折れていた */
+  white-space:nowrap;
   background:none; border:none; padding:0; margin-left:auto;
   color:var(--paper-dim); font:inherit; font-size:11.5px; cursor:pointer;
   border-bottom:1px solid rgba(210,198,174,.3);
@@ -1014,22 +1017,27 @@
 
 /* カートに入れたときの手応え */
 .toast{
-  position:fixed; left:50%; bottom:clamp(22px,6vh,48px);
-  transform:translateX(-50%) translateY(10px);
+  /* left:50% だと、取れる幅が画面の半分までになる。
+     左右を 0 で押さえて、中身の分だけ幅を取らせる */
+  position:fixed; left:0; right:0; bottom:clamp(22px,6vh,48px);
+  transform:translateY(10px);
   z-index:90;
-  margin:0; padding:.85em 1.5em;
-  border-radius:999px;
+  width:fit-content;
+  margin:0 auto; padding:.85em 1.5em;
+  border-radius:16px;
   background:rgba(24,18,12,.95);
   border:1px solid rgba(210,198,174,.3);
   color:var(--paper);
-  font-size:12.5px; letter-spacing:.08em;
-  white-space:nowrap;
+  font-size:12.5px; letter-spacing:.08em; line-height:1.75;
+  /* 書名の長い本で、帯が画面の外へはみ出していた */
+  max-width:min(92vw, 520px);
+  text-align:center;
   opacity:0;
   pointer-events:none;
   transition:opacity .26s var(--ease), transform .26s var(--ease);
 }
 .toast[hidden]{ display:none; }
-.toast.is-on{ opacity:1; transform:translateX(-50%); }
+.toast.is-on{ opacity:1; transform:none; }
 
 /* 上の帯のカート */
 .topbar__cart{
