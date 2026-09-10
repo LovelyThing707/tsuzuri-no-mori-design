@@ -122,3 +122,6 @@ h1,h2,h3{
     scroll-behavior:auto !important;
   }
 }
+
+/* 試し読みを開いているあいだ、後ろは動かさない */
+body.peek-open{ overflow:hidden; }

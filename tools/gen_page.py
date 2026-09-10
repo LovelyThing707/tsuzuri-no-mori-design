@@ -149,6 +149,33 @@ PAGE = """<!DOCTYPE html>
   </div>
 </div>
 
+<!-- 試し読み。見開きを左右にめくり、つまんで拡大できる -->
+<div class="peek" id="peek" hidden>
+  <div class="peek__stage" id="peek-stage">
+    <div class="peek__track" id="peek-track">
+      <figure class="peek__page">
+        <img src="assets/images/sample-spread-1.webp" alt="試し読み 1ページ目" draggable="false">
+      </figure>
+      <figure class="peek__page">
+        <img src="assets/images/sample-spread-2.webp" alt="試し読み 2ページ目" draggable="false">
+      </figure>
+    </div>
+  </div>
+  <div class="peek__bar">
+    <button class="peek__nav peek__nav--prev" type="button" aria-label="前の見開き">
+      <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
+    </button>
+    <p class="peek__count"><span id="peek-now">1</span> / <span id="peek-all">2</span></p>
+    <button class="peek__nav peek__nav--next" type="button" aria-label="次の見開き">
+      <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M2 2 L10 10 L2 18"/></svg>
+    </button>
+  </div>
+  <p class="peek__hint" id="peek-hint">指をひろげると拡大できます</p>
+  <button class="peek__close" type="button" data-peek-close aria-label="試し読みを閉じる">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
+  </button>
+</div>
+
 <script type="application/json" id="book-data">%(books)s</script>
 <script src="scripts/main.js"></script>
 </body>

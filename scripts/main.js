@@ -175,9 +175,187 @@
     });
   }
 
+
+  /* --- 試し読み ---------------------------------------------
+     見開きを左右にめくり、指でひろげて拡大する。
+     閉じると元の状態（引き抜きの画面）に戻る。
+
+     指の操作は自前で受ける。端末まかせの拡大だと、
+     画面全体が拡大されて棚まで動いてしまうため。 */
+  function peek() {
+    var root = document.getElementById('peek');
+    if (!root) return;
+
+    var stage = document.getElementById('peek-stage');
+    var track = document.getElementById('peek-track');
+    var pages = track.querySelectorAll('.peek__page');
+    var now = document.getElementById('peek-now');
+    var hint = document.getElementById('peek-hint');
+    var prev = root.querySelector('.peek__nav--prev');
+    var next = root.querySelector('.peek__nav--next');
+
+    var MAX = 4;            /* これ以上は粗が出るだけなので伸ばさない */
+    var page = 0;           /* いま見ている見開き */
+    var scale = 1, tx = 0, ty = 0;
+    var pointers = new Map();
+    var startDist = 0, startScale = 1, startMid = null;
+    var dragFrom = null, dragged = false;
+
+    function draw(animate) {
+      track.style.transition = animate ? 'transform .34s cubic-bezier(.22,.7,.24,1)' : 'none';
+      track.style.transform =
+        'translate3d(' + (-page * 100) + '%,0,0)';
+      var pg = pages[page];
+      pg.style.transition = animate ? 'transform .2s ease-out' : 'none';
+      pg.style.transform =
+        'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')';
+      stage.classList.toggle('is-zoomed', scale > 1.02);
+      now.textContent = page + 1;
+      prev.disabled = page === 0;
+      next.disabled = page === pages.length - 1;
+    }
+
+    /* 拡大したまま端が浮かないよう、寄せ幅を制限する */
+    function clamp() {
+      var r = stage.getBoundingClientRect();
+      var img = pages[page].querySelector('img');
+      var ir = img.getBoundingClientRect();
+      var w = (ir.width * scale - r.width) / 2;
+      var h = (ir.height * scale - r.height) / 2;
+      tx = Math.max(-Math.max(w, 0), Math.min(Math.max(w, 0), tx));
+      ty = Math.max(-Math.max(h, 0), Math.min(Math.max(h, 0), ty));
+    }
+
+    function reset() { scale = 1; tx = 0; ty = 0; }
+
+    function go(d) {
+      var n = page + d;
+      if (n < 0 || n >= pages.length) return;
+      pages[page].style.transform = '';
+      page = n; reset(); draw(true);
+    }
+
+    function mid() {
+      var a = Array.from(pointers.values());
+      return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 };
+    }
+    function dist() {
+      var a = Array.from(pointers.values());
+      return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+    }
+
+    stage.addEventListener('pointerdown', function (e) {
+      stage.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        startDist = dist(); startScale = scale; startMid = mid();
+      } else {
+        dragFrom = { x: e.clientX, y: e.clientY, tx: tx, ty: ty };
+        dragged = false;
+      }
+      if (hint) hint.classList.add('is-gone');
+    });
+
+    stage.addEventListener('pointermove', function (e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointers.size === 2) {           /* つまんで拡大 */
+        var k = dist() / (startDist || 1);
+        scale = Math.max(1, Math.min(MAX, startScale * k));
+        var m = mid();
+        tx += m.x - startMid.x; ty += m.y - startMid.y;
+        startMid = m;
+        clamp(); draw(false);
+        return;
+      }
+      if (!dragFrom) return;
+      var dx = e.clientX - dragFrom.x, dy = e.clientY - dragFrom.y;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragged = true;
+      if (scale > 1.02) {                  /* 拡大中は中を動かす */
+        tx = dragFrom.tx + dx; ty = dragFrom.ty + dy;
+        clamp(); draw(false);
+      } else {                             /* 等倍のときは指に付いてくる */
+        track.style.transition = 'none';
+        track.style.transform =
+          'translate3d(calc(' + (-page * 100) + '% + ' + dx + 'px),0,0)';
+      }
+    });
+
+    function release(e) {
+      if (!pointers.has(e.pointerId)) return;
+      var wasPinch = pointers.size === 2;
+      pointers.delete(e.pointerId);
+      if (wasPinch) { startDist = 0; return; }
+
+      if (dragFrom && scale <= 1.02) {
+        var dx = e.clientX - dragFrom.x;
+        var w = stage.getBoundingClientRect().width;
+        if (Math.abs(dx) > Math.min(90, w * 0.16)) go(dx < 0 ? 1 : -1);
+        else draw(true);
+      }
+      dragFrom = null;
+    }
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+
+    /* 二本指のない環境（パソコン）でも拡大できるように */
+    stage.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey && Math.abs(e.deltaY) < 2) return;
+      e.preventDefault();
+      scale = Math.max(1, Math.min(MAX, scale * (e.deltaY < 0 ? 1.12 : 0.89)));
+      if (scale <= 1.02) { tx = 0; ty = 0; }
+      clamp(); draw(false);
+      if (hint) hint.classList.add('is-gone');
+    }, { passive: false });
+
+    stage.addEventListener('dblclick', function () {
+      scale = scale > 1.02 ? 1 : 2.2;
+      if (scale === 1) { tx = 0; ty = 0; }
+      clamp(); draw(true);
+    });
+
+    prev.addEventListener('click', function () { go(-1); });
+    next.addEventListener('click', function () { go(1); });
+
+    function open() {
+      page = 0; reset();
+      root.hidden = false;
+      if (hint) hint.classList.remove('is-gone');
+      draw(false);
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      document.body.classList.add('peek-open');
+      root.querySelector('.peek__close').focus({ preventScroll: true });
+      window.setTimeout(function () { if (hint) hint.classList.add('is-gone'); }, 3200);
+    }
+    function close() {
+      root.classList.remove('is-open');
+      document.body.classList.remove('peek-open');
+      window.setTimeout(function () {
+        root.hidden = true;
+        pages[page].style.transform = '';
+        /* 閉じたら引き抜きの画面へ戻す。棚まで戻してしまわない */
+        var act = document.querySelector('.pull__act--read');
+        if (act) act.focus({ preventScroll: true });
+      }, reduced.matches ? 0 : 300);
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.pull__act--read')) { open(); return; }
+      if (e.target.closest('[data-peek-close]')) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (root.hidden) return;
+      if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'ArrowLeft') go(-1);
+    }, true);
+  }
+
   function boot() {
     fitShelves();       /* 動きの設定に関わらず必ず行う */
     pullOut();          /* 同上。動きではなく機能なので */
+    peek();
     start();
   }
 
