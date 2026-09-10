@@ -607,6 +607,76 @@
     draw();
   }
 
+  /* --- 上の帯のメニュー -------------------------------------
+     固定ページはフッターにもあるが、棚の続く画面では下まで遠い。
+     売り場の一覧は本文から拾うので、売り場が増えても直さずに済む。 */
+  function menu() {
+    var root = document.getElementById('menu');
+    if (!root) return;
+    var list = document.getElementById('menu-markets');
+
+    var html = '';
+    document.querySelectorAll('.market__sign').forEach(function (h, i) {
+      var id = h.id || ('theme-' + (i + 1));
+      h.id = id;
+      html += '<li><a href="#' + id + '" data-goto="' + id + '">' +
+              h.textContent + '</a></li>';
+    });
+    list.innerHTML = html;
+
+    function open() {
+      root.hidden = false;
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      document.body.classList.add('peek-open');
+      root.querySelector('.menu__close').focus({ preventScroll: true });
+    }
+    function close() {
+      root.classList.remove('is-open');
+      /* ここから固定ページを開いたときは、後ろの棚を止めたままにする */
+      if (!above(['peek', 'cart', 'doc', 'item'])) {
+        document.body.classList.remove('peek-open');
+      }
+      window.setTimeout(function () { root.hidden = true; },
+        reduced.matches ? 0 : 320);
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('#menu-open')) { open(); return; }
+      if (e.target.closest('[data-menu-close]')) { close(); return; }
+
+      var go = e.target.closest('[data-goto]');
+      if (go) {
+        e.preventDefault();
+        var t = document.getElementById(go.getAttribute('data-goto'));
+        var sec = t && t.closest('.market');
+        close();
+        if (sec) {
+          /* 売り場は見えるときに 18px 上へ動く。
+             先に現しておかないと、寄せた先がその分ずれる */
+          sec.classList.add('is-in');
+          window.setTimeout(function () {
+            sec.scrollIntoView({ behavior: reduced.matches ? 'auto' : 'smooth',
+                                 block: 'start' });
+          }, reduced.matches ? 0 : 260);
+        }
+        return;
+      }
+      /* 固定ページはメニューからも開く。重ねずに、こちらを閉じてから */
+      if (e.target.closest('#menu [data-doc]') && !root.hidden) close();
+
+      /* 探しやすさは、含めるかどうかをご検討いただいている段階 */
+      if (e.target.closest('.topbar__search')) {
+        toast('本をさがす機能は、ご検討中の項目です');
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !root.hidden &&
+          !above(['peek', 'cart', 'doc', 'item'])) {
+        e.stopPropagation(); close();
+      }
+    }, true);
+  }
+
   function boot() {
     fitShelves();       /* 動きの設定に関わらず必ず行う */
     pullOut();          /* 同上。動きではなく機能なので */
@@ -614,6 +684,7 @@
     item();
     docs();
     cart();
+    menu();
     start();
   }
 

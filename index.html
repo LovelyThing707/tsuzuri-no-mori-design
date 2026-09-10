@@ -18,7 +18,7 @@
 <div class="page">
 
 <header class="topbar">
-  <button type="button" class="topbar__menu" aria-label="メニューを開く">
+  <button type="button" class="topbar__menu" id="menu-open" aria-label="メニューを開く">
     <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M1 2h22M1 9h22M1 16h22"/></svg>
   </button>
   <p class="topbar__logo">綴りの森</p>
@@ -387,6 +387,31 @@
       <a class="pull__more" href="#">商品の詳細を見る</a>
     </div>
   </div>
+</div>
+
+<!-- 上の帯のメニュー -->
+<div class="menu" id="menu" hidden>
+  <div class="menu__scrim" data-menu-close></div>
+  <nav class="menu__panel" role="dialog" aria-modal="true" aria-labelledby="menu-h">
+    <header class="menu__head">
+      <h2 class="menu__h" id="menu-h">綴りの森</h2>
+      <button class="menu__close" type="button" data-menu-close aria-label="閉じる">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
+      </button>
+    </header>
+    <div class="menu__body">
+      <p class="menu__k">売り場</p>
+      <ul class="menu__list" id="menu-markets"></ul>
+      <p class="menu__k">ページ</p>
+      <ul class="menu__list">
+        <li><a href="#" data-doc="about">綴りの森について</a></li>
+        <li><a href="#" data-doc="blog">お知らせ</a></li>
+        <li><a href="#" data-doc="contact">お問い合わせ</a></li>
+        <li><a href="#" data-doc="tokusho">特定商取引法に基づく表記</a></li>
+        <li><a href="#" data-doc="privacy">プライバシーポリシー</a></li>
+      </ul>
+    </div>
+  </nav>
 </div>
 
 <!-- 固定ページ。要件定義書 2-7 のページ構成 -->

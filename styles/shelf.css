@@ -1060,3 +1060,79 @@
 @media (prefers-reduced-motion: reduce){
   .doc,.cart__scrim,.cart__panel,.toast{ transition:none; }
 }
+
+/* ============================================================
+   上の帯のメニュー
+   売り場と、固定ページへの案内。フッターまで下りずに行けるように
+   ============================================================ */
+/* 固定ページ（72）より下。メニューからページを開いたとき、
+   ページが上にかぶさるように */
+.menu{ position:fixed; inset:0; z-index:68; }
+/* メニューから寄せたとき、看板が上端に張り付かないように */
+.market{ scroll-margin-top:clamp(12px,3vh,28px); }
+.menu[hidden]{ display:none; }
+.menu__scrim{
+  position:absolute; inset:0;
+  background:rgba(10,8,6,.7);
+  opacity:0; transition:opacity .3s var(--ease);
+}
+.menu.is-open .menu__scrim{ opacity:1; }
+.menu__panel{
+  position:absolute; top:0; left:0; bottom:0;
+  width:min(100%,340px);
+  display:flex; flex-direction:column;
+  background:#1b1510;
+  background-image:
+    linear-gradient(180deg, rgba(16,12,8,.78), rgba(10,7,5,.88)),
+    url("../assets/images/wall-boards.webp");
+  background-size:auto, 500px 500px;
+  box-shadow:24px 0 40px -24px rgba(0,0,0,.95);
+  transform:translateX(-100%);
+  transition:transform .32s var(--ease);
+  color:var(--paper);
+}
+.menu.is-open .menu__panel{ transform:none; }
+
+.menu__head{
+  flex:0 0 auto;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:clamp(14px,3vh,20px) clamp(16px,5vw,24px);
+  padding-top:calc(clamp(14px,3vh,20px) + env(safe-area-inset-top));
+  border-bottom:1px solid rgba(210,198,174,.16);
+}
+.menu__h{ margin:0; font-size:15px; letter-spacing:.24em; text-indent:.24em; }
+.menu__close{
+  width:36px; height:36px; display:grid; place-items:center;
+  background:none; border:none; color:var(--paper-dim); cursor:pointer;
+}
+.menu__close svg{ width:15px; height:15px; }
+.menu__close path{ stroke:currentColor; stroke-width:1.5; fill:none; stroke-linecap:round; }
+.menu__close:hover,.menu__close:focus-visible{ color:var(--paper); }
+
+.menu__body{
+  flex:1 1 auto; min-height:0; overflow-y:auto;
+  padding:clamp(16px,4vh,26px) clamp(16px,5vw,24px)
+          calc(clamp(20px,5vh,32px) + env(safe-area-inset-bottom));
+}
+.menu__k{
+  margin:0 0 .9em;
+  font-size:11.5px; letter-spacing:.28em; text-indent:.28em;
+  color:var(--paper-dim);
+}
+.menu__list{ list-style:none; margin:0 0 2.2em; padding:0; }
+.menu__list:last-child{ margin-bottom:0; }
+.menu__list a{
+  display:block;
+  padding:.85em 0;
+  border-bottom:1px solid rgba(210,198,174,.14);
+  color:var(--paper); text-decoration:none;
+  font-size:13.5px; line-height:1.6; letter-spacing:.06em;
+}
+.menu__list a:hover,.menu__list a:focus-visible{
+  background:rgba(210,198,174,.09);
+  border-bottom-color:rgba(210,198,174,.4);
+}
+
+@media (prefers-reduced-motion: reduce){
+  .menu__scrim,.menu__panel{ transition:none; }
+}

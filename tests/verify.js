@@ -492,7 +492,92 @@ async function pages(b) {
   }
 }
 
-/* ---- 4. どの画面幅でも崩れないか --------------------------------- */
+/* ---- 4. 上の帯のメニュー ------------------------------------------
+   売り場と固定ページへの案内。棚の続く画面ではフッターまで遠い。 */
+async function nav(b) {
+  for (const vp of [{ n: 'phone', w: 390, h: 844 }, { n: 'desktop', w: 1440, h: 900 }]) {
+    const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, hasTouch: true });
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(URL, { waitUntil: 'networkidle' });
+
+    t(await p.evaluate(() => document.getElementById('menu').hidden),
+      `${vp.n}: メニューは最初は閉じている`);
+
+    await p.click('#menu-open'); await p.waitForTimeout(600);
+    let s = await p.evaluate(() => {
+      const r = document.getElementById('menu');
+      return {
+        open: !r.hidden && r.classList.contains('is-open'),
+        markets: [...document.querySelectorAll('#menu-markets a')].map(a => a.textContent),
+        signs: [...document.querySelectorAll('.market__sign')].map(h => h.textContent),
+        pages: document.querySelectorAll('#menu [data-doc]').length,
+        left: Math.round(document.querySelector('.menu__panel').getBoundingClientRect().left),
+        lock: document.body.classList.contains('peek-open'),
+      };
+    });
+    t(s.open, `${vp.n}: メニューが開く`);
+    t(s.markets.length === s.signs.length &&
+      s.markets.every((m, i) => m === s.signs[i]),
+      `${vp.n}: 売り場が本文どおり並ぶ（${s.markets.join('／')}）`);
+    t(s.pages === 5, `${vp.n}: 固定ページが5つ（${s.pages}）`);
+    t(s.left === 0 && s.lock, `${vp.n}: 左から出て、後ろの棚は動かない`);
+
+    /* メニューから固定ページへ。ページが上にかぶさり、棚は止めたまま */
+    await p.click('#menu [data-doc="tokusho"]'); await p.waitForTimeout(700);
+    s = await p.evaluate(() => {
+      const on = [...document.querySelectorAll('.doc__page')].filter(e => !e.hidden);
+      const z = e => +getComputedStyle(e).zIndex;
+      return {
+        doc: !document.getElementById('doc').hidden,
+        key: on.length === 1 ? on[0].getAttribute('data-page') : '',
+        menu: document.getElementById('menu').hidden,
+        lock: document.body.classList.contains('peek-open'),
+        over: z(document.getElementById('doc')) > z(document.getElementById('menu')),
+      };
+    });
+    t(s.doc && s.key === 'tokusho', `${vp.n}: メニューから固定ページへ行ける`);
+    t(s.over, `${vp.n}: 固定ページはメニューより上に出る`);
+    t(s.lock, `${vp.n}: 固定ページのあいだ、棚は動かない`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    t(await p.evaluate(() => !document.body.classList.contains('peek-open')),
+      `${vp.n}: 閉じたら棚が動くように戻る`);
+
+    /* 売り場へ寄せる。看板が画面に入っているか */
+    await p.click('#menu-open'); await p.waitForTimeout(600);
+    await p.click('#menu-markets li:nth-child(2) a'); await p.waitForTimeout(1400);
+    s = await p.evaluate(() => {
+      const signs = [...document.querySelectorAll('.market__sign')];
+      const r = signs[1].getBoundingClientRect();
+      return { menu: document.getElementById('menu').hidden,
+               lock: document.body.classList.contains('peek-open'),
+               top: Math.round(r.top), h: window.innerHeight };
+    });
+    t(s.menu && !s.lock, `${vp.n}: 売り場を選ぶとメニューは閉じる`);
+    t(s.top >= 0 && s.top < s.h * 0.4,
+      `${vp.n}: 選んだ売り場の看板が画面に入る（上から${s.top}px）`);
+
+    /* 覆いを押して閉じる。左から出るので、押すのは右の端 */
+    await p.click('#menu-open'); await p.waitForTimeout(600);
+    await p.mouse.click(vp.w - 8, 8); await p.waitForTimeout(600);
+    t(await p.evaluate(() => document.getElementById('menu').hidden),
+      `${vp.n}: 覆いの端でメニューが閉じる`);
+
+    /* 探しやすさは、含めるかどうかをご検討いただいている段階 */
+    await p.click('.topbar__search'); await p.waitForTimeout(400);
+    s = await p.evaluate(() => {
+      const e = document.getElementById('toast');
+      return { on: !e.hidden && e.classList.contains('is-on'), msg: e.textContent };
+    });
+    t(s.on && s.msg.length > 0, `${vp.n}: さがすを押すと今の扱いが出る（${s.msg}）`);
+
+    t(errs.length === 0,
+      `${vp.n}: メニューでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await p.close();
+  }
+}
+
+/* ---- 5. どの画面幅でも崩れないか --------------------------------- */
 async function widths(b) {
   const p = await b.newPage({ reducedMotion: 'reduce' });
   const ws = [];
@@ -536,6 +621,7 @@ async function widths(b) {
   await shelf(b);
   await screens(b);
   await pages(b);
+  await nav(b);
   await widths(b);
   await b.close();
   fail.forEach(l => console.log('  FAIL  ' + l));
