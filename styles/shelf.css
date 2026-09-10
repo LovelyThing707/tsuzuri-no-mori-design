@@ -492,6 +492,9 @@
    左右スワイプで閲覧。ピンチ操作での拡大に対応。閉じると元の状態に戻る」
    ============================================================ */
 .peek{
+  /* 下の帯の高さ。見開きの上限をここから引いて決める */
+  --peek-bar:76px;
+  --peek-pad:clamp(8px,2vw,28px);
   position:fixed; inset:0; z-index:80;
   display:flex; flex-direction:column;
   background:#0b0908;
@@ -504,6 +507,7 @@
 /* 見開きを並べる場。拡大はこの中で行う */
 .peek__stage{
   flex:1 1 auto;
+  min-height:0;          /* 縦並びの中で縮めるように。これが無いと場が伸びる */
   overflow:hidden;
   /* 指の操作はすべてこちらで受ける。既定の拡大縮小に任せない */
   touch-action:none;
@@ -515,21 +519,33 @@
 .peek__track{
   display:flex;
   height:100%;
+  min-height:0;
   will-change:transform;
 }
 .peek__page{
   flex:0 0 100%;
   height:100%;
+  min-width:0; min-height:0;
   margin:0;
   display:grid; place-items:center;
-  padding:clamp(8px,2vw,28px);
+  padding:var(--peek-pad);
 }
+/* 上限は画面の高さから直に引く。
+   祖先の高さは、縦並び→横並び→中央寄せと渡るうちに
+   百分率が解決されなくなり、幅と縦横比から高さが決まって
+   横長の画面で下にはみ出していた。inset も、置換要素では
+   縦横比が優先されるため効かない。画面基準なら必ず定まる。
+   影は描画された絵に沿わせたいので drop-shadow を使う。 */
 .peek__page img{
-  max-width:100%; max-height:100%;
+  max-width:100%;
+  max-height:calc(100dvh - var(--peek-bar) - var(--peek-pad) * 2);
   width:auto; height:auto;
   object-fit:contain;
   user-select:none; -webkit-user-drag:none;
-  box-shadow:0 20px 40px -20px rgba(0,0,0,.9);
+  filter:drop-shadow(0 16px 26px rgba(0,0,0,.7));
+}
+@supports not (height:100dvh){
+  .peek__page img{ max-height:calc(100vh - var(--peek-bar) - var(--peek-pad) * 2); }
 }
 
 /* --- 下の帯 -------------------------------------------------- */
@@ -537,8 +553,9 @@
   flex:0 0 auto;
   display:flex; align-items:center; justify-content:center;
   gap:clamp(16px,6vw,40px);
-  padding:clamp(10px,2.4vh,20px) 16px;
-  padding-bottom:calc(clamp(10px,2.4vh,20px) + env(safe-area-inset-bottom));
+  height:var(--peek-bar);
+  padding:0 16px;
+  padding-bottom:env(safe-area-inset-bottom);
   background:rgba(0,0,0,.55);
 }
 .peek__nav{
@@ -565,7 +582,7 @@
 }
 
 .peek__hint{
-  position:absolute; left:50%; bottom:clamp(74px,13vh,108px);
+  position:absolute; left:50%; bottom:calc(var(--peek-bar) + 10px);
   transform:translateX(-50%);
   margin:0; padding:.5em 1.1em;
   border-radius:999px;

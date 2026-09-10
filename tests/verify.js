@@ -24,6 +24,13 @@ const VIEWS = [
   { n: 'tablet', w: 834, h: 1112 },
   { n: 'desktop', w: 1440, h: 900 },
 ];
+/* 引き抜き・試し読みを見る画面。横長で縦の短いものを必ず含める
+   （見開きが下にはみ出したのはこの形だった） */
+const SCREEN_VIEWS = [
+  { n: 'phone', w: 390, h: 844 },
+  { n: 'laptop', w: 1906, h: 874 },
+  { n: 'desktop', w: 1440, h: 900 },
+];
 
 const ok = [], fail = [];
 const t = (c, l) => (c ? ok : fail).push(l);
@@ -122,7 +129,7 @@ async function shelf(b) {
 
 /* ---- 2. 引き抜きと試し読み --------------------------------------- */
 async function screens(b) {
-  for (const vp of [VIEWS[0], VIEWS[2]]) {
+  for (const vp of SCREEN_VIEWS) {
     const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, hasTouch: true });
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
@@ -165,12 +172,20 @@ async function screens(b) {
         prevOff: r.querySelector('.peek__nav--prev').disabled,
         imgW: document.querySelector('.peek__page img').naturalWidth,
         locked: document.body.classList.contains('peek-open'),
+        /* 横長の画面で下にはみ出していたことがある。場に収まっているか */
+        fits: true,
+        over: (function () {
+          var st = document.getElementById('peek-stage').getBoundingClientRect();
+          var im = document.querySelector('.peek__page img').getBoundingClientRect();
+          return Math.round(im.bottom - st.bottom);
+        })(),
       };
     });
     t(s.open, `${vp.n}: 試し読みが開く`);
     t(s.now === '1' && s.all === '2', `${vp.n}: 1 / 2 と出る`);
     t(s.prevOff, `${vp.n}: 最初は「前へ」が使えない`);
     t(s.imgW === 2400, `${vp.n}: 見開きが長辺2400px (${s.imgW})`);
+    t(s.over <= 0, `${vp.n}: 見開きが場に収まっている (余白 ${-s.over}px)`);
     t(s.locked, `${vp.n}: 試し読み中は後ろが動かない`);
 
     await p.click('.peek__nav--next'); await p.waitForTimeout(600);
