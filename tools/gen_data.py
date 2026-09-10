@@ -8,15 +8,29 @@ IMG = 'assets/images/'
 #   厚み  … 実測値（mm）
 #   幅    … 判型の幅
 # 「同じ本を複数置く形で構わない」とのことなので、この4冊を繰り返します。
+# 書名・著者・出版社は書影から読み取ったもの。
+# 価格と紹介文は仮です（定価が確定するまでの置き）。
 REAL = [
  dict(key='suika',  h=297, t=11, w=210, c='#A9CDDC', e='#F1EBDE',
-      sp='spine-suika-no-pool.webp',         cv='cover-suika-no-pool.webp'),
+      sp='spine-suika-no-pool.webp',         cv='cover-suika-no-pool.webp',
+      title='すいかのプール', author='アンニョン・タル 作／斎藤 真理子 訳',
+      pub='岩波書店', kata='A4判', pages=58, price=1760,
+      lead='見わたすかぎりの、すいかのプール。夏のいちにちを、たっぷりの赤と水音で描いた絵本です。'),
  dict(key='monte',  h=148, t=19, w=105, c='#A9CDDB', e='#E7DCC4',
-      sp='spine-monteleggio.webp',           cv='cover-monteleggio.webp'),
+      sp='spine-monteleggio.webp',           cv='cover-monteleggio.webp',
+      title='モンテレッジオ 小さな村の旅する本屋の物語', author='内田 洋子',
+      pub='方丈社', kata='文庫判', pages=336, price=990,
+      lead='イタリアの山あいの村から、本を担いで旅に出た人たちがいた。本を届けるという仕事の来歴をたどる一冊。'),
  dict(key='kagaku', h=210, t=25, w=148, c='#F0EEE9', e='#F4F1E9',
-      sp='spine-kagaku-no-ohanashi-25.webp', cv='cover-kagaku-no-ohanashi-25.webp'),
+      sp='spine-kagaku-no-ohanashi-25.webp', cv='cover-kagaku-no-ohanashi-25.webp',
+      title='よみとく10分 かがくのお話25', author='国立科学博物館 監修',
+      pub='西東社', kata='A5判', pages=264, price=1650,
+      lead='身のまわりの「なぜ」を、ひとつ10分で読みきれる長さにまとめました。ひとりでも、いっしょでも。'),
  dict(key='aya',    h=210, t=16, w=148, c='#6F2027', e='#ECE3D2',
-      sp='spine-aya-to-majo.webp',           cv='cover-aya-to-majo.webp'),
+      sp='spine-aya-to-majo.webp',           cv='cover-aya-to-majo.webp',
+      title='アーヤと魔女', author='ダイアナ・ウィン・ジョーンズ 作／田中 薫子 訳',
+      pub='徳間書店', kata='A5判', pages=128, price=1540,
+      lead='魔女の家に引き取られたアーヤは、すこしも動じない。したたかで愉快な女の子の物語。'),
 ]
 
 # 4冊を順番どおりに繰り返すと、同じ並びが規則的に現れて
@@ -67,9 +81,10 @@ def flat_books(n, seed=0):
 def spine_li(b):
     st = '--h:%d;--t:%d;--c:%s;--e:%s;--lean:%.1fdeg' % (
         b['h'], b['t'], b['c'], b['e'], b['lean'])
-    return ('        <li class="spine" style="%s">'
+    return ('        <li class="spine" style="%s" data-book="%s" '
+            'tabindex="0" role="button" aria-label="%s">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'
-            % (st, IMG, b['sp']))
+            % (st, b['key'], b['title'], IMG, b['sp']))
 
 
 def flat_li(b):
@@ -77,12 +92,13 @@ def flat_li(b):
     st = '--h:%d;--w:%d;--t:%d;--c:%s;--rot:%.1fdeg' % (
         b['h'], b['w'], b['t'], b['c'], b['rot'])
     # 寝かせた本は箱。表紙のほかに、背（左）・小口（右）・地（手前）の面がある。
-    return ('        <li class="flat" style="%s">'
+    return ('        <li class="flat" style="%s" data-book="%s" '
+            'tabindex="0" role="button" aria-label="%s">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async">'
             '<span class="flat__spine">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async"></span>'
             '<span class="flat__fore"></span></li>'
-            % (st, IMG, b['cv'], IMG, b['sp']))
+            % (st, b['key'], b['title'], IMG, b['cv'], IMG, b['sp']))
 
 
 def tier(books):
@@ -100,3 +116,16 @@ TIER_A2 = row_books(64, seed=23)
 TIER_B1 = row_books(64, seed=37)
 LYING_A = flat_books(14, seed=53)
 LYING_B = flat_books(14, seed=71)
+
+
+def book_json():
+    """引き抜きの画面で使う書誌情報。1冊ずつ探し直さずに済むよう、まとめて置く。"""
+    import json
+    out = {}
+    for b in REAL:
+        out[b['key']] = dict(
+            title=b['title'], author=b['author'], pub=b['pub'],
+            kata=b['kata'], pages=b['pages'], price=b['price'],
+            lead=b['lead'], cover=IMG + b['cv'], spine=IMG + b['sp'],
+            h=b['h'], w=b['w'], t=b['t'])
+    return json.dumps(out, ensure_ascii=False, separators=(',', ':'))

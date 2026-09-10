@@ -84,8 +84,100 @@
     reveal();
   }
 
+  /* --- 引き抜き ---------------------------------------------
+     棚の本をタップすると、その本が棚から抜けて手前に出る。
+     背表紙の位置から表紙の位置へ飛ばし、一続きの動きに見せる。 */
+  function pullOut() {
+    var root = document.getElementById('pull');
+    var raw = document.getElementById('book-data');
+    if (!root || !raw) return;
+
+    var BOOKS = JSON.parse(raw.textContent);
+    var panel = root.querySelector('.pull__panel');
+    var cover = root.querySelector('.pull__cover');
+    var last = null;      /* どの本から抜いたか。閉じるときに戻す */
+
+    function fill(b) {
+      cover.src = b.cover;
+      cover.alt = b.title + ' の表紙';
+      root.querySelector('.pull__title').textContent = b.title;
+      root.querySelector('.pull__author').textContent = b.author;
+      root.querySelector('.pull__lead').textContent = b.lead;
+      root.querySelector('.pull__pub').textContent = b.pub;
+      root.querySelector('.pull__form').textContent = b.kata + '／' + b.pages + 'ページ';
+      root.querySelector('.pull__price').innerHTML =
+        b.price.toLocaleString('ja-JP') + '円<span>税込</span>';
+    }
+
+    /* 棚の本から、表紙の位置へ飛ぶ影武者を作る */
+    function fly(from, toRect, img, done) {
+      var r = from.getBoundingClientRect();
+      var el = document.createElement('div');
+      el.className = 'pull-fly';
+      el.style.left = r.left + 'px';
+      el.style.top = r.top + 'px';
+      el.style.width = r.width + 'px';
+      el.style.height = r.height + 'px';
+      el.style.backgroundImage = 'url("' + img + '")';
+      document.body.appendChild(el);
+      var dx = (toRect.left + toRect.width / 2) - (r.left + r.width / 2);
+      var dy = (toRect.top + toRect.height / 2) - (r.top + r.height / 2);
+      el.animate([
+        { transform: 'translate(0,0) scale(1,1)', opacity: 1 },
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' +
+            (toRect.width / r.width) + ',' + (toRect.height / r.height) + ')', opacity: 1 }
+      ], { duration: 420, easing: 'cubic-bezier(.22,.7,.24,1)' })
+        .addEventListener('finish', function () {
+          el.remove();
+          done();
+        });
+    }
+
+    function open(el) {
+      var key = el.getAttribute('data-book');
+      var b = BOOKS[key];
+      if (!b) return;
+      last = el;
+      fill(b);
+
+      root.hidden = false;
+      /* 表紙の行き先を先に測る */
+      var to = cover.getBoundingClientRect();
+      if (!to.width) { root.classList.add('is-open'); return; }
+
+      if (reduced.matches) { root.classList.add('is-open'); return; }
+      root.classList.remove('is-open');
+      /* 棚の本は抜けたので、その場からは消しておく */
+      el.style.visibility = 'hidden';
+      fly(el, to, b.spine, function () { root.classList.add('is-open'); });
+    }
+
+    function close() {
+      root.classList.remove('is-open');
+      var back = last;
+      window.setTimeout(function () {
+        root.hidden = true;
+        if (back) { back.style.visibility = ''; back.focus({ preventScroll: true }); }
+        last = null;
+      }, reduced.matches ? 0 : 320);
+    }
+
+    document.addEventListener('click', function (e) {
+      var hit = e.target.closest('.spine[data-book], .flat[data-book]');
+      if (hit) { open(hit); return; }
+      if (e.target.closest('[data-close]')) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !root.hidden) { close(); return; }
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var hit = e.target.closest && e.target.closest('.spine[data-book], .flat[data-book]');
+      if (hit) { e.preventDefault(); open(hit); }
+    });
+  }
+
   function boot() {
     fitShelves();       /* 動きの設定に関わらず必ず行う */
+    pullOut();          /* 同上。動きではなく機能なので */
     start();
   }
 

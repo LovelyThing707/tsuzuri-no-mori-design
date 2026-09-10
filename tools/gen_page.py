@@ -120,12 +120,43 @@ PAGE = """<!DOCTYPE html>
 </div>
 
 </div>
+
+<!-- 引き抜き。棚の本をタップすると、その本が手前に出て表紙を見せる -->
+<div class="pull" id="pull" hidden>
+  <div class="pull__scrim" data-close></div>
+  <div class="pull__panel" role="dialog" aria-modal="true" aria-labelledby="pull-title">
+    <button class="pull__close" type="button" data-close aria-label="閉じる">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
+    </button>
+    <div class="pull__book">
+      <img class="pull__cover" src="" alt="">
+    </div>
+    <div class="pull__meta">
+      <h3 class="pull__title" id="pull-title"></h3>
+      <p class="pull__author"></p>
+      <p class="pull__lead"></p>
+      <dl class="pull__spec">
+        <div><dt>出版社</dt><dd class="pull__pub"></dd></div>
+        <div><dt>判型・ページ数</dt><dd class="pull__form"></dd></div>
+      </dl>
+      <p class="pull__price"></p>
+      <div class="pull__acts">
+        <button class="pull__act pull__act--read" type="button">試し読み</button>
+        <button class="pull__act pull__act--buy" type="button">カートに入れる</button>
+      </div>
+      <a class="pull__more" href="#">商品の詳細を見る</a>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="book-data">%(books)s</script>
 <script src="scripts/main.js"></script>
 </body>
 </html>
 """
 
 html = PAGE % dict(
+    books   = D.book_json(),
     market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
                      '背表紙の棚が2段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,
