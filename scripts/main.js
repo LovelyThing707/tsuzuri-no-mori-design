@@ -14,19 +14,27 @@
     var scene = document.querySelector('.hero__scene img');
     if (!hero || !scene) return;
 
-    var ticking = false;
+    /* 森は遠くにある大きな景色なので、指の動きにそのまま付いてこない。
+       目標の位置へ少しずつ寄せることで、重さと奥行きが出る。 */
+    var want = 0, at = 0, running = false;
+    function frame() {
+      at += (want - at) * 0.14;
+      if (Math.abs(want - at) < 0.05) at = want;
+      scene.style.transform = 'translate3d(0,' + at.toFixed(2) + 'px,0) scale(1.06)';
+      if (at !== want) window.requestAnimationFrame(frame);
+      else running = false;
+    }
     function apply() {
       var y = window.pageYOffset;
-      if (y > hero.offsetHeight) { ticking = false; return; }
-      scene.style.transform = 'translate3d(0,' + (y * 0.16).toFixed(1) + 'px,0) scale(1.06)';
-      ticking = false;
+      if (y > hero.offsetHeight) return;
+      want = y * 0.16;
+      if (running) return;
+      running = true;
+      window.requestAnimationFrame(frame);
     }
-    window.addEventListener('scroll', function () {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(apply);
-    }, { passive: true });
-    apply();
+    window.addEventListener('scroll', apply, { passive: true });
+    at = want = window.pageYOffset * 0.16;
+    scene.style.transform = 'translate3d(0,' + at.toFixed(2) + 'px,0) scale(1.06)';
   }
 
   /* --- 売り場が視界に入ったら静かに現れる ------------------- */
@@ -132,11 +140,15 @@
       document.body.appendChild(el);
       var dx = (toRect.left + toRect.width / 2) - (r.left + r.width / 2);
       var dy = (toRect.top + toRect.height / 2) - (r.top + r.height / 2);
+      var end = 'translate(' + dx + 'px,' + dy + 'px) scale(' +
+            (toRect.width / r.width) + ',' + (toRect.height / r.height) + ')';
+      /* 棚の本は手で引き出される。弾き出されないよう、静止から動き出す。
+         最後は表紙へ溶かす。差し替えが一瞬だと、そこで動きが切れて見える。 */
       el.animate([
-        { transform: 'translate(0,0) scale(1,1)', opacity: 1 },
-        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' +
-            (toRect.width / r.width) + ',' + (toRect.height / r.height) + ')', opacity: 1 }
-      ], { duration: 420, easing: 'cubic-bezier(.22,.7,.24,1)' })
+        { transform: 'translate(0,0) scale(1,1)', opacity: 1, offset: 0 },
+        { transform: end, opacity: 1, offset: 0.82 },
+        { transform: end, opacity: 0, offset: 1 }
+      ], { duration: 560, easing: 'cubic-bezier(.30,.06,.18,1)' })
         .addEventListener('finish', function () {
           el.remove();
           done();
@@ -159,7 +171,10 @@
       root.classList.remove('is-open');
       /* 棚の本は抜けたので、その場からは消しておく */
       el.style.visibility = 'hidden';
-      fly(el, to, b.spine, function () { root.classList.add('is-open'); });
+      fly(el, to, b.spine, function () {});
+      /* 幕と札は、本が動いているあいだに立ち上げる。
+         本が着いてから出すと、二つの動きが順番待ちに見える。 */
+      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
     }
 
     function close() {
@@ -210,15 +225,24 @@
     var pointers = new Map();
     var startDist = 0, startScale = 1, startMid = null;
     var dragFrom = null, dragged = false;
+    var wheelStop = 0;      /* ホイールと二度叩きの、動きの終わりを待つ */
 
-    function draw(animate) {
-      track.style.transition = animate ? 'transform .34s cubic-bezier(.22,.7,.24,1)' : 'none';
+    /* 指が触れている間は、見開きを別の層に預けたまま動かす。
+       指にはよく付いてくるが、層に預けた絵は一度描いたものを
+       引き伸ばして貼るため、拡大するほど文字がにじむ。
+       手が離れたら層から降ろし、いまの倍率で描き直させる。
+       読んでいる間はこちらの見え方になる。 */
+    function draw(animate, live) {
+      /* 見開きは画面いっぱいの大きな面なので、押しても急には動かない */
+      track.style.transition = animate ? 'transform .46s var(--ease-carry)' : 'none';
       track.style.transform =
         'translate3d(' + (-page * 100) + '%,0,0)';
       var pg = pages[page];
-      pg.style.transition = animate ? 'transform .2s ease-out' : 'none';
+      pg.style.transition = animate ? 'transform .28s var(--ease-rise)' : 'none';
       pg.style.transform =
-        'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')';
+        (live ? 'translate3d(' + tx + 'px,' + ty + 'px,0)'
+              : 'translate(' + tx + 'px,' + ty + 'px)') +
+        ' scale(' + scale + ')';
       stage.classList.toggle('is-zoomed', scale > 1.02);
       now.textContent = page + 1;
       prev.disabled = page === 0;
@@ -276,7 +300,7 @@
         var m = mid();
         tx += m.x - startMid.x; ty += m.y - startMid.y;
         startMid = m;
-        clamp(); draw(false);
+        clamp(); draw(false, true);
         return;
       }
       if (!dragFrom) return;
@@ -284,7 +308,7 @@
       if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragged = true;
       if (scale > 1.02) {                  /* 拡大中は中を動かす */
         tx = dragFrom.tx + dx; ty = dragFrom.ty + dy;
-        clamp(); draw(false);
+        clamp(); draw(false, true);
       } else {                             /* 等倍のときは指に付いてくる */
         track.style.transition = 'none';
         track.style.transform =
@@ -296,7 +320,7 @@
       if (!pointers.has(e.pointerId)) return;
       var wasPinch = pointers.size === 2;
       pointers.delete(e.pointerId);
-      if (wasPinch) { startDist = 0; return; }
+      if (wasPinch) { startDist = 0; if (pointers.size === 0) draw(false); return; }
 
       if (dragFrom && scale <= 1.02) {
         var dx = e.clientX - dragFrom.x;
@@ -305,6 +329,7 @@
         else draw(true);
       }
       dragFrom = null;
+      if (pointers.size === 0 && scale > 1.02) draw(false);
     }
     stage.addEventListener('pointerup', release);
     stage.addEventListener('pointercancel', release);
@@ -315,14 +340,18 @@
       e.preventDefault();
       scale = Math.max(1, Math.min(MAX, scale * (e.deltaY < 0 ? 1.12 : 0.89)));
       if (scale <= 1.02) { tx = 0; ty = 0; }
-      clamp(); draw(false);
+      clamp(); draw(false, true);
+      window.clearTimeout(wheelStop);
+      wheelStop = window.setTimeout(function () { draw(false); }, 180);
       if (hint) hint.classList.add('is-gone');
     }, { passive: false });
 
     stage.addEventListener('dblclick', function () {
       scale = scale > 1.02 ? 1 : 2.2;
       if (scale === 1) { tx = 0; ty = 0; }
-      clamp(); draw(true);
+      clamp(); draw(true, true);
+      window.clearTimeout(wheelStop);
+      wheelStop = window.setTimeout(function () { draw(false); }, 260);
     });
 
     prev.addEventListener('click', function () { go(-1); });
@@ -364,7 +393,7 @@
 
   /* --- 商品詳細 ---------------------------------------------
      Shopify では商品ごとに自動で作られる画面。
-     引き抜きの「商品の詳細を見る」から入り、閉じると棚に戻る。 */
+     引き抜きの「商品の詳細を見る」から入り、閉じると表紙に戻る。 */
   function item() {
     var root = document.getElementById('item');
     var raw = document.getElementById('book-data');
@@ -406,8 +435,14 @@
     function close() {
       root.classList.remove('is-open');
       document.body.classList.remove('peek-open');
-      window.setTimeout(function () { root.hidden = true; },
-        reduced.matches ? 0 : 300);
+      /* 本文の終わりからも閉じられるので、焦点は入口だった
+         「商品の詳細を見る」に返す。閉じたあと宙に浮かせない */
+      var more = document.querySelector('.pull__more');
+      var pull = document.getElementById('pull');
+      window.setTimeout(function () {
+        root.hidden = true;
+        if (more && pull && !pull.hidden) more.focus({ preventScroll: true });
+      }, reduced.matches ? 0 : 300);
     }
 
     document.addEventListener('click', function (e) {
@@ -653,11 +688,11 @@
         if (sec) {
           /* 売り場は見えるときに 18px 上へ動く。
              先に現しておかないと、寄せた先がその分ずれる */
+          /* 引き出しが引き込むのを待たない。戸が閉まりながら景色が動くほうが、
+             ひと続きの動作に見える。位置は変形を含めない値で取るので、
+             売り場が現れる途中でも寄せた先はずれない。 */
           sec.classList.add('is-in');
-          window.setTimeout(function () {
-            sec.scrollIntoView({ behavior: reduced.matches ? 'auto' : 'smooth',
-                                 block: 'start' });
-          }, reduced.matches ? 0 : 260);
+          glide(sec);
         }
         return;
       }
@@ -677,8 +712,125 @@
     }, true);
   }
 
+  /* --- 画面の送り -------------------------------------------
+     節の頭へ一瞬で飛ぶと、読み手は自分がどこへ来たのか分からない。
+     距離に応じた時間をかけ、止まった状態から動き出して、
+     止まった状態へ戻す。動きを減らす設定では、これまでどおり即座に移る。 */
+
+  /* 位置は変形を含めない値で取る。現れる途中の売り場は
+     18px ぶん下に置かれているので、見た目の位置で測ると
+     現れ終わったあとに寄せた先がずれる。 */
+  function layoutTop(el) {
+    var y = 0;
+    while (el) { y += el.offsetTop; el = el.offsetParent; }
+    return y;
+  }
+
+  /* いま走っている送りの番号。新しい送りが始まったら古いほうは降りる */
+  var gliding = 0;
+
+  function glide(target) {
+    var root = document.documentElement;
+    /* 上に空ける量。帯の高さは html の scroll-padding-top が持ち、
+       個別に譲りたい要素があれば scroll-margin-top で上書きできる */
+    var gap = Math.max(
+      parseFloat(window.getComputedStyle(root).scrollPaddingTop) || 0,
+      parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0);
+    var max = Math.max(0, root.scrollHeight - window.innerHeight);
+    var from = window.pageYOffset;
+    var to = Math.max(0, Math.min(max, layoutTop(target) - gap));
+    var dist = to - from;
+    /* 毎コマこちらが動かすあいだ、様式側の滑らかな送りが入ると二重になる。
+       動かしているあいだだけ外し、終わったら戻す */
+    root.style.scrollBehavior = 'auto';
+    if (reduced.matches || Math.abs(dist) < 2) {
+      window.scrollTo(0, to);
+      root.style.scrollBehavior = '';
+      return;
+    }
+    /* 遠いほど長く。ただし待たされないところで頭を打つ */
+    var ms = Math.min(1100, 400 + Math.abs(dist) * 0.3);
+    var id = ++gliding;
+    /* 送っているあいだに読み手が指や輪を動かしたら、そちらを優先する。
+       途中で引き戻されるのは、動かないより気持ちが悪い */
+    function give() { if (id === gliding) { gliding++; root.style.scrollBehavior = ''; } }
+    window.addEventListener('wheel', give, { passive: true, once: true });
+    window.addEventListener('touchstart', give, { passive: true, once: true });
+    var t0 = 0;
+    (function step(now) {
+      if (id !== gliding) return;
+      if (!t0) t0 = now;
+      var k = Math.min(1, (now - t0) / ms);
+      /* 両端で速さが０、途中がいちばん速い。歩き出して立ち止まる調子 */
+      var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      window.scrollTo(0, from + dist * e);
+      if (k < 1) window.requestAnimationFrame(step);
+      else { gliding++; root.style.scrollBehavior = ''; }
+    })(0);
+  }
+
+  /* 節の頭への案内は、すべてここを通す。
+     行き先を持たない href="#" は対象にしない（先頭へ飛んでしまうため）。 */
+  function anchors() {
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest('a[href^="#"]');
+      if (!a || a.hasAttribute('data-goto') || a.hasAttribute('data-doc')) return;
+      var id = a.getAttribute('href').slice(1);
+      if (!id) return;
+      var t = document.getElementById(id);
+      if (!t) return;
+      e.preventDefault();
+      /* 住所欄は行き先に合わせておく。履歴は増やさない */
+      if (window.history.replaceState) window.history.replaceState(null, '', '#' + id);
+      glide(t);
+    });
+  }
+
+  /* --- 上の帯 -----------------------------------------------
+     帯は固定してあるので、森を抜けた先では木の壁や棚の上に重なる。
+     明るい面に文字が乗ると読めないため、そこから地を敷く。
+     読めるかどうかの話なので、動きを減らす設定でも動かす。 */
+  function topbar() {
+    var bar = document.querySelector('.topbar');
+    var hero = document.querySelector('.hero');
+    if (!bar || !hero) return;
+
+    var h = 0;
+    /* 寄せ先を帯の下から始めるため、実寸を CSS へ渡す。
+       切り欠きのある端末は余白が増えるので、決め打ちにできない */
+    function measure() {
+      h = bar.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--bar', h.toFixed(1) + 'px');
+      /* 縦棒の幅。覆いを開いたときに帯だけ広がるのを止める用。
+         止めているあいだは縦棒が無いので、測り直さない */
+      if (!document.body.classList.contains('peek-open')) {
+        document.documentElement.style.setProperty('--gutter',
+          (window.innerWidth - document.documentElement.clientWidth) + 'px');
+      }
+    }
+
+    var ticking = false;
+    function apply() {
+      /* 森が帯の下から抜けたら、地を敷く */
+      bar.classList.toggle('is-lit', hero.getBoundingClientRect().bottom <= h);
+      ticking = false;
+    }
+    function ask() {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(apply);
+    }
+
+    measure();
+    apply();
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', function () { measure(); ask(); }, { passive: true });
+  }
+
   function boot() {
+    anchors();          /* 動きの設定に関わらず必ず通す。設定次第で即座に移る */
     fitShelves();       /* 動きの設定に関わらず必ず行う */
+    topbar();           /* 同上。読めるかどうかの話なので */
     pullOut();          /* 同上。動きではなく機能なので */
     peek();
     item();

@@ -55,6 +55,23 @@
   --frame:       clamp(13px,3.6vw,22px);  /* 什器の枠。柱と天板の見付け */
   --ease:        cubic-bezier(.22,.68,.24,1);
 
+  /* --- 動きの調子 -----------------------------------------------
+     ひとつの曲線ですべてを動かすと、どれも同じ勢いで始まって
+     同じように止まる。速さの差が出ないので、画面が仕掛けに見える。
+     現れる・運ぶ・退く・息をする、の四つに分ける。 */
+  --ease-rise:   cubic-bezier(.22,.42,.18,1);    /* 現れる。出はじめの勢いを抑える */
+  --ease-carry:  cubic-bezier(.30,.06,.18,1);    /* 運ぶ。止まった物が動き出す重さ */
+  --ease-leave:  cubic-bezier(.55,.06,.86,.30);  /* 退く。手前で速さを増して消える */
+  --ease-breath: cubic-bezier(.42,0,.58,1);      /* 息をする往復。両端で止まる */
+
+  /* --- 動きの長さ -----------------------------------------------
+     大きいものほど長く、小さいものほど短く。
+     現れるより退くほうを短くすると、操作が滞らない。 */
+  --t-touch:     .2s;    /* 触れたところの色 */
+  --t-leave:     .26s;   /* 画面が退く */
+  --t-enter:     .44s;   /* 画面が現れる */
+  --t-drawer:    .46s;   /* 引き出し。面が大きいぶん長い */
+
   --measure:     30em;
 
   /* --- 紙と布の斑 -----------------------------------------------
@@ -119,6 +136,9 @@ h1,h2,h3{
     animation-duration:.001ms !important;
     animation-iteration-count:1 !important;
     transition-duration:.001ms !important;
+    /* 長さだけ潰しても、遅れが残ると画面がそのぶん空く */
+    animation-delay:.001ms !important;
+    transition-delay:.001ms !important;
     scroll-behavior:auto !important;
   }
 }

@@ -112,26 +112,69 @@
 .will-reveal{
   opacity:0;
   transform:translateY(18px);
-  transition:opacity 1.05s var(--ease), transform 1.05s var(--ease);
+  /* 色と位置の長さをずらす。先に読めるようになり、あとから落ち着く。
+     同じ長さで揃えると、二つの動きが一本の線に見えて硬くなる */
+  transition:opacity .82s var(--ease-rise), transform .95s var(--ease-carry);
 }
 .will-reveal.is-in{ opacity:1; transform:none; }
 
+/* --- 売り場は奥から手前へ順に置かれる -------------------------
+   看板・棚・平台がひとかたまりで現れると、書き割りが一枚
+   立つように見える。奥から順にわずかに遅らせる。 */
+.market.will-reveal .case,
+.market.will-reveal .platform{
+  /* 濃さは売り場ごと一枚で変える。ここで重ねて薄くすると、
+     什器の木が同じ木の壁に溶けて、本だけが宙に浮いて見える */
+  transform:translateY(var(--rise,0px));
+  transition:transform var(--dur,.86s) var(--ease-carry) var(--lag,0s);
+}
+.market.will-reveal .case    { --rise:8px;  --lag:.08s; --dur:.9s; }
+.market.will-reveal .platform{ --rise:14px; --lag:.16s; --dur:1s;  }
+.market.is-in .case,
+.market.is-in .platform{ transform:none; }
+
 @media (prefers-reduced-motion: reduce){
   .will-reveal{ opacity:1; transform:none; }
+  .market.will-reveal .case,
+  .market.will-reveal .platform{ transform:none; }
 }
 
 /* --- 上部の帯 -------------------------------------------------
-   森の上に薄く置く。スクロールで隠れる（固定はしない）。 */
+   どこまで下りても手の届くところに置く。
+   森の上では透かしたまま、店内に入ったところで地を敷く。 */
 .topbar{
-  position:absolute; z-index:5;
+  position:fixed; z-index:5;
   top:0; left:0; right:0;
   display:flex; align-items:center; justify-content:space-between;
   gap:12px;
   padding:clamp(14px,3.4vh,26px) clamp(14px,4.4vw,32px);
+  /* 切り欠きのある端末では画面の上端が時計に隠れる。
+     帯が流れずに残るようになったので、その分だけ下げる */
+  padding-top:calc(clamp(14px,3.4vh,26px) + env(safe-area-inset-top));
   background:linear-gradient(180deg, rgba(10,14,10,.42) 0%, transparent 100%);
   pointer-events:none;
 }
 .topbar > *{ pointer-events:auto; }
+/* 店内の地。木の壁や棚の明るい面に文字が重なると読めないため、
+   森を抜けたところで敷く。下端は透かして、硬い境目を作らない。
+   濃さは、いちばん明るい書影に重なったところを測って決めた値。 */
+.topbar::before{
+  content:"";
+  position:absolute; z-index:-1;
+  inset:0;
+  background:linear-gradient(180deg,
+    rgba(20,14,9,.90) 0%, rgba(20,14,9,.80) 62%, rgba(20,14,9,0) 100%);
+  opacity:0;
+  transition:opacity .5s var(--ease);
+}
+.topbar.is-lit::before{ opacity:1; }
+/* 覆いを開くと後ろの巻き取りを止めるため、縦棒が消えて画面が広がる。
+   帯だけが右へ伸びると、開くたびに文字が跳ねて見える */
+body.peek-open .topbar{ right:var(--gutter,0px); }
+/* 帯の下は隠れる場所になった。看板へ寄せるときも、タブ送りや
+   ページ内検索で画面が動くときも、その分だけ手前で止める。
+   --bar は帯の実寸（scripts/main.js が測って入れる）。 */
+html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
 .topbar__logo{
   margin:0;
   font-size:clamp(14px,4vw,18px);

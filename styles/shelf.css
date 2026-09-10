@@ -115,7 +115,8 @@
   width:var(--w); height:var(--bh);
   background-color:var(--c);
   border-radius:1px 1px 0 0;
-  transition:transform .34s var(--ease), filter .34s var(--ease);
+  /* 指を離したあとは、棚へ戻るまでに間がある。触れたときより長い */
+  transition:transform .44s var(--ease-carry), filter .44s var(--ease-carry);
   box-shadow:
     inset  2px 0 1px -1px rgba(240,232,214,.42),
     inset -2px 0 1px -1px rgba(0,0,0,.55),
@@ -297,6 +298,9 @@
 .spine:hover,.spine:focus-visible{
   transform:rotate(var(--lean,0deg)) translateY(-5px);
   filter:brightness(1.06);
+  /* 触れたほうは早く応える。戻りだけを長く残す */
+  transition-duration:.19s, .19s;
+  transition-timing-function:var(--ease-rise), var(--ease-rise);
 }
 .spine:nth-child(7n+1){ --lean:.7deg;  }
 .spine:nth-child(7n+2){ --lean:-.5deg; }
@@ -345,9 +349,11 @@
   background:rgba(10,8,6,.78);
   backdrop-filter:blur(2px);
   opacity:0;
-  transition:opacity .32s var(--ease);
+  /* 閉じるとき。開くときより短く切り上げる */
+  transition:opacity var(--t-leave) var(--ease-leave);
 }
-.pull.is-open .pull__scrim{ opacity:1; }
+/* 開くとき。本が棚から抜けるあいだに、後ろの売り場を落としていく */
+.pull.is-open .pull__scrim{ opacity:1; transition:opacity .42s var(--ease-rise); }
 
 .pull__panel{
   position:relative;
@@ -363,9 +369,15 @@
   overflow:auto;
   opacity:0;
   transform:translateY(14px);
-  transition:opacity .34s var(--ease), transform .34s var(--ease);
+  transition:opacity var(--t-leave) var(--ease-leave),
+             transform var(--t-leave) var(--ease-leave);
 }
-.pull.is-open .pull__panel{ opacity:1; transform:none; }
+/* 本が着く少し手前から立ち上げ、着いたときには読める状態にする */
+.pull.is-open .pull__panel{
+  opacity:1; transform:none;
+  transition:opacity .38s var(--ease-rise) .14s,
+             transform var(--t-enter) var(--ease-carry) .14s;
+}
 
 /* --- 表紙 ---------------------------------------------------- */
 .pull__book{
@@ -633,7 +645,22 @@
   transition:opacity .3s var(--ease);
 }
 .item[hidden]{ display:none; }
-.item.is-open{ opacity:1; }
+.item.is-open{ opacity:1; transition:opacity var(--t-enter) var(--ease-rise); }
+
+/* 面が入れ替わるだけだと紙芝居に見える。帯と本文をわずかに持ち上げ、
+   ページが起き上がってくるようにする。根ではなく子を動かすこと。
+   根を動かすと、覆いの下端に地の出ていない帯ができてしまう。 */
+.item__bar,.item__body{
+  transform:translateY(var(--lift,10px));
+  transition:transform var(--t-leave) var(--ease-leave);
+}
+.item__body{ --lift:18px; }
+.item.is-open .item__bar{
+  transform:none; transition:transform var(--t-enter) var(--ease-carry) .04s;
+}
+.item.is-open .item__body{
+  transform:none; transition:transform .5s var(--ease-carry) .1s;
+}
 
 /* --- 上の帯 -------------------------------------------------- */
 .item__bar{
@@ -743,6 +770,30 @@
 .item__spec dt{ flex:0 0 7em; margin:0; color:var(--paper-dim); }
 .item__spec dd{ margin:0; color:var(--paper); min-width:0; }
 
+/* --- 本文の終わり -------------------------------------------
+   書誌を読み終えた指の位置に、上の帯と同じ出口を置く。
+   行き先が同じなので言葉も同じにし、カートに入れるより控えめにする。 */
+.item__end{
+  max-width:900px; margin:0 auto;
+  padding-top:clamp(14px,3vh,26px);
+  text-align:center;
+}
+.item__close{
+  display:inline-flex; align-items:center; justify-content:center; gap:.7em;
+  min-height:44px; padding:.85em 2em;
+  background:transparent; border:1px solid rgba(210,198,174,.3);
+  border-radius:2px;
+  color:var(--paper-dim); cursor:pointer;
+  font:inherit; font-size:13px; letter-spacing:.12em; text-indent:.12em;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.item__close svg{ width:9px; height:15px; }
+.item__close path{ stroke:currentColor; stroke-width:1.7; fill:none;
+  stroke-linecap:round; stroke-linejoin:round; }
+.item__close:hover,.item__close:focus-visible{
+  color:var(--paper); border-color:rgba(210,198,174,.55);
+}
+
 @media (max-width:600px){
   .item__head{ flex-direction:column; align-items:center; }
   .item__cover{ width:min(52vw,220px); }
@@ -752,6 +803,7 @@
 
 @media (prefers-reduced-motion: reduce){
   .item{ transition:none; }
+  .item__bar,.item__body{ transform:none; }
 }
 
 /* ============================================================
@@ -771,7 +823,20 @@
   transition:opacity .3s var(--ease);
 }
 .doc[hidden]{ display:none; }
-.doc.is-open{ opacity:1; }
+.doc.is-open{ opacity:1; transition:opacity var(--t-enter) var(--ease-rise); }
+
+/* 商品詳細と同じ組み立て。帯より本文をわずかに遅らせる */
+.doc__bar,.doc__body{
+  transform:translateY(var(--lift,10px));
+  transition:transform var(--t-leave) var(--ease-leave);
+}
+.doc__body{ --lift:18px; }
+.doc.is-open .doc__bar{
+  transform:none; transition:transform var(--t-enter) var(--ease-carry) .04s;
+}
+.doc.is-open .doc__body{
+  transform:none; transition:transform .5s var(--ease-carry) .1s;
+}
 
 .doc__bar{
   flex:0 0 auto;
@@ -1059,6 +1124,7 @@
 
 @media (prefers-reduced-motion: reduce){
   .doc,.cart__scrim,.cart__panel,.toast{ transition:none; }
+  .doc__bar,.doc__body{ transform:none; }
 }
 
 /* ============================================================
@@ -1068,8 +1134,8 @@
 /* 固定ページ（72）より下。メニューからページを開いたとき、
    ページが上にかぶさるように */
 .menu{ position:fixed; inset:0; z-index:68; }
-/* メニューから寄せたとき、看板が上端に張り付かないように */
-.market{ scroll-margin-top:clamp(12px,3vh,28px); }
+/* 寄せたときの上の間合いは、帯の高さと合わせて
+   styles/layout.css の html{scroll-padding-top} が持つ */
 .menu[hidden]{ display:none; }
 .menu__scrim{
   position:absolute; inset:0;

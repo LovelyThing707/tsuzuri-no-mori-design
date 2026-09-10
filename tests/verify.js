@@ -577,7 +577,205 @@ async function nav(b) {
   }
 }
 
-/* ---- 5. どの画面幅でも崩れないか --------------------------------- */
+/* ---- 5. 今回のご指摘4件 ------------------------------------------
+   拡大したときの粗さ／詳細の出口／上の帯／画面の送り。
+   どれも「直したつもりで直っていない」が起きやすいので、
+   直した中身そのものを留める。 */
+async function fixes(b) {
+  for (const vp of [{ n: 'phone', w: 390, h: 844, d: 3 },
+                    { n: 'desktop', w: 1440, h: 900, d: 1 }]) {
+    const p = await b.newPage({
+      viewport: { width: vp.w, height: vp.h },
+      deviceScaleFactor: vp.d, hasTouch: true, isMobile: vp.d > 1,
+    });
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(URL, { waitUntil: 'networkidle' });
+
+    /* --- 上の帯は下りても残る --- */
+    let s = await p.evaluate(() => {
+      const bar = document.querySelector('.topbar');
+      return { pos: getComputedStyle(bar).position,
+               top: Math.round(bar.getBoundingClientRect().top),
+               lit: bar.classList.contains('is-lit'),
+               bar: getComputedStyle(document.documentElement).getPropertyValue('--bar').trim() };
+    });
+    t(s.pos === 'fixed', `${vp.n}: 上の帯が固定されている`);
+    t(s.top === 0, `${vp.n}: 森の上でも上端にある`);
+    t(!s.lit, `${vp.n}: 森の上では地を敷かない`);
+    t(/^\d+(\.\d+)?px$/.test(s.bar), `${vp.n}: 帯の実寸がCSSへ渡っている（${s.bar}）`);
+
+    await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+    await p.waitForTimeout(700);
+    s = await p.evaluate(() => {
+      const bar = document.querySelector('.topbar');
+      return { top: Math.round(bar.getBoundingClientRect().top),
+               lit: bar.classList.contains('is-lit'),
+               op: +getComputedStyle(bar, '::before').opacity };
+    });
+    t(s.top === 0, `${vp.n}: 下りても上端に残る`);
+    t(s.lit && s.op > 0.9, `${vp.n}: 店内では地が敷かれる`);
+
+    /* 帯の文字が、後ろの明るい面に負けていないか（WCAG 4.5:1）。
+       見積もりではなく、実際の画素を見る。帯の中身だけを伏せて
+       写し取り、文字の入る矩形の中でいちばん明るい点と比べる。 */
+    const boxes = await p.evaluate(() => {
+      const r = e => { const b = e.getBoundingClientRect();
+        return [b.x, b.y, b.width, b.height].map(Math.round); };
+      const out = [r(document.querySelector('.topbar__logo')),
+                   r(document.querySelector('.topbar__menu')),
+                   r(document.getElementById('cart-open'))];
+      document.querySelectorAll('.topbar > *').forEach(e => { e.style.visibility = 'hidden'; });
+      return out;
+    });
+    const barH = Math.ceil(await p.evaluate(() =>
+      document.querySelector('.topbar').getBoundingClientRect().height));
+    const png = (await p.screenshot({ clip: { x: 0, y: 0, width: vp.w, height: barH } }))
+      .toString('base64');
+    await p.evaluate(() => {
+      document.querySelectorAll('.topbar > *').forEach(e => { e.style.visibility = ''; });
+    });
+    const ratio = await p.evaluate(async ({ png, boxes, w, h }) => {
+      const img = new Image();
+      await new Promise(r => { img.onload = r; img.src = 'data:image/png;base64,' + png; });
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d');
+      cx.drawImage(img, 0, 0, w, h);
+      const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = (r, g, b) => 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      const L1 = lum(233, 224, 206);          /* --paper #E9E0CE */
+      let worst = 21;
+      for (const [bx, by, bw, bh] of boxes) {
+        if (bw <= 0 || bh <= 0) continue;
+        const d = cx.getImageData(Math.max(0, bx), Math.max(0, by),
+                                  Math.min(bw, w - bx), Math.min(bh, h - by)).data;
+        for (let i = 0; i < d.length; i += 4) {
+          const L2 = lum(d[i], d[i + 1], d[i + 2]);
+          const c = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+          if (c < worst) worst = c;
+        }
+      }
+      return worst;
+    }, { png, boxes, w: vp.w, h: barH });
+    t(ratio >= 4.5, `${vp.n}: 帯の文字が読める（最小 ${ratio.toFixed(2)}:1）`);
+
+    /* --- 寄せ先が帯の下に隠れない --- */
+    await p.evaluate(() => window.scrollTo(0, 0));
+    await p.waitForTimeout(400);
+    const pad = await p.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop));
+    t(pad > 80, `${vp.n}: 寄せる前に帯のぶん空ける（${Math.round(pad)}px）`);
+
+    /* --- 画面の送りは、一瞬で飛ばない --- */
+    const glide = await p.evaluate(() => new Promise(res => {
+      const seen = [];
+      let n = 0;
+      const on = () => { seen.push(window.pageYOffset); };
+      window.addEventListener('scroll', on, { passive: true });
+      document.querySelector('.hero__scroll').click();
+      const iv = setInterval(() => {
+        if (++n < 60) return;
+        clearInterval(iv);
+        window.removeEventListener('scroll', on);
+        res({ steps: new Set(seen).size, end: Math.round(window.pageYOffset) });
+      }, 25);
+    }));
+    t(glide.steps > 8, `${vp.n}: 節へ送るとき、間をかけて動く（${glide.steps}こま）`);
+    s = await p.evaluate(() => {
+      const r = document.getElementById('theme-1').getBoundingClientRect();
+      const bar = document.querySelector('.topbar').getBoundingClientRect();
+      return { top: Math.round(r.top), bar: Math.round(bar.bottom) };
+    });
+    t(s.top >= s.bar, `${vp.n}: 送った先の看板が帯に隠れない（看板${s.top} / 帯${s.bar}）`);
+
+    /* --- 試し読み。手を止めたら層から降りて描き直される --- */
+    const sp = await p.$('.spine[data-book]');
+    await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(300);
+    await sp.click(); await p.waitForTimeout(1000);
+    await p.click('.pull__act--read'); await p.waitForTimeout(900);
+    await p.evaluate(() => {
+      const st = document.getElementById('peek-stage');
+      const r = st.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      st.setPointerCapture = () => {};
+      const ev = (ty, id, x, y) => st.dispatchEvent(new PointerEvent(ty,
+        { pointerId: id, clientX: x, clientY: y, bubbles: true, pointerType: 'touch', isPrimary: id === 1 }));
+      ev('pointerdown', 1, cx - 40, cy); ev('pointerdown', 2, cx + 40, cy);
+      ev('pointermove', 1, cx - 104, cy + 3); ev('pointermove', 2, cx + 104, cy + 3);
+      ev('pointerup', 1, cx - 104, cy + 3); ev('pointerup', 2, cx + 104, cy + 3);
+    });
+    await p.waitForTimeout(450);
+    s = await p.evaluate(() => {
+      const pg = document.querySelectorAll('.peek__page')[0];
+      return { tf: pg.style.transform,
+               flat: pg.style.transform.indexOf('translate3d') === -1,
+               zoomed: /scale\((\d+(\.\d+)?)\)/.test(pg.style.transform)
+                 && +pg.style.transform.match(/scale\(([\d.]+)\)/)[1] > 1.5,
+               shadow: getComputedStyle(pg.querySelector('img')).filter };
+    });
+    t(s.zoomed, `${vp.n}: つまむと拡大する（${s.tf}）`);
+    t(s.flat, `${vp.n}: 手を止めた見開きは層から降りて描き直される`);
+    t(s.shadow !== 'none', `${vp.n}: 見開きの影は残す（動かしている間の描き直しに要る）`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+
+    /* --- 商品詳細の出口は二か所、言葉は同じ --- */
+    await p.click('.pull__more'); await p.waitForTimeout(800);
+    s = await p.evaluate(() => {
+      const bd = document.querySelector('.item__body');
+      bd.scrollTop = bd.scrollHeight;
+      const cl = document.querySelector('.item__close');
+      const end = document.querySelector('.item__end');
+      const r = cl.getBoundingClientRect();
+      return {
+        top: document.querySelector('.item__back span').textContent,
+        bottom: cl.querySelector('span').textContent,
+        last: end === bd.lastElementChild,
+        h: Math.round(r.height),
+        barTop: Math.round(document.querySelector('.item__bar').getBoundingClientRect().top),
+      };
+    });
+    t(s.top === '表紙にもどる', `${vp.n}: 上の出口が行き先どおりの言葉（${s.top}）`);
+    t(s.bottom === s.top, `${vp.n}: 本文の終わりにも同じ出口`);
+    t(s.last, `${vp.n}: その出口が本文のいちばん最後にある`);
+    t(s.h >= 44, `${vp.n}: 出口が指で押せる大きさ（${s.h}px）`);
+    t(s.barTop === 0, `${vp.n}: 読み進めても上の帯は流れ去らない`);
+
+    await p.click('.item__close'); await p.waitForTimeout(700);
+    s = await p.evaluate(() => ({
+      item: document.getElementById('item').hidden,
+      pull: !document.getElementById('pull').hidden,
+      focus: document.activeElement.className,
+    }));
+    t(s.item && s.pull, `${vp.n}: 閉じると表紙にもどる`);
+    t(/pull__more/.test(s.focus), `${vp.n}: 焦点が入口に返る（${s.focus}）`);
+
+    t(errs.length === 0, `${vp.n}: 今回の修正でJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await p.close();
+  }
+
+  /* --- 動きを減らす設定では、送りも遅れも出さない --- */
+  const p = await b.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await p.goto(URL, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(300);
+  const r = await p.evaluate(() => new Promise(res => {
+    const seen = [];
+    const on = () => seen.push(window.pageYOffset);
+    window.addEventListener('scroll', on, { passive: true });
+    document.querySelector('.hero__scroll').click();
+    setTimeout(() => {
+      window.removeEventListener('scroll', on);
+      const d = getComputedStyle(document.querySelector('.pull__panel'));
+      res({ steps: new Set(seen).size, delay: d.transitionDelay,
+            moved: Math.round(window.pageYOffset) > 100 });
+    }, 900);
+  }));
+  t(r.moved && r.steps <= 3, `動きを減らす設定では、送らずに移る（${r.steps}こま）`);
+  t(!/0\.1[0-9]s|0\.[2-9]/.test(r.delay), `動きを減らす設定では、遅れも残さない（${r.delay}）`);
+  await p.close();
+}
+
+/* ---- 6. どの画面幅でも崩れないか --------------------------------- */
 async function widths(b) {
   const p = await b.newPage({ reducedMotion: 'reduce' });
   const ws = [];
@@ -622,6 +820,7 @@ async function widths(b) {
   await screens(b);
   await pages(b);
   await nav(b);
+  await fixes(b);
   await widths(b);
   await b.close();
   fail.forEach(l => console.log('  FAIL  ' + l));

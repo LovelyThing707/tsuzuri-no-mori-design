@@ -97,12 +97,15 @@
   color:var(--paper-dim);
   text-decoration:none;
   padding:8px 14px;
+  transition:color var(--t-touch) var(--ease-rise);
 }
 .hero__scroll:hover,.hero__scroll:focus-visible{ color:var(--paper); }
 .hero__scroll span{ display:block; }
 .hero__scroll svg{ width:13px; height:20px; overflow:visible; }
 .hero__scroll path{ stroke:currentColor; stroke-width:1.2; fill:none; }
-.hero__arrow{ animation:drift 3.4s var(--ease) infinite; }
+/* 往復する動きに片道用の曲線を当てると、行きも帰りも勢いよく出て
+   端で止まる。両端で速さが０になる曲線にして、息づかいに近づける */
+.hero__arrow{ animation:drift 3.4s var(--ease-breath) infinite; }
 
 @keyframes drift{
   0%,100%{ transform:translateY(0);   opacity:.55; }
