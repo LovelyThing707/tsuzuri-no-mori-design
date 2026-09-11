@@ -592,6 +592,53 @@ async function fixes(b) {
     p.on('pageerror', e => errs.push(e.message));
     await p.goto(URL, { waitUntil: 'networkidle' });
 
+    /* --- 森の上の題字が読めるか -------------------------
+       絵の明るい道が題字の後ろを通ることがある。文字だけ伏せて、
+       地の画素を見る（器ごと伏せると、下の沈みまで消えてしまう） */
+    const hb = await p.evaluate(() => {
+      const r = e => { const b = e.getBoundingClientRect();
+        return [b.x, b.y, b.width, b.height].map(Math.round); };
+      const o = { name: r(document.querySelector('.hero__name')),
+                  lead: r(document.querySelector('.hero__lead')) };
+      document.querySelector('.hero__name').style.visibility = 'hidden';
+      document.querySelector('.hero__lead').style.visibility = 'hidden';
+      return o;
+    });
+    await p.waitForTimeout(120);
+    const hh = Math.min(vp.h, 900);
+    const hpng = (await p.screenshot({ clip: { x: 0, y: 0, width: vp.w, height: hh } }))
+      .toString('base64');
+    await p.evaluate(() => {
+      document.querySelector('.hero__name').style.visibility = '';
+      document.querySelector('.hero__lead').style.visibility = '';
+    });
+    const hc = await p.evaluate(async ({ png, boxes, w, h }) => {
+      const img = new Image();
+      await new Promise(r => { img.onload = r; img.src = 'data:image/png;base64,' + png; });
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      const F = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const L = (r, g, b) => 0.2126 * F(r) + 0.7152 * F(g) + 0.0722 * F(b);
+      const out = {};
+      for (const [k, col] of [['name', [233, 224, 206]], ['lead', [210, 198, 174]]]) {
+        const [x, y, bw, bh] = boxes[k];
+        if (bw <= 0 || y + bh > h) { out[k] = null; continue; }
+        const d = cx.getImageData(Math.max(0, x), Math.max(0, y), bw, bh).data;
+        const L1 = L(col[0], col[1], col[2]); const rs = [];
+        for (let i = 0; i < d.length; i += 4) {
+          const L2 = L(d[i], d[i + 1], d[i + 2]);
+          rs.push((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05));
+        }
+        rs.sort((a, b) => a - b);
+        out[k] = +rs[Math.floor(rs.length * 0.01)].toFixed(2);
+      }
+      return out;
+    }, { png: hpng, boxes: hb, w: vp.w, h: hh });
+    t(hc.name === null || hc.name >= 4.5,
+      `${vp.n}: 森の上の題字が読める（${hc.name}:1）`);
+    t(hc.lead === null || hc.lead >= 4.5,
+      `${vp.n}: 森の上の一文が読める（${hc.lead}:1）`);
+
     /* --- 上の帯は下りても残る --- */
     let s = await p.evaluate(() => {
       const bar = document.querySelector('.topbar');

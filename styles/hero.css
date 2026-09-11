@@ -66,8 +66,26 @@
 /* --- サイト名とコピー ---------------------------------------- */
 .hero__title{
   position:relative;
+  /* 自分の中で重ね順を閉じる。これが無いと、下の沈みが絵より後ろへ回る */
+  isolation:isolate;
   padding:0 24px clamp(96px,17vh,150px);
   text-align:center;
+}
+/* 題字の後ろを、道の明かりが通ることがある。
+   絵ぜんたいを暗くすると森の陰影が痩せるので、
+   文字の後ろだけをそっと沈める。縁は溶かして境目を作らない。 */
+.hero__title::before{
+  content:"";
+  position:absolute; left:50%; top:44%;
+  width:min(164%,1000px); height:min(260%,460px);
+  transform:translate(-50%,-50%);
+  background:radial-gradient(ellipse at center,
+    rgba(8,6,4,.74) 0%,
+    rgba(8,6,4,.56) 40%,
+    rgba(8,6,4,.24) 64%,
+    transparent 80%);
+  pointer-events:none;
+  z-index:-1;
 }
 .hero__name{
   font-size:clamp(30px,9.2vw,54px);
