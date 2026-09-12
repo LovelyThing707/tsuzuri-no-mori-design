@@ -596,8 +596,16 @@ async function fixes(b) {
        絵の明るい道が題字の後ろを通ることがある。文字だけ伏せて、
        地の画素を見る（器ごと伏せると、下の沈みまで消えてしまう） */
     const hb = await p.evaluate(() => {
-      const r = e => { const b = e.getBoundingClientRect();
-        return [b.x, b.y, b.width, b.height].map(Math.round); };
+      /* 要素ではなく、文字そのものが占める矩形を測る。
+         見出しは幅いっぱいの箱なので、要素で測ると文字の無い左右の
+         明るい木まで含めてしまい、読めているのに落ちる */
+      const r = e => {
+        const g = document.createRange();
+        g.selectNodeContents(e);
+        const b = g.getBoundingClientRect();
+        g.detach && g.detach();
+        return [b.x, b.y, b.width, b.height].map(Math.round);
+      };
       const o = { name: r(document.querySelector('.hero__name')),
                   lead: r(document.querySelector('.hero__lead')) };
       document.querySelector('.hero__name').style.visibility = 'hidden';
