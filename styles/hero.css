@@ -38,8 +38,10 @@
   will-change:transform;
 }
 @media (min-width:768px){
-  /* 横長の画像は横位置で構図が決まっているので、中央のまま使う */
-  .hero__scene img{ object-position:50% 46%; }
+  /* 横長の画面では、絵の上下が大きく切れる。
+     上寄せにすると樹冠だけが残り、道も小屋の足元も消える。
+     下寄せにして、道が小屋へ続いていることが規える位置にする。 */
+  .hero__scene img{ object-position:50% 78%; }
 }
 
 /* 木漏れ日。強い光線にしない */
