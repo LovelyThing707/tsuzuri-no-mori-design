@@ -139,10 +139,11 @@ TIER_A1 = row_books(120, seed=11)
 TIER_A2 = row_books(120, seed=23)
 TIER_B1 = row_books(120, seed=37)
 
-# 平台は冊数を決めて置く。要件定義書 2-3／3-2 の「平台 3〜4冊」。
-# 4冊なら、お預かりしている4冊がちょうど1冊ずつ並び、平台には繰り返しが出ない。
-LYING_A = flat_books(4, seed=53)
-LYING_B = flat_books(4, seed=71)
+# 平台は冊数を決めて置く。スマートフォン・タブレットは4冊
+# （要件定義書 2-3／3-2「平台 3〜4冊」）。天板の広いパソコンは8冊。
+# 8冊だと、お預かりしている4冊が2周する。
+LYING_A = flat_books(8, seed=53)
+LYING_B = flat_books(8, seed=71)
 
 
 def book_json():

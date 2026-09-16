@@ -170,12 +170,17 @@
   display:flex; align-items:flex-end; justify-content:center;
   gap:clamp(8px,calc(var(--flat-gap) * var(--u)),40px);
   padding:0 calc(10px * var(--u)); margin:0; list-style:none;
-  perspective:1000px;
-  perspective-origin:50% 140%;
 }
 
 /* 平置き。机に置いてある状態。表紙が上を向く */
 .flat{
+  /* 奥行きは1冊ごとに持たせる。段でひとつの perspective を共有すると、
+     真ん中から離れた本ほど斜めから見ることになり、小口（紙の束）が
+     片側だけ厚い楔形に写る。いちばん大きいA4判の絵本で目立ち、
+     角で支えているように見えて「浮いている」と感じられていた。
+     1冊ずつ正面から見た形にすると、小口はどの本も均一な厚みになる。 */
+  perspective:900px;
+  perspective-origin:50% 130%;
   --fw: calc(var(--w) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   --fh: calc(var(--h) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う */
@@ -233,14 +238,20 @@
   position:absolute; z-index:-1;
   /* 影の濃いところは、本の足もと（接地線）に置く。
      本の真裏に置くと本自身に隠れ、外へはみ出すのは薄い裾だけになって
-     何も出ていないのと同じだった。top:100% から下へ伸ばす。 */
-  left:-16%; right:-16%; top:100%;
-  height:34%;
+     何も出ていないのと同じだった。top:100% から下へ伸ばす。
+
+     広がりは「本の高さ」ではなく「机に触れている幅」から出す。
+     高さに比例させていたため、背の高いA4判の絵本だけ影が大きく薄く
+     広がり、1冊目だけ浮いて見えていた。机に置いてある以上、
+     接地の影の締まり方は本の高さでは変わらない。 */
+  left:-14%; right:-14%; top:100%;
+  height:calc(var(--fw) * .34);
   pointer-events:none;
   background:
-    radial-gradient(58% 130% at 50% 0%, rgba(0,0,0,.58), rgba(0,0,0,0) 68%),
-    linear-gradient(180deg, rgba(0,0,0,.34) 0%, rgba(0,0,0,0) 62%);
-  filter:blur(4px);
+    /* 足もとを締める線。これが本を机に置く */
+    linear-gradient(180deg, rgba(0,0,0,.50) 0%, rgba(0,0,0,.20) 26%, rgba(0,0,0,0) 62%),
+    radial-gradient(56% 120% at 50% 0%, rgba(0,0,0,.58), rgba(0,0,0,0) 70%);
+  filter:blur(3px);
 }
 /* 地（手前の面）。表紙の面と直角に立て、手前から厚みが見えるようにする */
 .flat::after{
@@ -267,7 +278,14 @@
    冊数ではなく床と余白が広がる形。増やすぶん1冊が小さくなり、
    「平台の本は大きく手前に」と逆になっていた。 */
 .platform__row .flat:nth-child(n+5){ display:none; }
-/* 広い画面では天板が長くなる。4冊は変えず、間だけ広げて台の上に散らす */
+/* パソコンでは平台が広く、4冊では寂しい。8冊置く。
+   （要件定義書 2-3 は「平台 3〜4冊」。画面の広い環境だけ増やす形で、
+     書面の改訂が要る点は國分様にお伝えする） */
+@media (min-width:1200px){
+  .platform__row .flat:nth-child(n+5){ display:block; }
+  .platform__row .flat:nth-child(n+9){ display:none; }
+}
+/* 広い画面では天板が長くなる。間を広げて台の上に散らす */
 @media (min-width:900px){
   .platform__row{ gap:clamp(24px,4.4vw,88px); }
 }
