@@ -163,8 +163,10 @@
 .platform__row{
   position:absolute; z-index:1;
   left:0; right:0; top:0; height:37%;
-  display:flex; align-items:flex-end; justify-content:space-evenly;
-  gap:calc(var(--flat-gap) * var(--u));
+  /* 3〜4冊なので、天板の端まで散らさず中ほどにまとめる。
+     広い画面では、空いた天板と床がそのまま奥行きになる。 */
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:clamp(8px,calc(var(--flat-gap) * var(--u)),40px);
   padding:0 calc(10px * var(--u)); margin:0; list-style:none;
   perspective:1000px;
   perspective-origin:50% 140%;
@@ -238,15 +240,16 @@
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
    本を大きくするのではなく、見える冊数を増やす。
    背表紙は棚が画面外まで続くので、入るだけ入る（切り取りで自然に途切れる）。
-   平台は冊数を決めて置く。 */
+
+   平台は画面幅にかかわらず3〜4冊（要件定義書 2-3／3-2）。
+   以前は画面が広がるほど8冊・12冊と増やしていたが、
+   要件定義書は「画面が大きいほど…平台の奥行きや影も見えやすくなります」で、
+   冊数ではなく床と余白が広がる形。増やすぶん1冊が小さくなり、
+   「平台の本は大きく手前に」と逆になっていた。 */
 .platform__row .flat:nth-child(n+5){ display:none; }
-@media (min-width:768px){
-  .platform__row .flat:nth-child(n+5){ display:block; }
-  .platform__row .flat:nth-child(n+9){ display:none; }
-}
-@media (min-width:1200px){
-  .platform__row .flat:nth-child(n+9){ display:block; }
-  .platform__row .flat:nth-child(n+13){ display:none; }
+/* 広い画面では天板が長くなる。4冊は変えず、間だけ広げて台の上に散らす */
+@media (min-width:900px){
+  .platform__row{ gap:clamp(24px,4.4vw,88px); }
 }
 .market__head{
   position:relative; z-index:3;

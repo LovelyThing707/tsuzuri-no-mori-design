@@ -73,8 +73,19 @@ async function shelf(b) {
               return (r.left < tr.left - .5 && r.right > tr.left + .5) ||
                      (r.left < tr.right - .5 && r.right > tr.right + .5);
             }).length;
+            /* 段が本で埋まっているか。背幅を実寸比に直したとき、
+               冊数を増やし忘れてパソコン幅で段の58%しか埋まらなかった。 */
+            let used = 0;
+            sp.forEach(e => {
+              const c = getComputedStyle(e);
+              used += (parseFloat(c.width) || 0)
+                    + (parseFloat(c.marginLeft) || 0)
+                    + (parseFloat(c.marginRight) || 0);
+            });
             return {
               cut,
+              fill: +(100 * used / tr.width).toFixed(0),
+              tallest: Math.round(Math.max(...sp.map(e => e.offsetHeight))),
               bottomPct: +(100 * (Math.max(...sp.map(e => e.getBoundingClientRect().bottom)) - cr.top) / cr.height).toFixed(2),
               overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
               uniqW: new Set(sp.map(e => +e.getBoundingClientRect().width.toFixed(1))).size,
@@ -108,8 +119,19 @@ async function shelf(b) {
         out.tilted = getComputedStyle(fl[0]).transform !== 'none';
         out.edge = getComputedStyle(fl[0], '::after').height;
         out.faces = fl[0].querySelectorAll('.flat__spine,.flat__fore').length;
+        /* 平台の本の面積。要件定義書 2-3「平台の本は大きく手前に、
+           奥の本棚はやや小さく控えめに」。以前は逆で、同じ本が
+           棚の半分の大きさだった。判型の同じ本どうしで比べる。 */
+        out.flatBox = {};
+        fl.forEach(e => { out.flatBox[e.dataset.book] = e.offsetWidth * e.offsetHeight; });
       });
-      out.marketH = Math.round(document.querySelector('.market').getBoundingClientRect().height);
+      out.spineBox = {};
+      document.querySelectorAll('.tier .spine').forEach(e => {
+        if (getComputedStyle(e).display === 'none') return;
+        out.spineBox[e.dataset.book] = e.offsetWidth * e.offsetHeight;
+      });
+      out.marketH = Math.max(...[...document.querySelectorAll('.market')]
+        .map(e => Math.round(e.getBoundingClientRect().height)));
       return out;
     });
 
@@ -121,10 +143,17 @@ async function shelf(b) {
     t(m.tilted, `${vp.n}: 平置きが寝ている`);
     t(parseFloat(m.edge) > 1, `${vp.n}: 平置きに厚みがある (小口 ${m.edge})`);
     t(m.faces === 2, `${vp.n}: 平置きに背と小口の面がある (${m.faces})`);
-    if (vp.n === 'phone') {
-      t(m.flatN === 4, `phone: 平置き4冊 (${m.flatN})`);
-      t(m.marketH <= vp.h, `phone: 1テーマが一画面に収まる (${m.marketH}/${vp.h}px)`);
-    }
+    /* 冊数も一画面も、画面幅にかかわらず守る。
+       要件定義書 2-3「平台 3〜4冊」／2-6「1テーマは一画面に収まり」。 */
+    t(m.flatN >= 3 && m.flatN <= 4, `${vp.n}: 平置き3〜4冊 (${m.flatN}冊)`);
+    t(m.marketH <= vp.h, `${vp.n}: 1テーマが一画面に収まる (${m.marketH}/${vp.h}px)`);
+    /* 手前の平台のほうが大きく見えること。同じ本で比べる */
+    (() => {
+      const k = Object.keys(m.flatBox).filter(x => m.spineBox[x]);
+      const r = k.map(x => m.flatBox[x] / m.spineBox[x]);
+      t(r.length > 0 && Math.min(...r) > 1,
+        `${vp.n}: 平台の本が棚の本より大きい (最小 ${Math.min(...r).toFixed(1)}倍)`);
+    })();
     m.cases.forEach(c => {
       t(c.w >= vp.w - 1, `${vp.n} ${c.cls}: 棚が画面いっぱい`);
       c.tiers.forEach((ti, i) => {
@@ -139,6 +168,7 @@ async function shelf(b) {
            いま見るべきは「見えているか」と「歪んでいないか」。 */
         t(ti.minW >= 6, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本も見えている (${ti.minW}px)`);
         t(ti.skew <= 1.25, `${vp.n} ${c.cls} 段${i + 1}: 背表紙が引き伸ばされていない (${ti.skew}倍)`);
+        t(ti.fill >= 90, `${vp.n} ${c.cls} 段${i + 1}: 段が本で埋まっている (${ti.fill}%)`);
       });
     });
     await p.close();

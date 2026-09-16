@@ -131,13 +131,18 @@ def platform(books):
     return '\n'.join(flat_li(b) for b in books)
 
 
-# 画面幅いっぱいに広げるため、いちばん広い画面でも足りる冊数を出しておき、
-# 入りきらないぶんは CSS で隠す。
-TIER_A1 = row_books(64, seed=11)
-TIER_A2 = row_books(64, seed=23)
-TIER_B1 = row_books(64, seed=37)
-LYING_A = flat_books(14, seed=53)
-LYING_B = flat_books(14, seed=71)
+# 背表紙は画面幅いっぱいに広げるため、いちばん広い画面でも足りる冊数を
+# 出しておき、入りきらないぶんは CSS で隠す。
+# 64冊では足りない。背幅を実寸比に直した時点で1冊が3分の1に細くなり、
+# パソコン幅では段の58%しか埋まらず、右半分が空いていた。
+TIER_A1 = row_books(120, seed=11)
+TIER_A2 = row_books(120, seed=23)
+TIER_B1 = row_books(120, seed=37)
+
+# 平台は冊数を決めて置く。要件定義書 2-3／3-2 の「平台 3〜4冊」。
+# 4冊なら、お預かりしている4冊がちょうど1冊ずつ並び、平台には繰り返しが出ない。
+LYING_A = flat_books(4, seed=53)
+LYING_B = flat_books(4, seed=71)
 
 
 def book_json():
