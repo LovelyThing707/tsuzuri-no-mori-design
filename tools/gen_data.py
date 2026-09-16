@@ -100,8 +100,9 @@ def flat_books(n, seed=0):
 
 
 def spine_li(b):
-    st = '--h:%d;--t:%d;--c:%s;--e:%s;--lean:%.1fdeg' % (
-        b['h'], b['t'], b['c'], b['e'], b['lean'])
+    # --kw（判横 mm）も渡す。天の見え幅をここから出すため
+    st = '--h:%d;--kw:%d;--t:%d;--c:%s;--e:%s;--lean:%.1fdeg' % (
+        b['h'], b['w'], b['t'], b['c'], b['e'], b['lean'])
     return ('        <li class="spine" style="%s" data-book="%s" '
             'tabindex="0" role="button" aria-label="%s">'
             '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'

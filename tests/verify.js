@@ -79,6 +79,20 @@ async function shelf(b) {
               overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
               uniqW: new Set(sp.map(e => +e.getBoundingClientRect().width.toFixed(1))).size,
               minW: Math.min(...sp.map(e => +e.getBoundingClientRect().width.toFixed(1))),
+              /* 背表紙の写真が引き伸ばされていないか。
+                 画面上の縦横比 ÷ 素材の縦横比。1.0 なら原画どおり */
+              skew: (() => {
+                /* 本は1冊ずつわずかに傾いている。回転した外接矩形で測ると
+                   細い本ほど幅が水増しし、引き伸ばしと見分けがつかない。
+                   傾きの影響を受けない組み上の箱（offset）で測る。 */
+                const v = sp.map(e => {
+                  const im = e.querySelector('img');
+                  if (!im || !im.naturalWidth || !im.offsetHeight) return null;
+                  return (im.offsetWidth / im.offsetHeight) /
+                         (im.naturalWidth / im.naturalHeight);
+                }).filter(Boolean);
+                return v.length ? +Math.max(...v.map(x => Math.max(x, 1 / x))).toFixed(2) : 1;
+              })(),
             };
           }),
         });
@@ -120,7 +134,11 @@ async function shelf(b) {
         t(!ti.overTop, `${vp.n} ${c.cls} 段${i + 1}: 本が段からはみ出していない`);
         t(ti.cut === 0, `${vp.n} ${c.cls} 段${i + 1}: 柱ぎわで本が切れていない`);
         t(ti.uniqW >= 4, `${vp.n} ${c.cls} 段${i + 1}: 背幅が4種以上`);
-        t(ti.minW >= 20, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本でも ${ti.minW}px`);
+        /* 背幅は実寸比で出す。以前は 20px 以上を要求していたが、
+           それは写真を横に3〜4倍引き伸ばしていた頃の基準。
+           いま見るべきは「見えているか」と「歪んでいないか」。 */
+        t(ti.minW >= 6, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本も見えている (${ti.minW}px)`);
+        t(ti.skew <= 1.25, `${vp.n} ${c.cls} 段${i + 1}: 背表紙が引き伸ばされていない (${ti.skew}倍)`);
       });
     });
     await p.close();

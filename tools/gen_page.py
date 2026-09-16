@@ -313,8 +313,8 @@ PAGE = """<!DOCTYPE html>
 html = PAGE % dict(
     books   = D.book_json(),
     pages   = G.pages_html(),
-    market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
-                     '背表紙の棚が2段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
+    market1 = market(1, '子供に読みたい本', [D.TIER_A1], D.LYING_A,
+                     '背表紙の棚が1段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
     market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,
                      '背表紙の棚が1段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
 )

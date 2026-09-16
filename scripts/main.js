@@ -73,7 +73,12 @@
       var used = 0, full = false;
       Array.prototype.forEach.call(books, function (b) {
         if (full) { b.classList.add('is-over'); return; }
-        var w = parseFloat(window.getComputedStyle(b).width) || b.offsetWidth;
+        /* 抜き（margin）も幅に含める。含めないと入ると誤算し、
+           先頭の1冊が柱の外へ押し出されて押せなくなる */
+        var cs = window.getComputedStyle(b);
+        var w = (parseFloat(cs.width) || b.offsetWidth)
+              + (parseFloat(cs.marginLeft) || 0)
+              + (parseFloat(cs.marginRight) || 0);
         if (used + w <= avail) { used += w; }
         else { full = true; b.classList.add('is-over'); }
       });

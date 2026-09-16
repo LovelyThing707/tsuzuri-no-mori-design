@@ -108,7 +108,10 @@
 .spine.is-over{ display:none; }
 
 .spine{
-  --w:  calc((var(--spine-base) + var(--t) * var(--spine-gain)) * var(--u));
+  /* 高さと同じ一本の倍率で出す。以前は幅だけ別式で、
+     定数の下騄が入っていたため 58ページの本が 700ページに見えていた。
+     背表紙の写真も横に 3〜4倍引き伸ばされていた。 */
+  --w:  calc(var(--t) * var(--px-per-mm) * var(--u));
   --bh: calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--px-per-mm) * var(--u));
   position:relative; z-index:1;
   flex:0 0 auto;
@@ -1201,4 +1204,147 @@
 
 @media (prefers-reduced-motion: reduce){
   .menu__scrim,.menu__panel{ transition:none; }
+}
+/* ============================================================
+   棚の奥行と光（提案・第2回デザイン用）
+   styles/shelf.css の末尾に足す。既存の宣言を上書きする形なので、
+   この節ごと外せば元の見え方に戻る。
+   ねらいは三つ。本に厚みを見せる／棚の中を暗く落とす／
+   森と同じ光を什器まで運ぶ。本は画像に焼き込まない（必須条件⑤）。
+   ============================================================ */
+
+/* --- 1. 天（本の上面） --------------------------------------
+   もともと .spine::before に天を描いていたが、書影の <img> が
+   あとから重なるため一度も見えていなかった。重ね順を直す。
+   天の見え幅は判横（mm）から出す。A4の絵本は深く、文庫は浅い。
+   見込み（--look）は段ごとに変える。下の段ほど上から見下ろす。 */
+.spine{
+  /* 判横(mm)。gen_data.py が1冊ずつ書き込む。既定はA5相当 */
+  --kw:   148;
+  --look: .075;
+  --top:  clamp(2px, calc(var(--kw) * var(--px-per-mm) * var(--u) * var(--look)), 13px);
+  /* 判型の高さ（--bh）は書影のぶん。天はその上に足す */
+  height: calc(var(--bh) + var(--top));
+}
+.case--2shelf .tier:nth-child(1) .spine{ --look:.055; }  /* 目の高さに近い段 */
+.case--2shelf .tier:nth-child(2) .spine{ --look:.115; }  /* 下の段。見下ろす */
+.case--1shelf .tier:nth-child(1) .spine{ --look:.065; }
+
+.spine img{
+  top:var(--top); height:calc(100% - var(--top));
+  z-index:1;   /* 天より下 */
+}
+.spine::before{
+  z-index:2;   /* 書影より上。これが無いと天が隠れる */
+  height:var(--top);
+  /* 奥（背板側）は影、手前の角だけが光る。紙の束の見え方 */
+  background:
+    linear-gradient(180deg,
+      rgba(46,32,20,.58)   0%,
+      rgba(46,32,20,.26)  22%,
+      rgba(46,32,20,.05)  52%,
+      rgba(255,246,226,.20) 84%,
+      rgba(46,32,20,.22) 100%),
+    linear-gradient(97deg,
+      color-mix(in srgb, var(--e) 58%, #7a6746)   0%,
+      color-mix(in srgb, var(--e) 84%, #9b8763)  34%,
+      color-mix(in srgb, var(--e) 96%, #c8b494)  62%,
+      color-mix(in srgb, var(--e) 70%, #8d7a55) 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.55), inset 0 -1px 0 rgba(0,0,0,.30);
+}
+/* 天の高さは判横から決まるので、固定値で上書きしていた指定は外す */
+.spine:nth-child(3n+1)::before,
+.spine:nth-child(3n+2)::before,
+.spine:nth-child(4n+3)::before{ height:var(--top); }
+
+/* --- 2. 棚の中を落とす ---------------------------------------
+   絵の背板が本と同じ明るさだと、箱の中に見えない。
+   奥を落とし、下からの照り返しだけ残す。黒ではなく焦茶で落とし、
+   木のあたたかみ（R-B）を保つ。 */
+.tier::before{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,
+      rgba(38,18,5,.66)   0%,   /* 上の棚板の裏。いちばん暗い */
+      rgba(38,18,5,.46)  16%,
+      rgba(38,18,5,.30)  58%,
+      rgba(38,18,5,.18)  88%,
+      rgba(38,18,5,.36) 100%),  /* 棚板との入隅 */
+    radial-gradient(130% 100% at 50% 106%, rgba(214,158,86,.22), transparent 64%),
+    linear-gradient(180deg, rgba(198,116,38,.16) 0%, rgba(198,116,38,.10) 100%);
+}
+
+/* --- 3. 本の影 ------------------------------------------------
+   右へ落とす影は、右隣の本があればその本に隠れ、
+   隣が低いときだけ背板に現れる。実際の棚と同じ出かた。
+   溝（本と本のあいだ）は線ではなく、光が死んでいく幅を持たせる。 */
+.spine{
+  box-shadow:
+    inset  2px 0 1px -1px rgba(240,232,214,.42),
+    inset -6px 0 7px -5px rgba(0,0,0,.72),   /* 溝 */
+     7px 3px 9px -4px rgba(0,0,0,.62),       /* 背板・隣への投影 */
+     1px 0 0 rgba(0,0,0,.40),
+    -1px 0 0 rgba(240,232,214,.10),
+     0 -4px 7px -2px rgba(0,0,0,.5);
+}
+/* 足もと。棚板に接しているところだけを、本ごとに締める */
+.spine::after{
+  content:"";
+  position:absolute; z-index:3;
+  left:-4px; right:-4px; bottom:0;
+  height:calc(10 * var(--u));
+  pointer-events:none;
+  background:linear-gradient(180deg,
+    rgba(0,0,0,0) 0%, rgba(0,0,0,.30) 62%, rgba(0,0,0,.58) 100%);
+}
+/* 段ぜんたいの影は、本の足もとと二重になるぶん弱める */
+.row::after{
+  background:radial-gradient(70% 100% at 50% 0%,rgba(0,0,0,.30),rgba(0,0,0,0) 74%);
+}
+
+/* --- 4. 並びに抜きをつくる ------------------------------------
+   隙間があると、そこに背板と影が見える。棚がいちばん深く見えるのは
+   本のないところ。ぴったり詰めると壁になる。 */
+.spine:nth-child(11n+6) { margin-right:calc(7 * var(--u)); }
+.spine:nth-child(17n+13){ margin-right:calc(4 * var(--u)); }
+
+/* --- 5. 木漏れ日 ----------------------------------------------
+   森（ヒーロー）と什器で光が違うと、別の場所に見える。
+   同じ光の素を base.css に置き、森と売り場の両方から使う。
+   葉の隙間の形は、繰り返しの見えない不規則な斑でつくる。 */
+.market{ isolation:isolate; }   /* 苔（.market::after）より上に光を置くため */
+.scene::after{
+  content:"";
+  position:absolute; z-index:3;
+  left:50%; top:0; width:100vw; height:100%;
+  transform:translateX(-50%);
+  pointer-events:none;
+  mix-blend-mode:screen;   /* 光は足す。彩度を殺さない */
+  opacity:.5;
+  background:
+    var(--komorebi),
+    radial-gradient(28% 32% at 22% 2%, rgba(255,205,128,.09), transparent 74%);
+  background-size:clamp(380px,46vw,760px) clamp(380px,46vw,760px), 100% 100%;
+  background-position:14% -6%, 0 0;
+  /* 光は上から入る。床に近いほど弱める */
+  -webkit-mask-image:linear-gradient(180deg,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.58) 46%, rgba(0,0,0,.2) 82%, rgba(0,0,0,.06) 100%);
+          mask-image:linear-gradient(180deg,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.58) 46%, rgba(0,0,0,.2) 82%, rgba(0,0,0,.06) 100%);
+}
+@media (min-width:768px){
+  /* 画面が広いと斑が細かく見えすぎる。光の粒を大きく、薄く */
+  .scene::after{ opacity:.38; }
+}
+/* 葉が揺れる。止まった光は絵に見える。
+   ただし背景位置の動きは毎フレーム描き直しになる。
+   実機の余裕を見て、指で触れない大きい画面だけに限る。 */
+@media (min-width:1024px) and (hover:hover) and (prefers-reduced-motion:no-preference){
+  .scene::after{ animation:komorebi-drift 38s var(--ease-breath) infinite alternate; }
+  @keyframes komorebi-drift{
+    from{ background-position:12% -8%, 0 0; }
+    to  { background-position:18% -2%, 0 0; }
+  }
 }
