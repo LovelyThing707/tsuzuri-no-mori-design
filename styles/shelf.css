@@ -231,11 +231,16 @@
 .flat::before{
   content:"";
   position:absolute; z-index:-1;
-  left:-20%; right:-20%; bottom:-22%;
-  height:42%;
+  /* 影の濃いところは、本の足もと（接地線）に置く。
+     本の真裏に置くと本自身に隠れ、外へはみ出すのは薄い裾だけになって
+     何も出ていないのと同じだった。top:100% から下へ伸ばす。 */
+  left:-16%; right:-16%; top:100%;
+  height:34%;
   pointer-events:none;
-  background:radial-gradient(52% 100% at 50% 40%, rgba(0,0,0,.72), rgba(0,0,0,0) 72%);
-  filter:blur(5px);
+  background:
+    radial-gradient(58% 130% at 50% 0%, rgba(0,0,0,.58), rgba(0,0,0,0) 68%),
+    linear-gradient(180deg, rgba(0,0,0,.34) 0%, rgba(0,0,0,0) 62%);
+  filter:blur(4px);
 }
 /* 地（手前の面）。表紙の面と直角に立て、手前から厚みが見えるようにする */
 .flat::after{
