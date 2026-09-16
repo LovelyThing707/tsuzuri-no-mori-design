@@ -19,10 +19,17 @@ const BOARD = {
   'case--1shelf': [[89.9, 90.4]],
 };
 
+/* 背の低い画面を必ず含める。3種類だけ見ていたころ、
+   375x667・1366x768・1280x720・1024x768 で売り場が一画面に
+   収まらなくなっていたのを、まるごと見落としていた。 */
 const VIEWS = [
+  { n: 'small', w: 320, h: 568 },
   { n: 'phone', w: 390, h: 844 },
+  { n: 'phone-short', w: 375, h: 667 },
   { n: 'tablet', w: 834, h: 1112 },
+  { n: 'laptop-short', w: 1366, h: 768 },
   { n: 'desktop', w: 1440, h: 900 },
+  { n: 'wide', w: 1920, h: 955 },
 ];
 /* 引き抜き・試し読みを見る画面。横長で縦の短いものを必ず含める
    （見開きが下にはみ出したのはこの形だった） */
@@ -85,6 +92,26 @@ async function shelf(b) {
             return {
               cut,
               fill: +(100 * used / tr.width).toFixed(0),
+              /* 画面上の厚みの比 ÷ 実物の厚みの比。0 なら実物どおり。
+                 一律でない下駄が混ざると、ここがふくらむ。 */
+              ratio: (() => {
+                /* offsetWidth は整数に丸められる。12px の本では 1px のずれが 8%
+                   になり、歪みと区別がつかない。計算値（小数）で測る。
+                   getBoundingClientRect は傾きの影響を受けるので使わない。 */
+                const floor = parseFloat(getComputedStyle(document.documentElement)
+                  .getPropertyValue('--spine-min')) || 0;
+                const seen = {};
+                sp.forEach(e => {
+                  const t = parseFloat(e.style.getPropertyValue('--t'));
+                  const w = parseFloat(getComputedStyle(e).width);
+                  /* 下限（要件定義書 2-2）に当たっている本は比が変わって当然。
+                     残りの本どうしの比が実物どおりかを見る。 */
+                  if (t && w > floor + 0.5 && !seen[t]) seen[t] = w / t;
+                });
+                const v = Object.values(seen);
+                return v.length < 2 ? 0
+                  : +((Math.max(...v) - Math.min(...v)) / (v.reduce((a, b) => a + b) / v.length)).toFixed(3);
+              })(),
               tallest: Math.round(Math.max(...sp.map(e => e.offsetHeight))),
               bottomPct: +(100 * (Math.max(...sp.map(e => e.getBoundingClientRect().bottom)) - cr.top) / cr.height).toFixed(2),
               overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
@@ -96,11 +123,19 @@ async function shelf(b) {
                 /* 本は1冊ずつわずかに傾いている。回転した外接矩形で測ると
                    細い本ほど幅が水増しし、引き伸ばしと見分けがつかない。
                    傾きの影響を受けない組み上の箱（offset）で測る。 */
+                /* 最小の厚み（--spine-min）に当たった本は、倍率よりも
+                   太く出る。要件定義書 2-2 が認めている措置なので、
+                   「倍率どおりか」の検査からは分けて数える。 */
+                const fl = parseFloat(getComputedStyle(document.documentElement)
+                  .getPropertyValue('--spine-min')) || 0;
                 const v = sp.map(e => {
                   const im = e.querySelector('img');
-                  if (!im || !im.naturalWidth || !im.offsetHeight) return null;
-                  return (im.offsetWidth / im.offsetHeight) /
-                         (im.naturalWidth / im.naturalHeight);
+                  if (!im || !im.naturalWidth) return null;
+                  if (parseFloat(getComputedStyle(e).width) <= fl + 0.5) return null;
+                  const cs = getComputedStyle(im);
+                  const w = parseFloat(cs.width), h = parseFloat(cs.height);
+                  if (!w || !h) return null;
+                  return (w / h) / (im.naturalWidth / im.naturalHeight);
                 }).filter(Boolean);
                 return v.length ? +Math.max(...v.map(x => Math.max(x, 1 / x))).toFixed(2) : 1;
               })(),
@@ -125,6 +160,10 @@ async function shelf(b) {
         out.flatBox = {};
         fl.forEach(e => { out.flatBox[e.dataset.book] = e.offsetWidth * e.offsetHeight; });
       });
+      /* 背表紙の厚みにかけている一律の倍率。写真の歪みはこの値と
+         等しくなるはず。これを超えたぶんが「意図しない引き伸ばし」 */
+      out.gain = parseFloat(getComputedStyle(document.documentElement)
+        .getPropertyValue('--thick-gain')) || 1;
       out.spineBox = {};
       document.querySelectorAll('.tier .spine').forEach(e => {
         if (getComputedStyle(e).display === 'none') return;
@@ -166,8 +205,16 @@ async function shelf(b) {
         /* 背幅は実寸比で出す。以前は 20px 以上を要求していたが、
            それは写真を横に3〜4倍引き伸ばしていた頃の基準。
            いま見るべきは「見えているか」と「歪んでいないか」。 */
-        t(ti.minW >= 6, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本も見えている (${ti.minW}px)`);
-        t(ti.skew <= 1.25, `${vp.n} ${c.cls} 段${i + 1}: 背表紙が引き伸ばされていない (${ti.skew}倍)`);
+        t(ti.minW >= 8, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本も指で狙える (${ti.minW}px)`);
+        /* 厚みには一律の倍率（--thick-gain）をかけている。参考画像に合わせた
+           意図的なもの。検査で見るのは「その倍率ちょうどか」。
+           これを超えていたら、どこかで別の引き伸ばしが起きている。 */
+        t(ti.skew <= m.gain * 1.06,
+          `${vp.n} ${c.cls} 段${i + 1}: 厚みの倍率どおり、余分な歪みなし (${ti.skew}倍 / 指定${m.gain}倍)`);
+        /* 厚みの比は実物どおりに保たれていること（必須条件⑤）。
+           一律の倍率なので、比は倍率をかける前と変わらない。 */
+        t(ti.ratio <= 0.04,
+          `${vp.n} ${c.cls} 段${i + 1}: 厚みの比が実物どおり (ずれ ${(ti.ratio * 100).toFixed(1)}%)`);
         t(ti.fill >= 90, `${vp.n} ${c.cls} 段${i + 1}: 段が本で埋まっている (${ti.fill}%)`);
       });
     });
@@ -189,7 +236,12 @@ async function screens(b) {
     const sp = await p.$('.spine[data-book]');
     await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     const key = await sp.getAttribute('data-book');
-    await sp.click(); await p.waitForTimeout(800);
+    /* 影武者の動きは 560ms。固定の待ち時間で見ていると、
+       機械が混んでいるときだけ落ちる。消えるまで待つ。 */
+    await sp.click();
+    await p.waitForFunction(() => !document.querySelector('.pull-fly'), null, { timeout: 5000 })
+      .catch(() => {});
+    await p.waitForTimeout(250);
 
     let s = await p.evaluate(() => {
       const r = document.getElementById('pull');
@@ -422,7 +474,12 @@ async function pages(b) {
     const sp = await p.$('.spine[data-book]');
     await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     const key = await sp.getAttribute('data-book');
-    await sp.click(); await p.waitForTimeout(800);
+    /* 影武者の動きは 560ms。固定の待ち時間で見ていると、
+       機械が混んでいるときだけ落ちる。消えるまで待つ。 */
+    await sp.click();
+    await p.waitForFunction(() => !document.querySelector('.pull-fly'), null, { timeout: 5000 })
+      .catch(() => {});
+    await p.waitForTimeout(250);
     await p.click('.pull__act--buy'); await p.waitForTimeout(400);
 
     s = await p.evaluate(() => {

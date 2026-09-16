@@ -68,22 +68,46 @@
     var rows = document.querySelectorAll('.case .row');
     Array.prototype.forEach.call(rows, function (row) {
       var books = row.querySelectorAll('.spine');
-      Array.prototype.forEach.call(books, function (b) { b.classList.remove('is-over'); });
+      if (!books.length) return;
       var avail = row.getBoundingClientRect().width - 4;
-      var used = 0, full = false;
-      Array.prototype.forEach.call(books, function (b) {
-        if (full) { b.classList.add('is-over'); return; }
+
+      /* 測るときは測るだけ、付け外しは最後にまとめて。
+         以前はここで全冊の is-over をいったん外してから測っていた。
+         1段120冊×3段がぜんぶ並んでから大半をまた隠すことになり、
+         画面の回転や、スクロール中にURLバーが開け閉めするたびに
+         （どちらも resize）そのあいだ指が効かなかった。
+
+         隠れている本も width は読める（display:none でも、指定が
+         絶対値の計算式なら計算値が返る）。出し入れは不要。
+
+         幅は小数のまま足す。offsetWidth は整数に丸められるので、
+         70冊も積むと30px近くずれ、柱ぎわで本が切れる。 */
+      var i, b, cs, w;
+      var cut = books.length;
+      var used = 0;
+      for (i = 0; i < books.length; i++) {
+        b = books[i];
+        cs = window.getComputedStyle(b);
         /* 抜き（margin）も幅に含める。含めないと入ると誤算し、
            先頭の1冊が柱の外へ押し出されて押せなくなる */
-        var cs = window.getComputedStyle(b);
-        var w = (parseFloat(cs.width) || b.offsetWidth)
-              + (parseFloat(cs.marginLeft) || 0)
-              + (parseFloat(cs.marginRight) || 0);
-        if (used + w <= avail) { used += w; }
-        else { full = true; b.classList.add('is-over'); }
-      });
+        w = (parseFloat(cs.width) || 0)
+          + (parseFloat(cs.marginLeft) || 0)
+          + (parseFloat(cs.marginRight) || 0);
+        if (used + w > avail) { cut = i; break; }
+        used += w;
+      }
+
+      for (i = 0; i < books.length; i++) {
+        b = books[i];
+        if (i < cut) {
+          if (b.classList.contains('is-over')) b.classList.remove('is-over');
+        } else {
+          if (!b.classList.contains('is-over')) b.classList.add('is-over');
+        }
+      }
     });
   }
+
 
   var fitTimer;
   function onResize() {
@@ -192,8 +216,30 @@
       }, reduced.matches ? 0 : 320);
     }
 
+    /* 狙いが外れたとき、いちばん近い本を拾う。
+       いちばん薄い本でも背は10px前後しかない。指の腹はそれより広く、
+       本と本のあいだや、背の低い本の上の空きに当たることがある。
+       段の中で当たったなら、横の距離がいちばん近い本を開く。
+       見た目には何も足していない（本を太らせずに、狙いだけ広げる）。 */
+    function nearest(e) {
+      var row = e.target.closest && e.target.closest('.case .row');
+      if (!row) return null;
+      var books = row.querySelectorAll('.spine[data-book]');
+      var best = null, bestD = 26;   /* これより離れていたら拾わない */
+      for (var i = 0; i < books.length; i++) {
+        var b = books[i];
+        if (b.classList.contains('is-over')) continue;
+        var r = b.getBoundingClientRect();
+        if (!r.width) continue;
+        var d = e.clientX < r.left ? r.left - e.clientX
+              : e.clientX > r.right ? e.clientX - r.right : 0;
+        if (d < bestD) { bestD = d; best = b; }
+      }
+      return best;
+    }
+
     document.addEventListener('click', function (e) {
-      var hit = e.target.closest('.spine[data-book], .flat[data-book]');
+      var hit = e.target.closest('.spine[data-book], .flat[data-book]') || nearest(e);
       if (hit) { open(hit); return; }
       if (e.target.closest('[data-close]')) close();
     });
