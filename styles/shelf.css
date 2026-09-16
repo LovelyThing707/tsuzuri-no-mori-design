@@ -174,13 +174,6 @@
 
 /* 平置き。机に置いてある状態。表紙が上を向く */
 .flat{
-  /* 奥行きは1冊ごとに持たせる。段でひとつの perspective を共有すると、
-     真ん中から離れた本ほど斜めから見ることになり、小口（紙の束）が
-     片側だけ厚い楔形に写る。いちばん大きいA4判の絵本で目立ち、
-     角で支えているように見えて「浮いている」と感じられていた。
-     1冊ずつ正面から見た形にすると、小口はどの本も均一な厚みになる。 */
-  perspective:900px;
-  perspective-origin:50% 130%;
   --fw: calc(var(--w) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   --fh: calc(var(--h) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う */
@@ -192,7 +185,15 @@
   border-radius:1px;
   transform-origin:50% 100%;
   transform-style:preserve-3d;
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot));
+  /* 奥行きは1冊ごとに持たせる。
+     段でひとつの perspective を共有すると、真ん中から離れた本ほど
+     斜めから見ることになり、小口が片側だけ厚い楔形に写った。
+     かといって親の perspective を外すと、こんどは表紙が平行投影になり、
+     厚みも遠近も無い「板」に見えた。
+
+     perspective() を transform の中に置くと、1冊ごとに、その本の
+     正面から見た遠近がかかる。楔形にならず、奥（上）がすぼまる。 */
+  transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot));
   box-shadow:0 3px 4px rgba(0,0,0,.45);
   transition:transform .34s var(--ease);
 }
@@ -260,12 +261,21 @@
   height:var(--fe);
   transform-origin:50% 0%;
   transform:rotateX(-90deg);
-  background:linear-gradient(180deg,#f0e9d9 0%,#ddd3bb 45%,#9c8f76 100%);
+  /* 參考画像の小口を実測した色で組む。
+       表紙の板の小口  rgb(37,28,27)   ほぼ黒。厚みの 2割
+       紙の束          rgb(166,142,114) 白ではなく、温かい生成り
+     これまでは白に近い一色だったため、紙の束ではなく
+     「白い縁のついた板」に見えていた。 */
+  background:linear-gradient(180deg,
+    #251c1b  0%, #251c1b 19%,   /* 表紙の板の小口 */
+    #c3ac8d 23%,                /* 紙の束。上端は光を受ける */
+    #a68e72 58%,
+    #7b6650 100%);              /* 机に近いほど落ちる */
   box-shadow:0 4px 9px -3px rgba(0,0,0,.75);
   border-radius:0 0 1px 1px;
 }
 .flat:hover,.flat:focus-visible{
-  transform:rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(8px);
+  transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(8px);
 }
 
 /* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
@@ -285,9 +295,14 @@
   .platform__row .flat:nth-child(n+5){ display:block; }
   .platform__row .flat:nth-child(n+9){ display:none; }
 }
-/* 広い画面では天板が長くなる。間を広げて台の上に散らす */
+/* 広い画面でも、本と本の間は詰める。
+   參考画像では本どうしが 14〜18px しか離れていない。
+   天板の幅に合わせて間を広げると（1440pxで63px）、本が台の上に
+   点々と散らばり、並べたのではなく置き忘れたように見えた。
+   天板が広く見えること自体は要件定義書 3-2 のとおり
+   （「画面が大きいほど…平台の奥行きや影も見えやすくなります」）。 */
 @media (min-width:900px){
-  .platform__row{ gap:clamp(24px,4.4vw,88px); }
+  .platform__row{ gap:clamp(16px,1.6vw,30px); }
 }
 .market__head{
   position:relative; z-index:3;
