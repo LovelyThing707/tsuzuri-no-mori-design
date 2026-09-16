@@ -38,21 +38,8 @@
   will-change:transform;
 }
 @media (min-width:768px){
-  /* 横長の画面は絵よりずっと横長なので、
-     埋めると上下が 39% 切れる。上に合わせれば本が残るが
-     小屋と道が消え、下に合わせればその逆になる。
-     どちらも見せるには絵全体を入れるしかない。 */
-  .hero__scene img{ object-fit:contain; object-position:50% 50%; }
-  /* 全体を入れると左右に余白が出る。同じ絵をやわらかく敷いて
-     埋める。縁が内側へ回り込まないよう、少し大きくしておく。 */
-  .hero::before{
-    content:"";
-    position:absolute; inset:0; z-index:0;
-    background:url("../assets/images/hero-forest-landscape.webp") center / cover no-repeat;
-    filter:blur(30px) brightness(.42) saturate(.85);
-    transform:scale(1.1);
-    pointer-events:none;
-  }
+  /* 横長の画像は横位置で構図が決まっているので、中央のまま使う */
+  .hero__scene img{ object-position:50% 46%; }
 }
 
 /* 木漏れ日。強い光線にしない */
