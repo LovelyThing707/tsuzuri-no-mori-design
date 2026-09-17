@@ -317,20 +317,11 @@
    冊数ではなく床と余白が広がる形。増やすぶん1冊が小さくなり、
    「平台の本は大きく手前に」と逆になっていた。 */
 .platform__row .flat:nth-child(n+5){ display:none; }
-/* 天板が広くなるぶん、置く冊数も増やす。
-   什器を有限幅にしたので、冊数の切り替えも その幅に合わせる。
-   1200px のままだと、1024px幅で 655px の天板に4冊しか乗らず、
-   半分しか埋まらなかった（実測 50%）。
-   逆に 700px から6冊にすると、500pxの天板に入りきらず溢れた（126%）。
-   実測して 940px／1150px で切り替える（880pxだと天板ちょうどで溢れた）。
+/* パソコンでは平台が広く、4冊では寂しい。8冊置く。
    （要件定義書 2-3 は「平台 3〜4冊」。画面の広い環境だけ増やす形で、
      書面の改訂が要る点は國分様にお伝えする） */
-@media (min-width:940px){
+@media (min-width:1200px){
   .platform__row .flat:nth-child(n+5){ display:block; }
-  .platform__row .flat:nth-child(n+7){ display:none; }
-}
-@media (min-width:1150px){
-  .platform__row .flat:nth-child(n+7){ display:block; }
   .platform__row .flat:nth-child(n+9){ display:none; }
 }
 /* 広い画面でも、本と本の間は詰める。
@@ -342,29 +333,6 @@
 @media (min-width:900px){
   .platform__row{ gap:clamp(16px,1.6vw,30px); }
 }
-/* --- 広い画面では、什器を有限の幅にする -----------------------
-   本の大きさは「什器の高さ」から決まり、平台の幅は「画面の幅」だった。
-   この二つが無関係なので、画面が広がるほど本が天板を埋められなくなる。
-
-     平台のうち本が占める割合
-       スマートフォン 390   88%
-       タブレット     834   52%
-       パソコン      1440   56%
-       パソコン      1920   47%
-
-   本を大きくしても追いつかない（高さの予算で頭打ちになる）。
-   什器の幅のほうを止めるのが筋。要件定義書 2-3 の
-   「床と壁は途切れずに続き、その上に什器が置かれている」にも近づく。
-
-   スマートフォンは、參考画像どおり画面いっぱいのままにする。 */
-@media (min-width:700px){
-  .case,
-  .platform{
-    width:min(100vw, clamp(500px, 64vw, 1000px));
-    margin-inline:auto;
-  }
-}
-
 .market__head{
   position:relative; z-index:3;
   display:flex; align-items:baseline; justify-content:space-between;
