@@ -200,8 +200,15 @@
 .flat{
   --fw: calc(var(--w) * var(--px-per-mm) * var(--u) * var(--flat-scale));
   --fh: calc(var(--h) * var(--px-per-mm) * var(--u) * var(--flat-scale));
-  /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う */
-  --fe: calc(var(--t) * var(--px-per-mm) * var(--u) * var(--flat-scale) * var(--flat-edge-gain));
+  /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う。
+     ただし薄い本には下限を置く（要件定義書 2-2 の「最小の厚み」）。
+
+     一律の倍率で太らせると、厚い本ほど効きすぎる。
+     25mm のかがくのお話25 は、表紙の見え高の27%が小口になり、
+     白い台に本が載っているように見えた（參考画像は 7%）。
+     薄い本だけを持ち上げる下限のほうが、厚い本を壊さない。 */
+  --fe: calc(max(var(--t), var(--flat-t-min)) * var(--px-per-mm) * var(--u)
+             * var(--flat-scale) * var(--flat-edge-gain));
   position:relative;
   flex:0 0 auto;
   width:var(--fw); height:var(--fh);
