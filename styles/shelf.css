@@ -1432,8 +1432,11 @@
 .scene::before{
   content:"";
   position:absolute; z-index:3;
-  left:50%; top:0; width:100vw; height:100%;
-  transform:translateX(-50%);
+  /* 左右の柱には光を落とさない。柱の木は暗いので、そこへ淡い斑が
+     乗ると、光ではなく曇りガラス越しに見ているように見えた。
+     マスクを2枚重ねる手もあるが、mask-composite は一枚だけのときに
+     層ごと消えるなど扱いが難しい。層自体を柱の内側に収めるほうが確実。 */
+  left:var(--post-w); right:var(--post-w); top:0; height:100%;
   pointer-events:none;
   opacity:var(--sun-amt);
   /* 葉の重なりの、抜けたところだけが光になる。
@@ -1453,6 +1456,8 @@
     radial-gradient(70% 50% at 12% 2%, rgba(255,226,172,.26), transparent 76%);
   /* 窓は左上。そこから離れるほど、光は弱まる */
   -webkit-mask-image:radial-gradient(142% 118% at 10% -8%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
+          mask-image:radial-gradient(142% 118% at 10% -8%,
     rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
           mask-image:radial-gradient(142% 118% at 10% -8%,
     rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
