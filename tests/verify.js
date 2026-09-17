@@ -72,6 +72,11 @@ async function shelf(b) {
         out.cases.push({
           cls: [...c.classList].find(x => x.startsWith('case--')),
           w: Math.round(cr.width),
+          left: +cr.left.toFixed(1),
+          platW: (() => {
+            const pl = c.parentElement.querySelector('.platform');
+            return pl ? Math.round(pl.getBoundingClientRect().width) : 0;
+          })(),
           tiers: [...c.querySelectorAll('.tier')].map(ti => {
             const tr = ti.getBoundingClientRect();
             const sp = [...ti.querySelectorAll('.spine')].filter(vis);
@@ -197,7 +202,21 @@ async function shelf(b) {
         `${vp.n}: 平台の本が棚の本より大きい (最小 ${Math.min(...r).toFixed(1)}倍)`);
     })();
     m.cases.forEach(c => {
-      t(c.w >= vp.w - 1, `${vp.n} ${c.cls}: 棚が画面いっぱい`);
+      /* スマートフォンは參考画像どおり画面いっぱい。
+         広い画面では什器を有限の幅にして、左右に床と壁を見せる
+         （要件定義書 2-3「床と壁は途切れずに続き、その上に什器が
+         置かれている」）。本の大きさは什器の高さから決まるので、
+         幅を止めないと画面が広いほど天板が埋まらなくなる。 */
+      if (vp.w < 700) {
+        t(c.w >= vp.w - 1, `${vp.n} ${c.cls}: 棚が画面いっぱい`);
+      } else {
+        t(c.w <= vp.w + 1 && c.w >= 480,
+          `${vp.n} ${c.cls}: 棚が有限の幅に収まる (${c.w}px / 画面${vp.w}px)`);
+        t(Math.abs(c.left - (vp.w - c.w) / 2) <= 1.5,
+          `${vp.n} ${c.cls}: 棚が中央にある`);
+        t(Math.abs(c.platW - c.w) <= 1,
+          `${vp.n} ${c.cls}: 棚と平台の幅がそろっている (${c.w}/${c.platW})`);
+      }
       c.tiers.forEach((ti, i) => {
         const [lo, hi] = BOARD[c.cls][i];
         t(ti.bottomPct >= lo - 0.8 && ti.bottomPct <= hi + 0.8,
