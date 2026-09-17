@@ -56,19 +56,26 @@
 
      この層は z:2、柱の絵は z:3。柱の幅（--post-w）より内側に置かないと
      絵の裏に隠れる。最初 10px に置いて、何も変わらなかった。 */
+  /* 柱の内側の角に、濃い線を一本。
+     以前はその内側に温かい縁光（rgba(255,228,182,.30)）も置いていたが、
+     柱のとなりに淡い帯が全高で立ち、灰色の柱が二本あるように見えた。
+
+       帯の明るさ  111.1（棚の中 100.4／＋10.7 明るい）
+       外したあと   74.8（−25.6 暗い＝角の陰として正しい向き）
+
+     參考画像の縁光は柱の木そのものの照り返しで、こちらのように
+     手前に一枚かぶせる帯ではなかった。絵に無いものは足さない。 */
   background:
     linear-gradient(90deg,
-      rgba(0,0,0,0)        calc(var(--post-w) - 3px),
-      rgba(0,0,0,.90)      var(--post-w),
-      rgba(0,0,0,.34)      calc(var(--post-w) + 4px),
-      rgba(255,228,182,.30) calc(var(--post-w) + 7px),
-      rgba(0,0,0,0)        calc(var(--post-w) + 20px)),
+      rgba(0,0,0,0)   calc(var(--post-w) - 3px),
+      rgba(0,0,0,.90) var(--post-w),
+      rgba(0,0,0,.34) calc(var(--post-w) + 4px),
+      rgba(0,0,0,0)   calc(var(--post-w) + 14px)),
     linear-gradient(270deg,
-      rgba(0,0,0,0)        calc(var(--post-w) - 3px),
-      rgba(0,0,0,.90)      var(--post-w),
-      rgba(0,0,0,.34)      calc(var(--post-w) + 4px),
-      rgba(255,228,182,.30) calc(var(--post-w) + 7px),
-      rgba(0,0,0,0)        calc(var(--post-w) + 20px));
+      rgba(0,0,0,0)   calc(var(--post-w) - 3px),
+      rgba(0,0,0,.90) var(--post-w),
+      rgba(0,0,0,.34) calc(var(--post-w) + 4px),
+      rgba(0,0,0,0)   calc(var(--post-w) + 14px));
   /* 柱ぎわに広い陰を敷いていたが（inset 54px / ぼかし46px）、
      この層は本より上（z:2）なので、本の上に薄暗い帯がかかり、
      曇りガラス越しに見ているようになっていた。
