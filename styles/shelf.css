@@ -1404,3 +1404,100 @@
     to  { background-position:18% -2%, 0 0; }
   }
 }
+
+/* ============================================================
+   什器の質感を、絵を差し替えずに足す
+   ------------------------------------------------------------
+   國分様のご指摘「温かみのある木目や木漏れ日などの世界観／
+   棚の奥行や影などの表現」に対して、什器アートワークの作り直しを
+   待たずにできるところ。
+
+   什器の絵は 2062x609 で、画面では 1.7〜2.4倍に伸びる。
+   伸びた絵に細部は無いが、「描画のたびに作られる層」を上に重ねると、
+   細部があるように見える。しかもその層は解像度に依存しないので、
+   高精細画面でも、ブラウザの拡大表示でも、同じ細かさで出る。
+
+   置く層は4つ。すべて本より下（z-index:0）に敷き、
+   3D で組んである平置きの本には触らない。
+   ============================================================ */
+
+/* --- 1. 木肌。棚の中と棚板に、横に流れる繊維を重ねる ---------- */
+.case__box::before{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  pointer-events:none;
+  background:
+    var(--wood-blot),
+    var(--wood-grain);
+  background-size:760px 760px, 320px 320px;
+  background-blend-mode:soft-light;
+  mix-blend-mode:overlay;
+  opacity:var(--grain-amt);
+}
+
+/* 温かみは、同じ層の中に色として混ぜる。
+   別の層にすると合成の回数が増えるだけで、見た目は変わらない。 */
+.case__box::before{
+  background-image:
+    linear-gradient(rgba(214,132,52,var(--warm-amt)), rgba(178,98,36,var(--warm-amt))),
+    var(--wood-blot),
+    var(--wood-grain);
+  background-size:100% 100%, 760px 760px, 320px 320px;
+  background-blend-mode:soft-light, soft-light, normal;
+}
+
+/* --- 3. 木漏れ日を段の中まで落とす ---------------------------
+   光は上から入る。段の上のほうを明るく、奥へ行くほど弱く。
+   森（.hero__light）と同じ素を使うので、同じ太陽の光になる。 */
+.tier::after{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  pointer-events:none;
+  mix-blend-mode:screen;
+  opacity:.34;
+  background:
+    var(--komorebi),
+    radial-gradient(64% 46% at 26% 0%, rgba(255,206,132,.26), transparent 72%);
+  background-size:clamp(190px,26vw,380px) clamp(190px,26vw,380px), 100% 100%;
+  background-position:18% -12%, 0 0;
+  -webkit-mask-image:linear-gradient(180deg,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.52) 38%, rgba(0,0,0,.16) 78%, rgba(0,0,0,0) 100%);
+          mask-image:linear-gradient(180deg,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.52) 38%, rgba(0,0,0,.16) 78%, rgba(0,0,0,0) 100%);
+}
+
+/* --- 4. 平台。天板は水平なので、光をいちばん受ける ------------
+   あわせて、絵が横に5回ほど繰り返されるのを、
+   繰り返しの周期と関係のないむらで見えにくくする。 */
+.platform::before{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  pointer-events:none;
+  background:
+    var(--wood-blot),
+    var(--wood-grain);
+  background-size:1010px 1010px, 300px 300px;   /* 絵の継ぎ目と揃わない周期 */
+  background-blend-mode:soft-light;
+  mix-blend-mode:overlay;
+  opacity:var(--blot-amt);
+}
+.platform::after{
+  content:"";
+  position:absolute; left:0; right:0; top:0; height:54%;   /* 天板の面だけ */
+  z-index:0;
+  pointer-events:none;
+  mix-blend-mode:screen;
+  opacity:.4;
+  background:
+    var(--komorebi),
+    radial-gradient(52% 78% at 30% 6%, rgba(255,212,142,.3), transparent 74%);
+  background-size:clamp(200px,28vw,420px) clamp(200px,28vw,420px), 100% 100%;
+  background-position:12% -6%, 0 0;
+  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,.34) 68%, rgba(0,0,0,0) 100%);
+          mask-image:linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,.34) 68%, rgba(0,0,0,0) 100%);
+}
+
+/* 動きを減らす設定のときは、光を止める（下の drift と揃える） */
+@media (prefers-reduced-motion:reduce){
+  .tier::after,.platform::after{ animation:none; }
+}
