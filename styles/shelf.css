@@ -1412,11 +1412,15 @@
   transform:translateX(-50%);
   pointer-events:none;
   opacity:var(--sun-amt);
+  /* 葉の重なりの、抜けたところだけが光になる。
+     影は輪郭を持たず、光のほうが形を持つ——これが木漏れ日。
+     前に敷いていた枝のシルエットは、ちょうど逆だった。
+
+     棚にも台にも本にも落ちる必要があるので、この層だけは
+     売り場ぜんたい（棚 z:1／平台 z:2）の上に置く。 */
   background:
-    /* 窓は左上。葉のすき間から漏れた明るいところ */
-    radial-gradient(64% 46% at 14% 4%,  rgba(255,232,186,.95), rgba(255,214,150,.30) 46%, transparent 74%),
-    radial-gradient(34% 22% at 40% 12%, rgba(255,238,200,.55), transparent 70%),
-    radial-gradient(26% 16% at 68% 2%,  rgba(255,236,196,.40), transparent 72%);
+    url("../assets/images/komorebi.webp") no-repeat left top / cover,
+    radial-gradient(70% 50% at 12% 2%, rgba(255,226,172,.40), transparent 76%);
 }
 /* 下へ向かう減光。參考画像は中央82／上の隅63〜69／下の隅41 */
 .scene::after{
