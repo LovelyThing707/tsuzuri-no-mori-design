@@ -50,11 +50,29 @@
   content:"";
   position:absolute; inset:0; z-index:2;
   pointer-events:none;
-  box-shadow:
-    inset  26px 0 30px -20px rgba(0,0,0,.9),
-    inset -26px 0 30px -20px rgba(0,0,0,.9);
-}
+  /* 參考画像の柱を横断すると、35px の中に
+       溝 14.6 → 内面 128〜155 → 内縁の光 174.4
+     が並ぶ。濃い線と明るい線が隣り合うことで角が立ち、棚が「箱」に見える。
 
+     この層は z:2、柱の絵は z:3。柱の幅（--post-w）より内側に置かないと
+     絵の裏に隠れる。最初 10px に置いて、何も変わらなかった。 */
+  background:
+    linear-gradient(90deg,
+      rgba(0,0,0,0)        calc(var(--post-w) - 3px),
+      rgba(0,0,0,.90)      var(--post-w),
+      rgba(0,0,0,.34)      calc(var(--post-w) + 4px),
+      rgba(255,228,182,.30) calc(var(--post-w) + 7px),
+      rgba(0,0,0,0)        calc(var(--post-w) + 20px)),
+    linear-gradient(270deg,
+      rgba(0,0,0,0)        calc(var(--post-w) - 3px),
+      rgba(0,0,0,.90)      var(--post-w),
+      rgba(0,0,0,.34)      calc(var(--post-w) + 4px),
+      rgba(255,228,182,.30) calc(var(--post-w) + 7px),
+      rgba(0,0,0,0)        calc(var(--post-w) + 20px));
+  box-shadow:
+    inset  54px 0 46px -34px rgba(0,0,0,.66),
+    inset -54px 0 46px -34px rgba(0,0,0,.66);
+}
 /* 左右の柱。棚が画面の外へ続くのではなく、
    画面の幅にちょうど収まった1台の本棚に見えるようにする。
    「横板はある状態で本当の本棚のように」というご指摘への対応。 */
@@ -1322,14 +1340,19 @@
   position:absolute; inset:0; z-index:0;
   pointer-events:none;
   background:
+    /* 棚の中はこの絵の中でいちばん暗いところ。
+       參考画像の背板は輝度 48.3、手前の柱は 103.0（手前:奥 = 2.13:1）。
+       こちらは背板 111.9 / 柱 60.2 で、いちばん奥がいちばん明るく、
+       前後が逆だった。これが「奥行きが無い」の正体。 */
     linear-gradient(180deg,
-      rgba(38,18,5,.66)   0%,   /* 上の棚板の裏。いちばん暗い */
-      rgba(38,18,5,.46)  16%,
-      rgba(38,18,5,.30)  58%,
-      rgba(38,18,5,.18)  88%,
-      rgba(38,18,5,.36) 100%),  /* 棚板との入隅 */
-    radial-gradient(130% 100% at 50% 106%, rgba(214,158,86,.22), transparent 64%),
-    linear-gradient(180deg, rgba(198,116,38,.16) 0%, rgba(198,116,38,.10) 100%);
+      rgba(26,12,3,.93)   0%,   /* 上の棚板の裏。いちばん暗い */
+      rgba(26,12,3,.82)  14%,
+      rgba(26,12,3,.74)  48%,
+      rgba(26,12,3,.70)  86%,
+      rgba(26,12,3,.82) 100%),  /* 棚板との入隅 */
+    /* 天板の裏を舐める温かい光（參考画像 1.） */
+    linear-gradient(180deg, rgba(255,216,156,.22) 0%, rgba(255,216,156,.06) 9%, rgba(255,216,156,0) 22%),
+    radial-gradient(130% 100% at 50% 106%, rgba(214,158,86,.16), transparent 62%);
 }
 
 /* --- 3. 本の影 ------------------------------------------------
@@ -1371,53 +1394,42 @@
    同じ光の素を base.css に置き、森と売り場の両方から使う。
    葉の隙間の形は、繰り返しの見えない不規則な斑でつくる。 */
 .market{ isolation:isolate; }   /* 苔（.market::after）より上に光を置くため */
-/* --- 窓から差す光と、枝の影 ----------------------------------
-   國分様のご要望は「木漏れ日」——窓ごしに枝の影が、棚にも台にも
-   本にも落ちること。影は物の境目を無視して渡っていくので、
-   この2層だけは本より上に置く（棚 z:1／平台 z:2 の上）。
+/* --- 窓からの光。參考画像にある「光のできごと」だけを置く ------
+   これまでここには枝のトレースを黒く敷いていた。參考画像を2.2倍に
+   持ち上げて確かめたところ、枝の影はどこにも無い。
+   あるのは三つだけだった。
 
-   これまでここに置いていたのは乱数の斑を screen で足したもので、
-   実測すると画面を最大 ±6.9（256階調）しか変えておらず、
-   1%以上変わった画素は 0.04% しかなかった。枝の形も無かった。 */
+     1. 天板の裏を舐める、温かい光の帯
+     2. 柱の内側を走る縁の光と、その外の濃い溝
+     3. 下へ向かう減光（上の隅 63〜69／下の隅 41／中央 82）
+
+   木漏れ日は「葉のすき間から漏れる明るいところ」であって、
+   枝の黒い筋ではない。逆のものを描いていた。 */
 .scene::before{
   content:"";
   position:absolute; z-index:3;
   left:50%; top:0; width:100vw; height:100%;
   transform:translateX(-50%);
   pointer-events:none;
-  /* 合成モードは使わない。画面ぜんたいを覆う層に mix-blend-mode を
-     かけると、後ろを読み直すために毎フレーム再合成が走る。
-     実測でパソコンでは1層あたり約10fps（28.8→18.8）落ちた。
-     影も光もふつうの重ねで、見た目はほぼ同じ（平均差 1.5／256）。 */
   opacity:var(--sun-amt);
-  /* 窓は左上。そこから扇形に差し込む */
   background:
-    radial-gradient(118% 92% at 6% -14%, rgba(255,214,148,.92), rgba(255,196,120,.34) 38%, transparent 72%);
+    /* 窓は左上。葉のすき間から漏れた明るいところ */
+    radial-gradient(64% 46% at 14% 4%,  rgba(255,232,186,.95), rgba(255,214,150,.30) 46%, transparent 74%),
+    radial-gradient(34% 22% at 40% 12%, rgba(255,238,200,.55), transparent 70%),
+    radial-gradient(26% 16% at 68% 2%,  rgba(255,236,196,.40), transparent 72%);
 }
+/* 下へ向かう減光。參考画像は中央82／上の隅63〜69／下の隅41 */
 .scene::after{
   content:"";
   position:absolute; z-index:4;
   left:50%; top:0; width:100vw; height:100%;
   transform:translateX(-50%);
   pointer-events:none;
-  opacity:var(--branch-amt);
-  background:url("../assets/images/branch-shadow.webp") no-repeat -6% -4% / 128% auto;
-  /* 窓から遠いほど影は薄れる。光と同じ向きに減衰させる。
-     落としすぎると棚の中まで影が届かない（最初はそれで、
-     上枠のあたりにしか出ていなかった）。 */
-  -webkit-mask-image:radial-gradient(150% 130% at 10% -14%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.94) 40%, rgba(0,0,0,.66) 72%, rgba(0,0,0,.34) 100%);
-          mask-image:radial-gradient(150% 130% at 10% -14%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.94) 40%, rgba(0,0,0,.66) 72%, rgba(0,0,0,.34) 100%);
+  opacity:var(--fall-amt);
+  background:
+    linear-gradient(180deg, rgba(18,10,4,0) 0%, rgba(18,10,4,0) 46%, rgba(18,10,4,.55) 100%),
+    radial-gradient(120% 86% at 22% 6%, rgba(18,10,4,0) 40%, rgba(18,10,4,.42) 100%);
 }
-/* 枝が風で揺れる。止まった影は絵に見える。
-   背景位置を動かすと毎フレーム描き直しになるので、
-   実機の余裕を見て、指で触れない大きい画面だけに限る。 */
-@media (min-width:1024px) and (hover:hover) and (prefers-reduced-motion:no-preference){
-  .scene::after{ animation:komorebi-drift 42s var(--ease-breath) infinite alternate; }
-  @keyframes komorebi-drift{
-    from{ background-position:11% 0; }
-    to  { background-position:15% 2%; }
   }
 }
 
@@ -1465,22 +1477,9 @@
 /* --- 3. 木漏れ日を段の中まで落とす ---------------------------
    光は上から入る。段の上のほうを明るく、奥へ行くほど弱く。
    森（.hero__light）と同じ素を使うので、同じ太陽の光になる。 */
-.tier::after{
-  content:"";
-  position:absolute; inset:0; z-index:0;
-  pointer-events:none;
-  mix-blend-mode:screen;
-  opacity:.34;
-  background:
-    var(--komorebi),
-    radial-gradient(64% 46% at 26% 0%, rgba(255,206,132,.26), transparent 72%);
-  background-size:clamp(190px,26vw,380px) clamp(190px,26vw,380px), 100% 100%;
-  background-position:18% -12%, 0 0;
-  -webkit-mask-image:linear-gradient(180deg,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.52) 38%, rgba(0,0,0,.16) 78%, rgba(0,0,0,0) 100%);
-          mask-image:linear-gradient(180deg,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.52) 38%, rgba(0,0,0,.16) 78%, rgba(0,0,0,0) 100%);
-}
+/* 段の中に置いていた「乱数の斑を screen で足す層」は外した。
+   枝の形も無く、段の上半分を白っぽく曇らせるだけだった。
+   天板の裏を舐める光は .tier::before の中に入れてある。 */
 
 /* --- 4. 平台。天板は水平なので、光をいちばん受ける ------------
    あわせて、絵が横に5回ほど繰り返されるのを、
@@ -1497,20 +1496,14 @@
   mix-blend-mode:overlay;
   opacity:var(--blot-amt);
 }
+/* 天板の光も同じ理由で、乱数の斑ではなく素直な当たりにする */
 .platform::after{
   content:"";
-  position:absolute; left:0; right:0; top:0; height:54%;   /* 天板の面だけ */
+  position:absolute; left:0; right:0; top:0; height:54%;
   z-index:0;
   pointer-events:none;
-  mix-blend-mode:screen;
-  opacity:.4;
-  background:
-    var(--komorebi),
-    radial-gradient(52% 78% at 30% 6%, rgba(255,212,142,.3), transparent 74%);
-  background-size:clamp(200px,28vw,420px) clamp(200px,28vw,420px), 100% 100%;
-  background-position:12% -6%, 0 0;
-  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,.34) 68%, rgba(0,0,0,0) 100%);
-          mask-image:linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,.34) 68%, rgba(0,0,0,0) 100%);
+  opacity:.5;
+  background:radial-gradient(58% 86% at 26% 2%, rgba(255,226,170,.30), transparent 72%);
 }
 
 /* 動きを減らす設定のときは、光を止める（下の drift と揃える） */

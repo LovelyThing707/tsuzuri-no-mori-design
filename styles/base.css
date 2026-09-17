@@ -96,12 +96,18 @@
      --wood-blot  … 板ごとのむら。継ぎ目の繰り返しを目立たなくする */
   --wood-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.58' numOctaves='4' seed='19' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.82 0 0 0 0.09  0.82 0 0 0 0.09  0.82 0 0 0 0.09  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23g)'/%3E%3C/svg%3E");
   --wood-blot:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='760' height='760'%3E%3Cfilter id='b' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035' numOctaves='3' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.5 0 0 0 0.25  0.5 0 0 0 0.25  0.5 0 0 0 0.25  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='760' height='760' filter='url(%23b)'/%3E%3C/svg%3E");
-  /* 窓の外の枝葉。木漏れ日＝枝の影なので、乱数の斑ではなく
-     枝と葉のかたちが要る。assets/images/branch-shadow.svg は
-     枝を再帰的に伸ばし、先に葉の房をすき間つきで置いたもの。
-     すき間から光が抜けるのが木漏れ日。 */
-  --branch-amt: .46;   /* 枝の影の濃さ */
-  --sun-amt:    .16;   /* 窓から差す光の強さ */
+  /* --- 窓からの光 -------------------------------------------
+     參考画像を2.2倍に持ち上げて確かめたところ、枝の影はどこにも
+     無かった。木漏れ日は「葉のすき間から漏れる明るいところ」で
+     あって、枝の黒い筋ではない。枝を黒く敷いていたのは逆だった。
+
+     參考画像にある光は三つだけ。
+       天板の裏を舐める温かい帯（.tier::before の中）
+       柱の内側の溝と縁の光（.case__box::after）
+       下へ向かう減光（.scene::after）
+     中央82／上の隅63〜69／下の隅41 という当たり方に合わせている。 */
+  --sun-amt:    .14;   /* 窓から漏れる光の強さ（葉のすき間の明るいところ） */
+  --fall-amt:   .12;   /* 下へ向かう減光。強くすると本まで暗くなる */
 
   --grain-amt:  .55;   /* 繊維の強さ。実測の比較から。.26では出ず、.9では荒い */
   --blot-amt:   .42;   /* 天板のむら。絵の継ぎ目の繰り返しを散らす */
@@ -144,6 +150,7 @@
   --h-max:       300;       /* mm：これ以上は棚からはみ出させない。A4（297mm）が入る */
 
   --board:       12px;      /* 棚板の厚み（小口） */
+  --post-w:      clamp(24px,6.5vw,54px);  /* 柱の幅。溝と縁光もここに合わせる */
   --frame:       clamp(13px,3.6vw,22px);  /* 什器の枠。柱と天板の見付け */
   --ease:        cubic-bezier(.22,.68,.24,1);
 
