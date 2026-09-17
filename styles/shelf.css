@@ -1418,9 +1418,20 @@
 
      棚にも台にも本にも落ちる必要があるので、この層だけは
      売り場ぜんたい（棚 z:1／平台 z:2）の上に置く。 */
+  /* 木漏れ日のタイル。継ぎ目なく繰り返せるように作ってある。
+     大きさは px で固定する。cover にすると画面ごとに粒の大きさが変わり、
+     スマートフォンで 9px、パソコンで 22px と別物になってしまう。
+     380px に敷くと、画面上の光の粒は直径 11px 前後になる。
+     760px では粒が大きく「滲み」に見え、260px では細かすぎて
+     迷彩のようになった。並べて比べて 380px にしている。 */
   background:
-    url("../assets/images/komorebi.webp") no-repeat left top / cover,
-    radial-gradient(70% 50% at 12% 2%, rgba(255,226,172,.40), transparent 76%);
+    url("../assets/images/komorebi.webp") repeat left top / 380px 380px,
+    radial-gradient(70% 50% at 12% 2%, rgba(255,226,172,.26), transparent 76%);
+  /* 窓は左上。そこから離れるほど、光は弱まる */
+  -webkit-mask-image:radial-gradient(142% 118% at 10% -8%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
+          mask-image:radial-gradient(142% 118% at 10% -8%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
 }
 /* 下へ向かう減光。參考画像は中央82／上の隅63〜69／下の隅41 */
 .scene::after{
