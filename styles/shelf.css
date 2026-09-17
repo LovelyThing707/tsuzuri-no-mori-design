@@ -1371,37 +1371,53 @@
    同じ光の素を base.css に置き、森と売り場の両方から使う。
    葉の隙間の形は、繰り返しの見えない不規則な斑でつくる。 */
 .market{ isolation:isolate; }   /* 苔（.market::after）より上に光を置くため */
-.scene::after{
+/* --- 窓から差す光と、枝の影 ----------------------------------
+   國分様のご要望は「木漏れ日」——窓ごしに枝の影が、棚にも台にも
+   本にも落ちること。影は物の境目を無視して渡っていくので、
+   この2層だけは本より上に置く（棚 z:1／平台 z:2 の上）。
+
+   これまでここに置いていたのは乱数の斑を screen で足したもので、
+   実測すると画面を最大 ±6.9（256階調）しか変えておらず、
+   1%以上変わった画素は 0.04% しかなかった。枝の形も無かった。 */
+.scene::before{
   content:"";
   position:absolute; z-index:3;
   left:50%; top:0; width:100vw; height:100%;
   transform:translateX(-50%);
   pointer-events:none;
-  mix-blend-mode:screen;   /* 光は足す。彩度を殺さない */
-  opacity:.5;
+  /* 合成モードは使わない。画面ぜんたいを覆う層に mix-blend-mode を
+     かけると、後ろを読み直すために毎フレーム再合成が走る。
+     実測でパソコンでは1層あたり約10fps（28.8→18.8）落ちた。
+     影も光もふつうの重ねで、見た目はほぼ同じ（平均差 1.5／256）。 */
+  opacity:var(--sun-amt);
+  /* 窓は左上。そこから扇形に差し込む */
   background:
-    var(--komorebi),
-    radial-gradient(28% 32% at 22% 2%, rgba(255,205,128,.09), transparent 74%);
-  background-size:clamp(380px,46vw,760px) clamp(380px,46vw,760px), 100% 100%;
-  background-position:14% -6%, 0 0;
-  /* 光は上から入る。床に近いほど弱める */
-  -webkit-mask-image:linear-gradient(180deg,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.58) 46%, rgba(0,0,0,.2) 82%, rgba(0,0,0,.06) 100%);
-          mask-image:linear-gradient(180deg,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.58) 46%, rgba(0,0,0,.2) 82%, rgba(0,0,0,.06) 100%);
+    radial-gradient(118% 92% at 6% -14%, rgba(255,214,148,.92), rgba(255,196,120,.34) 38%, transparent 72%);
 }
-@media (min-width:768px){
-  /* 画面が広いと斑が細かく見えすぎる。光の粒を大きく、薄く */
-  .scene::after{ opacity:.38; }
+.scene::after{
+  content:"";
+  position:absolute; z-index:4;
+  left:50%; top:0; width:100vw; height:100%;
+  transform:translateX(-50%);
+  pointer-events:none;
+  opacity:var(--branch-amt);
+  background:url("../assets/images/branch-shadow.webp") no-repeat -6% -4% / 128% auto;
+  /* 窓から遠いほど影は薄れる。光と同じ向きに減衰させる。
+     落としすぎると棚の中まで影が届かない（最初はそれで、
+     上枠のあたりにしか出ていなかった）。 */
+  -webkit-mask-image:radial-gradient(150% 130% at 10% -14%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.94) 40%, rgba(0,0,0,.66) 72%, rgba(0,0,0,.34) 100%);
+          mask-image:radial-gradient(150% 130% at 10% -14%,
+    rgba(0,0,0,1) 0%, rgba(0,0,0,.94) 40%, rgba(0,0,0,.66) 72%, rgba(0,0,0,.34) 100%);
 }
-/* 葉が揺れる。止まった光は絵に見える。
-   ただし背景位置の動きは毎フレーム描き直しになる。
+/* 枝が風で揺れる。止まった影は絵に見える。
+   背景位置を動かすと毎フレーム描き直しになるので、
    実機の余裕を見て、指で触れない大きい画面だけに限る。 */
 @media (min-width:1024px) and (hover:hover) and (prefers-reduced-motion:no-preference){
-  .scene::after{ animation:komorebi-drift 38s var(--ease-breath) infinite alternate; }
+  .scene::after{ animation:komorebi-drift 42s var(--ease-breath) infinite alternate; }
   @keyframes komorebi-drift{
-    from{ background-position:12% -8%, 0 0; }
-    to  { background-position:18% -2%, 0 0; }
+    from{ background-position:11% 0; }
+    to  { background-position:15% 2%; }
   }
 }
 
