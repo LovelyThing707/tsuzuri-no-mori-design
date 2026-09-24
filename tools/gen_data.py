@@ -151,7 +151,7 @@ def sumw(books):
 
 # 本棚の段。1段は画面の幅いっぱいに1続き。
 # いちばん広い画面でも足りる冊数を出しておき、入りきらないぶんは隠す（scripts/main.js）。
-PER_TIER = 72
+PER_TIER = 110
 
 
 def shelf(tiers):
