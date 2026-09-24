@@ -3,6 +3,12 @@
    演出は最小限に留める。動きを減らす設定の端末では何もしない。
    ============================================================ */
 (function () {
+  /* 本の大きさを見比べるための指定。?size=fit（一画面に収める）／?size=l（大きく） */
+  (function () {
+    var m = /[?&]size=(fit|l)\b/.exec(window.location.search);
+    if (m) document.documentElement.classList.add('size-' + m[1]);
+  })();
+
   'use strict';
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -248,6 +254,7 @@
        指の腹より細く、書名の文字も小さい。
        書店で背表紙を指でなぞるように、棚の上を横になぞると、
        指の下の本が少し手前に出て、書名が大きく出る。離すとその本を開く。
+       指を棚の上下へ外してから離せば、開かずにやめられる。
        本の見た目は変えずに、どの本でも確実に選べるようにする。
        縦に動かしたときはページを送る（棚に touch-action:pan-y）。 */
     var tag = document.createElement('div');
@@ -258,6 +265,7 @@
     var picked = null;          /* いま札を出している本 */
     var touch = null;           /* なぞっている指 */
     var quietUntil = 0;         /* 指で開いた直後の click を無視する */
+    var OFF = 36;               /* 棚の上下にこれだけ外して離したら、開かない */
 
     function shelfBooks(row) {
       return Array.prototype.filter.call(
@@ -274,6 +282,11 @@
       }
       return best;
     }
+    /* 指が棚の上にあるか。上下に OFF 以上外れたら、選ぶのをやめたとみなす */
+    function onShelf(row, y) {
+      var r = row.getBoundingClientRect();
+      return y >= r.top - OFF && y <= r.bottom + OFF;
+    }
     function pick(b) {
       if (picked === b) return;
       if (picked) picked.classList.remove('is-picked');
@@ -282,15 +295,19 @@
       b.classList.add('is-picked');
       var info = BOOKS[b.getAttribute('data-book')];
       tag.textContent = info ? info.title : '';
-      /* 札は本の上に置く。画面の端からはみ出さないよう左右を詰め、
-         三角の先だけが本を指すようにする */
+      /* 札は本の上に置く。幅は書名の長さで決まり、置く位置には左右されない
+         （CSS の width:max-content）。書名を入れ替えた直後の幅で位置を決め、
+         画面の端からはみ出さないよう左右を詰める。三角の先だけが本を指す */
       var r = b.getBoundingClientRect();
       var cx = r.left + r.width / 2;
-      var half = tag.offsetWidth / 2, edge = 10;
-      var x = Math.min(Math.max(cx, half + edge), window.innerWidth - half - edge);
+      var w = tag.offsetWidth, h = tag.offsetHeight, edge = 10;
+      var x = Math.min(Math.max(cx, w / 2 + edge), window.innerWidth - w / 2 - edge);
+      /* 上の帯に隠れないよう、札の上端が帯より下に来るところまでで止める */
+      var bar = document.querySelector('.topbar');
+      var floor = (bar ? bar.getBoundingClientRect().bottom : 0) + h + 14;
       tag.style.left = x + 'px';
-      tag.style.top = Math.max(r.top, 64) + 'px';
-      tag.style.setProperty('--tip', (50 + (cx - x) / (half * 2) * 100) + '%');
+      tag.style.top = Math.max(r.top, floor) + 'px';
+      tag.style.setProperty('--tip', Math.min(Math.max(50 + (cx - x) / w * 100, 8), 92) + '%');
       tag.classList.add('is-on');
     }
 
@@ -298,14 +315,16 @@
       if (e.pointerType === 'mouse') return;
       var row = e.target.closest && e.target.closest('.case .row');
       if (!row) return;
-      touch = { id: e.pointerId, row: row, x: e.clientX, y: e.clientY, on: false };
+      hintDone();
+      touch = { id: e.pointerId, row: row, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, on: false };
       /* すぐに札を出すと、縦に送ろうとしただけでも本が動いてしまう。
-         少し待つか、横に動いたところで出す */
+         少し待って、指がほとんど動いていなければ出す。横に動いたら、すぐ出す */
       touch.timer = window.setTimeout(function () {
-        if (!touch) return;
+        if (!touch || touch.on) return;
+        if (Math.abs(touch.ly - touch.y) > 4 || Math.abs(touch.lx - touch.x) > 4) return;
         touch.on = true;
         pick(bookAt(touch.row, touch.x));
-      }, 110);
+      }, 180);
     }, { passive: true });
 
     document.addEventListener('pointermove', function (e) {
@@ -317,12 +336,18 @@
       }
       if (!touch || e.pointerId !== touch.id) return;
       var dx = e.clientX - touch.x, dy = e.clientY - touch.y;
-      touch.lx = e.clientX;
-      if (!touch.on && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
-        touch.on = true;
-        window.clearTimeout(touch.timer);
+      touch.lx = e.clientX; touch.ly = e.clientY;
+      if (!touch.on) {
+        /* 縦の動きが勝ったら、ページを送る指。札は出さない */
+        if (Math.abs(dy) > 4 && Math.abs(dy) >= Math.abs(dx)) { window.clearTimeout(touch.timer); return; }
+        if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+          touch.on = true;
+          window.clearTimeout(touch.timer);
+        }
       }
-      if (touch.on) pick(bookAt(touch.row, e.clientX));
+      if (!touch.on) return;
+      /* 棚の上下へ外したら札を下げる。戻れば、また出す */
+      pick(onShelf(touch.row, e.clientY) ? bookAt(touch.row, e.clientX) : null);
     }, { passive: true });
 
     function endTouch() {
@@ -332,23 +357,68 @@
     }
     document.addEventListener('pointerup', function (e) {
       if (!touch || e.pointerId !== touch.id) return;
-      var b = touch.on ? picked : bookAt(touch.row, e.clientX);
+      var b = null;
+      if (onShelf(touch.row, e.clientY)) b = touch.on ? picked : bookAt(touch.row, e.clientX);
       endTouch();
       if (b) { quietUntil = Date.now() + 600; open(b); }
+      /* 開かずにやめたときも、あとから届く click で本が開かないように */
+      else quietUntil = Date.now() + 600;
     });
     /* 縦に送り始めると、指は棚から外れる */
     document.addEventListener('pointercancel', function (e) {
       if (touch && e.pointerId === touch.id) endTouch();
     });
-    /* キーボードでも、選んでいる本の書名を出す */
+    /* 長押しで、端末の画像のメニューが開かないように */
+    document.addEventListener('contextmenu', function (e) {
+      if (e.target.closest && e.target.closest('.case .row') &&
+          (touch || (e.pointerType && e.pointerType !== 'mouse'))) e.preventDefault();
+    });
+    /* キーボードで本を選んだときも、書名を出す。
+       指やマウスで開いた本を閉じると、棚の本へフォーカスが戻る。
+       そのときは出さない（:focus-visible はキーボード操作のときだけ付く） */
     document.addEventListener('focusin', function (e) {
       var b = e.target.closest && e.target.closest('.case .spine[data-book]');
-      if (b) pick(b);
+      if (b && b.matches(':focus-visible')) pick(b);
     });
     document.addEventListener('focusout', function (e) {
       if (e.target.closest && e.target.closest('.case .spine')) pick(null);
     });
     window.addEventListener('scroll', function () { if (!touch) pick(null); }, { passive: true });
+    window.addEventListener('resize', function () { if (!touch) pick(null); });
+
+    /* --- なぞれることを、一度だけ知らせる ------------------------
+       指で触れる端末で、最初の棚が見えてきたときに、短く出して消す。
+       一度でも棚に触れたら、もう出さない。 */
+    var hint = null;
+    function hintDone() {
+      try { window.localStorage.setItem('shelf-hint', '1'); } catch (err) { /* 保存できない端末 */ }
+      if (hint) { hint.classList.remove('is-on'); hint = null; }
+    }
+    (function () {
+      var seen = false;
+      try { seen = window.localStorage.getItem('shelf-hint') === '1'; } catch (err) { /* 保存できない端末 */ }
+      if (seen || !window.matchMedia('(pointer:coarse)').matches || !('IntersectionObserver' in window)) return;
+      var first = document.querySelector('.case .row');
+      if (!first) return;
+      var io = new IntersectionObserver(function (entries) {
+        if (!entries[0].isIntersecting || entries[0].intersectionRatio < 0.6) return;
+        io.disconnect();
+        hint = document.createElement('p');
+        hint.className = 'shelf-hint';
+        hint.textContent = '棚を指でなぞると、書名が出ます';
+        first.parentNode.appendChild(hint);
+        window.requestAnimationFrame(function () { if (hint) hint.classList.add('is-on'); });
+        window.setTimeout(function () {
+          if (!hint) return;
+          var h = hint;
+          h.classList.remove('is-on');
+          hint = null;
+          window.setTimeout(function () { h.remove(); }, 600);
+          try { window.localStorage.setItem('shelf-hint', '1'); } catch (err) { /* 保存できない端末 */ }
+        }, 3600);
+      }, { threshold: [0, 0.6] });
+      io.observe(first);
+    })();
 
     document.addEventListener('click', function (e) {
       /* 指で開いた直後に届く click。二度開かないように */

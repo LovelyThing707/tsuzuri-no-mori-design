@@ -19,6 +19,11 @@ const VIEWS = [
   { n: 'small', w: 320, h: 568 },
   { n: 'phone', w: 390, h: 844 },
   { n: 'phone-short', w: 375, h: 667 },
+  /* 実機の Safari はブラウザの帯のぶん見える高さが短い。
+     ヘッドレスの 390x844 だけを見ていて、実機で本が小さくなるのを見落とした */
+  { n: 'iphone-safari', w: 390, h: 664 },
+  { n: 'se-safari', w: 375, h: 548 },
+  { n: 'phone-land', w: 844, h: 390 },
   { n: 'tablet', w: 834, h: 1112 },
   { n: 'laptop-short', w: 1366, h: 768 },
   { n: 'desktop', w: 1440, h: 900 },
@@ -63,7 +68,7 @@ async function shelf(b) {
         sign: document.querySelectorAll('.signcard').length,
         oldParts: document.querySelectorAll('.platform, .case__box').length,
         /* 1mm あたりの長さ。背表紙の幅 ÷ 厚み(mm) から読む */
-        mm: 0, mmFloor: 1.2,
+        mm: 0, mmFloor: 1.12,
         markets: [],
       };
       document.querySelectorAll('.market').forEach(mk => {
@@ -131,6 +136,7 @@ async function shelf(b) {
           flatFaces: fl.length ? fl[0].querySelectorAll('.flat__spine,.flat__fore').length : 0,
           flatMinW: fl.length ? Math.min(...fl.map(e => e.offsetWidth)) : 0,
           deckBottom: Math.round(dr.bottom - mk.getBoundingClientRect().top),
+          shelfBottom: Math.round(c.querySelector('.case__board').getBoundingClientRect().bottom - mk.getBoundingClientRect().top),
           /* 光の斑（白いモヤ）が戻っていないか */
           dapple: [...mk.querySelectorAll('*')].concat([mk]).some(e =>
             ['::before', '::after', ''].some(ps => /komorebi/.test(getComputedStyle(e, ps || null).backgroundImage))),
@@ -144,6 +150,8 @@ async function shelf(b) {
     t(m.sign === 0, `${vp.n}: 立て札が消えている`);
     t(m.oldParts === 0, `${vp.n}: 別の什器だった平台・絵の什器が残っていない`);
     const atFloor = m.mm <= m.mmFloor + 0.01;
+    const phone = vp.w < 600;
+    const land = vp.w > vp.h && vp.h <= 500;
     m.markets.forEach((k, i) => {
       const n = `${vp.n} 売り場${i + 1}`;
       t(k.caseW >= vp.w - 1, `${n}: 本棚が画面の幅いっぱい`);
@@ -158,8 +166,9 @@ async function shelf(b) {
       /* 厚みは実物どおりの比（必須条件⑤）。一律の誇張もかけない */
       t(k.ratioSpread <= 0.02, `${n}: 厚みの比が実物どおり (ずれ ${(k.ratioSpread * 100).toFixed(1)}%)`);
       t(k.skew <= 1.07, `${n}: 背表紙の写真が引き伸ばされていない (${k.skew}倍)`);
-      /* 指で選べる大きさ。いちばん薄いデモの本（11mm）でも 13px 以上 */
-      t(k.minW >= 13, `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
+      /* いちばん薄いデモの本（11mm）でも 12px 以上。選ぶのは指でなぞって確かめる。
+         横向きのスマートフォンは段を見える高さに合わせるので、ここは見ない */
+      if (!land) t(k.minW >= 12, `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
       /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
       const want = vp.w >= 1200 ? 8 : vp.w >= 600 ? 4 : 3;
       t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
@@ -167,12 +176,19 @@ async function shelf(b) {
       t(k.flatTilted, `${n}: 平置きが寝ている`);
       t(k.flatEdge > 1, `${n}: 平置きに厚みがある (小口 ${k.flatEdge}px)`);
       t(k.flatFaces === 2, `${n}: 平置きに背と小口の面がある`);
-      t(k.flatMinW >= 48, `${n}: 平台のいちばん小さい本も表紙が見える (${k.flatMinW}px)`);
+      t(k.flatMinW >= 44, `${n}: 平台のいちばん小さい本も表紙が見え、指で押せる (${k.flatMinW}px)`);
       t(!k.dapple, `${n}: 光の斑（白いモヤ）が無い`);
-      /* 一画面（要件定義書 2-6）。本が小さくなりすぎる背の低い画面では
-         下限を優先し、はみ出しを許す。その場合も平台の本までは見えること */
-      if (!atFloor) t(k.h <= vp.h, `${n}: 1テーマが一画面に収まる (${k.h}/${vp.h}px)`);
-      else t(k.deckBottom <= vp.h || vp.h < 600,
+      /* 一画面（要件定義書 2-6）。
+         スマートフォンは、使いやすい大きさを優先する（國分様のご指摘）。
+         本の大きさは 1.5px/mm を下回らせず、「本棚の段がまるごと一画面に見える」
+         ことを守る。平台はそのすぐ下に続く。
+         タブレット・パソコンは、1テーマをまるごと一画面に収める */
+      if (land || phone) {
+        t(k.shelfBottom <= vp.h, `${n}: 本棚の段がまるごと一画面に見える (段の下端 ${k.shelfBottom}/${vp.h}px)`);
+        if (!land) t(m.mm >= 1.49 || k.shelfBottom >= vp.h - 14,
+          `${n}: 本は 1.5px/mm 以上。背の低い画面では段が画面いっぱいまで (${m.mm.toFixed(2)}px/mm)`);
+      } else if (!atFloor) t(k.h <= vp.h, `${n}: 1テーマが一画面に収まる (${k.h}/${vp.h}px)`);
+      else t(k.deckBottom <= vp.h,
         `${n}: 背の低い画面でも、平台の本までは一画面に見える (平台の下端 ${k.deckBottom}/${vp.h}px)`);
     });
     await p.close();

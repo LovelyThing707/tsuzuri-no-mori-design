@@ -105,7 +105,7 @@ def spine_li(b):
         b['h'], b['w'], b['t'], b['c'], b['e'], b['lean'])
     return ('        <li class="spine" style="%s" data-book="%s" '
             'tabindex="0" role="button" aria-label="%s">'
-            '<img src="%s%s" alt="" loading="lazy" decoding="async"></li>'
+            '<img src="%s%s" alt="" loading="lazy" decoding="async" draggable="false"></li>'
             % (st, b['key'], b['title'], IMG, b['sp']))
 
 
