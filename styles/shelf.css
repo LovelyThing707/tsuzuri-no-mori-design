@@ -1,100 +1,69 @@
 /* ============================================================
    売り場の什器
-   背表紙の棚と平台は「別の什器」。平台は棚の手前に、隙間なく置く。
-   什器はどちらも絵で、CSSは本だけを描く。
-   棚は画面の外まで続く（左右に壁を見せない）。
+   本棚は床に立つ1台の家具。天板・段・棚板・平台・台輪を部材で組み、
+   左右の柱が天板から床まで通る。平台は本棚の下部が手前へせり出した
+   ところで、本は表紙を上にして寝かせて置く。
+   （國分様のご指摘「実際の書店で本棚の前にせり出した平置きの棚」
+     「現状は上の本棚が宙にういているようにみえます」）
+
+   部材は、以前の什器の絵から切り出したもの（tools/cut_fixture.py）。
+   1枚の絵ではなく部材で組むのは、段の高さを本の大きさに合わせるため。
+   本は画像に焼き込まず、1冊ずつ判型と厚みから描く（必須条件⑤）。
    ============================================================ */
 
-.market{ position:relative; padding-top:clamp(18px,3.6vh,32px); }
+.market{ position:relative; padding-top:var(--bar-h); }
 
-.market__sign{
+/* --- 看板 --------------------------------------------------- */
+.market__head{
   position:relative; z-index:3;
-  margin:0 0 clamp(14px,3vh,26px);
-  text-align:center;
-  font-size:clamp(15px,4.2vw,19px);
-  letter-spacing:.28em; text-indent:.28em;
+  height:var(--head-h);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:14px;
+  margin:0;
+}
+.market__sign{
+  position:relative;
+  margin:0;
+  font-size:clamp(15px,4.2vw,20px);
+  letter-spacing:.28em;
   color:var(--paper);
+  text-align:left;
 }
-.market__sign::after{
-  content:""; display:block;
-  width:52px; height:1px; margin:.8em auto 0;
-  background:linear-gradient(90deg,transparent,rgba(210,198,174,.5),transparent);
+.market__all{
+  flex:0 0 auto;
+  font-size:12px; letter-spacing:.14em;
+  color:var(--paper-dim); text-decoration:none;
+  padding:4px 2px;
+  border-bottom:1px solid transparent;
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.market__all::after{ content:"\203A"; margin-left:.5em; }
+.market__all:hover,.market__all:focus-visible{
+  color:var(--paper); border-bottom-color:rgba(233,224,206,.4);
 }
 
-.scene{ position:relative; padding-bottom:clamp(10px,2.4vh,22px); }
+.scene{ position:relative; }
 
-/* --- 背表紙の棚 ---------------------------------------------
-   画面いっぱい。棚は左右の画面外へ続くので、横に繰り返す。
-   絵の実測値（2062x638）：
-     天板 0〜4.7% ／ 1段目 4.7〜42.5% ／ 棚板 42.5〜52.2%
-     2段目 52.2〜90.8% ／ 地板 90.8〜100% */
+/* --- 本棚1台 -------------------------------------------------
+   上から 天板／段／棚板／平台の天板／平台の縁／台輪／床。
+   段の高さ（--tier-h）が本の大きさ（--mm）を決める。 */
 .case{
   position:relative; z-index:1;
   width:100vw; margin-inline:calc(50% - 50vw);
-  height:var(--case-h);
-  background-image:url("../assets/images/case-shelf.webp");
-  background-repeat:repeat-x;
-  background-size:auto 100%;
-  background-position:center top;
+  display:grid;
+  grid-template-rows:
+    var(--crown) var(--tier-h) var(--board)
+    var(--deck-h) var(--lip) var(--base-h) var(--floor-h);
 }
-/* 1段の絵（2062x286）：天板 0〜8.7% ／ 段 8.7〜88.1% ／ 地板 88.1〜100%
-   段の高さが2段の絵とそろうよう、全体の高さを 0.476 倍にする */
-.case--1shelf{
-  background-image:url("../assets/images/case-shelf-1.webp");
-  height:var(--case1-h);
-}
-.case__box{ position:absolute; inset:0; }
-/* 柱ぎわの陰。棚に入りきらない本は柱の後ろへ回り込むように見せる。
-   本(z:1)より上、柱(z:3)より下に置く。 */
-.case__box::after{
-  content:"";
-  position:absolute; inset:0; z-index:2;
-  pointer-events:none;
-  /* 参考画像の柱を横断すると、35px の中に
-       溝 14.6 → 内面 128〜155 → 内縁の光 174.4
-     が並ぶ。濃い線と明るい線が隣り合うことで角が立ち、棚が「箱」に見える。
 
-     この層は z:2、柱の絵は z:3。柱の幅（--post-w）より内側に置かないと
-     絵の裏に隠れる。最初 10px に置いて、何も変わらなかった。 */
-  /* 柱の内側の角に、濃い線を一本。
-     以前はその内側に温かい縁光（rgba(255,228,182,.30)）も置いていたが、
-     柱のとなりに淡い帯が全高で立ち、灰色の柱が二本あるように見えた。
-
-       帯の明るさ  111.1（棚の中 100.4／＋10.7 明るい）
-       外したあと   74.8（−25.6 暗い＝角の陰として正しい向き）
-
-     参考画像の縁光は柱の木そのものの照り返しで、こちらのように
-     手前に一枚かぶせる帯ではなかった。絵に無いものは足さない。 */
-  background:
-    linear-gradient(90deg,
-      rgba(0,0,0,0)   calc(var(--post-w) - 3px),
-      rgba(0,0,0,.90) var(--post-w),
-      rgba(0,0,0,.34) calc(var(--post-w) + 4px),
-      rgba(0,0,0,0)   calc(var(--post-w) + 14px)),
-    linear-gradient(270deg,
-      rgba(0,0,0,0)   calc(var(--post-w) - 3px),
-      rgba(0,0,0,.90) var(--post-w),
-      rgba(0,0,0,.34) calc(var(--post-w) + 4px),
-      rgba(0,0,0,0)   calc(var(--post-w) + 14px));
-  /* 柱ぎわに広い陰を敷いていたが（inset 54px / ぼかし46px）、
-     この層は本より上（z:2）なので、本の上に薄暗い帯がかかり、
-     曇りガラス越しに見ているようになっていた。
-
-       柱ぎわの本の明るさ  94.6（中央の本は 120.0／差 25.4）
-       外したあと         109.3（差 10.7）
-
-     角の立ち上がりは、すぐ上のグラデーション（溝と縁の光）が
-     受け持っているので、広い陰は無くてよい。 */
-}
-/* 左右の柱。棚が画面の外へ続くのではなく、
-   画面の幅にちょうど収まった1台の本棚に見えるようにする。
-   「横板はある状態で本当の本棚のように」というご指摘への対応。 */
+/* 左右の柱。天板の上端から床まで一本で通す。
+   柱が床に届いていることが、本棚が立っている一番の手がかり。 */
 .case::before,
 .case::after{
   content:"";
-  position:absolute; z-index:3;
-  top:0; bottom:0;
-  width:clamp(24px,6.5vw,54px);
+  position:absolute; z-index:4;
+  top:0; bottom:var(--floor-h);
+  width:var(--post-w);
   background-repeat:no-repeat;
   background-size:100% 100%;
   pointer-events:none;
@@ -102,126 +71,280 @@
 .case::before{
   left:0;
   background-image:url("../assets/images/post-left.webp");
-  box-shadow:6px 0 12px -6px rgba(0,0,0,.75);
+  box-shadow:5px 0 10px -5px rgba(0,0,0,.8);
 }
 .case::after{
   right:0;
   background-image:url("../assets/images/post-right.webp");
-  box-shadow:-6px 0 12px -6px rgba(0,0,0,.75);
+  box-shadow:-5px 0 10px -5px rgba(0,0,0,.8);
 }
-/* 本は柱の内側に収める */
-.tier{ left:clamp(24px,6.5vw,54px); right:clamp(24px,6.5vw,54px); }
 
-.tier{ position:absolute; }
-.case--2shelf .tier:nth-child(1){ top:4.9%;  height:40.1%; }
-.case--2shelf .tier:nth-child(2){ top:54.7%; height:40.2%; }
-.case--1shelf .tier:nth-child(1){ top:9.8%;  height:80.1%; }
+/* 天板 */
+.case__crown{
+  position:relative; z-index:3;
+  background:url("../assets/images/case-crown.webp") repeat-x left center / auto 100%;
+  box-shadow:0 3px 6px -2px rgba(0,0,0,.7);
+}
 
-/* 本は段の床に立つ。入りきらないぶんは画面の外へ続く */
+/* --- 段 ------------------------------------------------------
+   背板の上に本が立つ。背板は奥にあるので暗く落とす。
+   黒ではなく焦茶で落とし、木のあたたかみを残す。 */
+.tier{
+  position:relative; z-index:1;
+  overflow:hidden;
+  background:url("../assets/images/case-back.webp") repeat-x left top / auto 100%;
+}
+.tier::before{
+  content:"";
+  position:absolute; inset:0; z-index:0;
+  pointer-events:none;
+  background:
+    /* 天板の下は影 */
+    linear-gradient(180deg, rgba(20,10,4,.55) 0%, rgba(20,10,4,0) 12%),
+    /* 棚板との入隅 */
+    linear-gradient(0deg, rgba(20,10,4,.5) 0%, rgba(20,10,4,0) 7%),
+    /* 背板ぜんたいを奥へ */
+    linear-gradient(rgba(38,20,8,.62), rgba(38,20,8,.62));
+}
+/* 本は柱の内側に並ぶ。入りきらない本は下げる（scripts/main.js） */
 .row{
-  position:absolute; inset:0;
+  position:absolute; z-index:1;
+  left:var(--post-w); right:var(--post-w); top:0; bottom:0;
   display:flex; align-items:flex-end; justify-content:center;
   gap:0; padding:0; margin:0; list-style:none;
-  overflow:hidden;
+  /* 指で横になぞって本を選ぶ。縦に動かしたときはページを送る */
+  touch-action:pan-y;
 }
-/* 本が棚板に落とす影。これがないと本が浮いて見える */
-.row::after{
-  content:""; position:absolute; z-index:0;
-  left:0; right:0; bottom:-2px; height:10px;
-  background:radial-gradient(70% 100% at 50% 0%,rgba(0,0,0,.42),rgba(0,0,0,0) 74%);
+
+/* 棚板。本はこの上に立つ */
+.case__board{
+  position:relative; z-index:2;
+  background:url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
+  box-shadow:0 4px 7px -3px rgba(0,0,0,.75);
+}
+
+/* --- 平台 ----------------------------------------------------
+   本棚の下部が手前へせり出した天板。上から見下ろす面なので、
+   奥（棚板の下）は影、手前ほど光を受ける。 */
+.deck{
+  position:relative; z-index:2;
+  background:url("../assets/images/deck-top.webp") repeat-x left top / auto 100%;
+}
+.deck::before{
+  content:"";
+  position:absolute; inset:0; z-index:0;
   pointer-events:none;
+  background:linear-gradient(180deg, rgba(14,8,3,.55) 0%, rgba(14,8,3,.12) 22%, rgba(14,8,3,0) 45%);
+}
+/* 平台の本の並び。
+   大きさ（--pmm＝1mm あたりの長さ）は、並べる冊数が平台の幅に収まること、
+   いちばん背の高い本（A4判）が天板の奥行きに収まること、の小さいほう。
+   --sumw は並べる本の判横（mm）の合計。gen_data.py が冊数ごとに書き込む。 */
+.deck__row{
+  --n: 3;
+  --sumw: var(--sumw3, 500);
+  --pmm-w: calc((100vw - 2 * var(--post-w) - 20px - (var(--n) - 1) * var(--deck-gap)) * .97 / var(--sumw));
+  /* 寝かせたA4判の見え高は、1mm あたりの長さの約152倍。天板の奥行きの
+     8割強に収める（奥に少し木が見えているほうが、台に載って見える） */
+  --pmm-h: calc(var(--deck-h) / 185);
+  --pmm: min(var(--pmm-w), var(--pmm-h));
+  position:absolute; z-index:1;
+  left:var(--post-w); right:var(--post-w); top:4%; bottom:8%;
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:var(--deck-gap);
+  padding:0 10px; margin:0; list-style:none;
+}
+.deck__row .flat:nth-child(n+4){ display:none; }
+@media (min-width:600px){
+  .deck__row{ --n:4; --sumw:var(--sumw4, 600); }
+  .deck__row .flat:nth-child(n+4){ display:block; }
+  .deck__row .flat:nth-child(n+5){ display:none; }
+}
+@media (min-width:1200px){
+  .deck__row{ --n:8; --sumw:var(--sumw8, 1200); }
+  .deck__row .flat:nth-child(n+5){ display:block; }
+  .deck__row .flat:nth-child(n+9){ display:none; }
+}
+
+/* 平台の手前の縁。柱より手前にせり出しているので、柱の上にかぶる */
+.deck__lip{
+  position:relative; z-index:5;
+  background:url("../assets/images/deck-lip.webp") repeat-x left top / auto 100%;
+  box-shadow:0 6px 9px -4px rgba(0,0,0,.85);
+}
+
+/* 台輪。平台の下から床まで。柱のあいだは奥まった収納で、中は暗い。
+   まん中に仕切りが一本通る（参考画像の台と同じ組み方）。 */
+.case__base{
+  position:relative; z-index:2;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.25) 38%, rgba(0,0,0,.45) 100%),
+    url("../assets/images/case-back.webp") repeat-x left center / auto 300%;
+}
+.case__base::before{
+  content:"";
+  position:absolute; top:0; bottom:0; left:50%;
+  width:var(--post-w); margin-left:calc(var(--post-w) / -2);
+  background:url("../assets/images/post-left.webp") no-repeat center / 100% 100%;
+  box-shadow:4px 0 8px -4px rgba(0,0,0,.8), -4px 0 8px -4px rgba(0,0,0,.8);
+}
+/* 床に接する見切り。台がここで床に載る */
+.case__base::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:0;
+  height:clamp(4px,.7vh,7px);
+  background:url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
+  filter:brightness(.7);
+}
+
+/* 床。本棚の足もとに接地の影を落とす */
+.case__floor{
+  position:relative; z-index:0;
+  background:url("../assets/images/floor-boards.webp") repeat-x center top / auto 260%;
+  -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+          mask-image:linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+}
+.case__floor::before{
+  content:"";
+  position:absolute; left:0; right:0; top:0; height:70%;
+  background:linear-gradient(180deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.3) 45%, rgba(0,0,0,0) 100%);
 }
 
 /* --- 背表紙 --------------------------------------------------
-   幅＝厚み（判型・ページ数から算出）、高さ＝判型。
-   実寸のままだと1冊が数pxになって触れないため、幅だけは下駄を履かせている。 */
-/* 棚に入りきらない本。scripts/main.js が付ける */
+   幅＝厚み、高さ＝判型。どちらも同じ --mm をかけるので、
+   背表紙の写真は引き伸ばされず、実物どおりの比で立つ。 */
 .spine.is-over{ display:none; }
 
 .spine{
-  /* 高さと同じ一本の倍率で出す。以前は幅だけ別式で、
-     定数の下駄が入っていたため 58ページの本が 700ページに見えていた。
-     --thick-gain は厚みだけにかかる一律の倍率（base.css 参照）。
-     1つの倍率なので、本ごとの厚みの比は実物どおりに保たれる。 */
-  --w:  max(var(--spine-min),
-            calc(var(--t) * var(--px-per-mm) * var(--u) * var(--thick-gain)));
-  --bh: calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--px-per-mm) * var(--u));
+  --kw:   148;     /* 判横(mm)。gen_data.py が1冊ずつ書き込む */
+  --look: .06;     /* 天の見え方。目の高さに近いので浅い */
+  --bh:   calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--mm));
+  --w:    calc(max(var(--t), var(--t-min)) * var(--mm));
+  --top:  clamp(2px, calc(var(--kw) * var(--mm) * var(--look)), 16px);
   position:relative; z-index:1;
   flex:0 0 auto;
-  width:var(--w); height:var(--bh);
+  width:var(--w); height:calc(var(--bh) + var(--top));
   background-color:var(--c);
   border-radius:1px 1px 0 0;
+  transform-origin:50% 100%;
+  transform:rotate(var(--lean,0deg));
   /* 指を離したあとは、棚へ戻るまでに間がある。触れたときより長い */
   transition:transform .44s var(--ease-carry), filter .44s var(--ease-carry);
   box-shadow:
     inset  2px 0 1px -1px rgba(240,232,214,.42),
-    inset -2px 0 1px -1px rgba(0,0,0,.55),
-     1px 0 0 rgba(0,0,0,.35),
-    -1px 0 0 rgba(240,232,214,.12),
-     0 5px 8px -6px rgba(0,0,0,.85),
+    inset -6px 0 7px -5px rgba(0,0,0,.72),   /* 溝 */
+     7px 3px 9px -4px rgba(0,0,0,.62),       /* 背板・隣への投影 */
+     1px 0 0 rgba(0,0,0,.40),
+    -1px 0 0 rgba(240,232,214,.10),
      0 -4px 7px -2px rgba(0,0,0,.5);
 }
-/* 天（紙の束）。上からの光を受ける。本の輪郭はここで出る */
 /* 書影。判型・厚みから決めた枠にそのまま収める */
-.spine img,.flat > img{
-  position:absolute; inset:0;
-  width:100%; height:100%;
+.spine img{
+  position:absolute; left:0; right:0; bottom:0;
+  top:var(--top); height:calc(100% - var(--top));
+  width:100%;
   object-fit:fill;
   border-radius:inherit;
   display:block;
+  z-index:1;
 }
+/* 天（紙の束の上面）。奥は影、手前の角だけが光る */
 .spine::before{
   content:"";
-  position:absolute; left:.5px; right:.5px; top:0;
-  height:clamp(5px, calc(var(--bh) * .05), 13px);
+  position:absolute; left:.5px; right:.5px; top:0; z-index:2;
+  height:var(--top);
   border-radius:1px 1px 0 0;
-  background:linear-gradient(180deg, var(--e) 0%, var(--e) 42%, rgba(0,0,0,.45) 100%);
-  box-shadow:0 1px 2px rgba(0,0,0,.5);
+  background:
+    linear-gradient(180deg,
+      rgba(46,32,20,.58)   0%,
+      rgba(46,32,20,.26)  22%,
+      rgba(46,32,20,.05)  52%,
+      rgba(255,246,226,.20) 84%,
+      rgba(46,32,20,.22) 100%),
+    linear-gradient(97deg,
+      color-mix(in srgb, var(--e) 58%, #7a6746)   0%,
+      color-mix(in srgb, var(--e) 84%, #9b8763)  34%,
+      color-mix(in srgb, var(--e) 96%, #c8b494)  62%,
+      color-mix(in srgb, var(--e) 70%, #8d7a55) 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.55), inset 0 -1px 0 rgba(0,0,0,.30);
+}
+/* 足もと。棚板に接しているところだけを、本ごとに締める */
+.spine::after{
+  content:"";
+  position:absolute; z-index:3;
+  left:-4px; right:-4px; bottom:0;
+  height:calc(6 * var(--mm));
+  pointer-events:none;
+  background:linear-gradient(180deg,
+    rgba(0,0,0,0) 0%, rgba(0,0,0,.30) 62%, rgba(0,0,0,.58) 100%);
 }
 
-/* --- 平台。別の什器 -----------------------------------------
-   棚の手前にせり出す。絵の中に床と影が入っているので、床に置かれて見える。
-   絵の実測値（1153x1024）：天板 0〜46.7% ／ 小口 46.7〜53.1% ／ 幕板・脚・床 53.1〜100% */
-.platform{
-  position:relative; z-index:2;
-  width:100vw; margin-inline:calc(50% - 50vw);
-  height:var(--plat-h);
-  margin-top:calc(var(--plat-h) * -0.03);   /* 棚とくっつける */
-  background-image:url("../assets/images/platform.webp");
-  background-repeat:repeat-x;
-  background-size:auto 100%;
-  background-position:center top;
-}
-/* 天板の面。ここに本を寝かせる */
-.platform__row{
-  position:absolute; z-index:1;
-  /* 本を置く高さ。37% では本棚の地板にかぶり、44% では小口が
-     天板の手前の端（絵の実測で 46.7%）を越えて落ちかけて見えた。
-     40% が、本が天板に載ったまま収まる位置。
-     ※ 参考画像は本の手前に 36px の棚が見えている。こちらは十数px。
-        平台の絵の天板が 106px しかないため（参考画像のいちばん下の
-        段は 126px）。絵を作り直すときに直したい。 */
-  left:0; right:0; top:0; height:40%;
-  /* 3〜4冊なので、天板の端まで散らさず中ほどにまとめる。
-     広い画面では、空いた天板と床がそのまま奥行きになる。 */
-  display:flex; align-items:flex-end; justify-content:center;
-  gap:clamp(8px,calc(var(--flat-gap) * var(--u)),40px);
-  padding:0 calc(10px * var(--u)); margin:0; list-style:none;
+/* --- 並びを崩す -----------------------------------------------
+   完全に直立した長方形が等間隔で並ぶのは、棚ではなく定規。
+   本ごとにわずかな傾き・前後・抜きをつける。 */
+.spine:nth-child(7n+1){ --lean:.7deg;  }
+.spine:nth-child(7n+2){ --lean:-.5deg; }
+.spine:nth-child(7n+3){ --lean:.3deg;  }
+.spine:nth-child(7n+4){ --lean:-.9deg; }
+.spine:nth-child(7n+5){ --lean:.5deg;  }
+.spine:nth-child(7n+6){ --lean:-.3deg; }
+.spine:nth-child(7n+7){ --lean:.9deg;  }
+/* 前後。奥に入っている本は光が回りにくく、少し暗い */
+.spine:nth-child(5n+2){ filter:brightness(.93); }
+.spine:nth-child(5n+4){ filter:brightness(.96); }
+.spine:nth-child(9n+5){ filter:brightness(1.04); }
+/* 抜き。隙間があると背板と影が見え、棚が深く見える */
+.spine:nth-child(11n+6) { margin-right:calc(4 * var(--mm)); }
+.spine:nth-child(17n+13){ margin-right:calc(2.5 * var(--mm)); }
+
+/* 指で選んでいる本。棚から少し引き出して、明るくする */
+.spine:hover,.spine:focus-visible,.spine.is-picked{
+  transform:rotate(var(--lean,0deg)) translateY(calc(-3.5 * var(--mm)));
+  filter:brightness(1.08);
+  /* 触れたほうは早く応える。戻りだけを長く残す */
+  transition-duration:.19s, .19s;
+  transition-timing-function:var(--ease-rise), var(--ease-rise);
 }
 
-/* 平置き。机に置いてある状態。表紙が上を向く */
+/* --- 書名の札 ------------------------------------------------
+   指でなぞっているあいだ、指の下の本の書名を大きく出す。
+   背表紙の文字は実物どおりの大きさなので、薄い本ほど小さい。
+   選ぶ前に書名を確かめられるようにする（scripts/main.js）。 */
+.pick-tag{
+  position:fixed; z-index:40; left:0; top:0;
+  transform:translate(-50%, calc(-100% - 12px));
+  max-width:min(80vw, 380px);
+  padding:.55em 1em .6em;
+  background:rgba(22,15,10,.94);
+  border:1px solid rgba(210,198,174,.38);
+  border-radius:3px;
+  box-shadow:0 10px 22px -10px rgba(0,0,0,.9);
+  color:var(--paper);
+  font-size:clamp(14px,3.9vw,17px);
+  line-height:1.55; letter-spacing:.06em;
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .14s var(--ease);
+}
+.pick-tag.is-on{ opacity:1; }
+.pick-tag::after{
+  content:"";
+  position:absolute; left:var(--tip,50%); top:100%;
+  width:10px; height:10px; margin-left:-5px; margin-top:-5px;
+  background:inherit;
+  border-right:1px solid rgba(210,198,174,.38);
+  border-bottom:1px solid rgba(210,198,174,.38);
+  transform:rotate(45deg);
+}
+
+/* --- 平置き --------------------------------------------------
+   平台に寝かせた本。表紙が上を向く。 */
 .flat{
-  --fw: calc(var(--w) * var(--px-per-mm) * var(--u) * var(--flat-scale));
-  --fh: calc(var(--h) * var(--px-per-mm) * var(--u) * var(--flat-scale));
-  /* 小口の高さ＝厚み。ページ数と装丁から出した mm をそのまま使う。
-     ただし薄い本には下限を置く（要件定義書 2-2 の「最小の厚み」）。
-
-     一律の倍率で太らせると、厚い本ほど効きすぎる。
-     25mm のかがくのお話25 は、表紙の見え高の27%が小口になり、
-     白い台に本が載っているように見えた（参考画像は 7%）。
-     薄い本だけを持ち上げる下限のほうが、厚い本を壊さない。 */
-  --fe: calc(max(var(--t), var(--flat-t-min)) * var(--px-per-mm) * var(--u)
-             * var(--flat-scale) * var(--flat-edge-gain));
+  --fw: calc(var(--w) * var(--pmm));
+  --fh: calc(var(--h) * var(--pmm));
+  /* 小口の高さ＝厚み。薄い本には下限を置く（要件定義書 2-2 の「最小の厚み」） */
+  --fe: calc(max(var(--t), var(--flat-t-min)) * var(--pmm) * var(--flat-edge-gain));
   position:relative;
   flex:0 0 auto;
   width:var(--fw); height:var(--fh);
@@ -229,26 +352,25 @@
   border-radius:1px;
   transform-origin:50% 100%;
   transform-style:preserve-3d;
-  /* 奥行きは1冊ごとに持たせる。
-     段でひとつの perspective を共有すると、真ん中から離れた本ほど
-     斜めから見ることになり、小口が片側だけ厚い楔形に写った。
-     かといって親の perspective を外すと、こんどは表紙が平行投影になり、
-     厚みも遠近も無い「板」に見えた。
-
-     perspective() を transform の中に置くと、1冊ごとに、その本の
-     正面から見た遠近がかかる。楔形にならず、奥（上）がすぼまる。 */
+  /* 遠近は1冊ごとに持たせる。段でひとつを共有すると、
+     真ん中から離れた本ほど小口が片側だけ厚い楔形に写る */
   transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot));
   box-shadow:0 3px 4px rgba(0,0,0,.45);
   transition:transform .34s var(--ease);
 }
-/* 背（左の面）。棚の背表紙と同じ絵を使う。書名が見える */
+.flat > img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:fill;
+  border-radius:inherit;
+  display:block;
+}
+/* 背（左の面）と小口（右の面） */
 .flat__spine,
 .flat__fore{
   position:absolute; top:0; bottom:0;
   width:var(--fe);
   overflow:hidden;
-  /* 面は本の内側を向いているので、こちらから見えるのは裏側になる。
-     裏を消すと側面が出ないため、裏を見せたうえで中身を左右反転して戻す。 */
   backface-visibility:visible;
 }
 .flat__spine{
@@ -265,7 +387,6 @@
   display:block;
   transform:scaleX(-1);   /* 裏から見るぶんを打ち消す */
 }
-/* 小口（右の面）。紙の束の断面 */
 .flat__fore{
   right:0;
   transform-origin:100% 50%;
@@ -273,53 +394,28 @@
   background:linear-gradient(90deg,#a4977e 0%,#ddd3bb 32%,#f2ebdc 70%,#e3dac3 100%);
   box-shadow:inset 2px 0 4px -2px rgba(0,0,0,.45);
 }
-
-/* 天板に落ちる影。
-   .flat は 3D で寝かせてあるので、box-shadow は本と一緒に傾いて
-   天板の面には落ちない。本が机に触れている手がかりが一つも無く、
-   浮いて見えていた。本の足もとに、机の面へ広がる影を置く。 */
+/* 天板に落ちる影。本の足もと（接地線）から手前へ広げる */
 .flat::before{
   content:"";
   position:absolute; z-index:-1;
-  /* 影の濃いところは、本の足もと（接地線）に置く。
-     本の真裏に置くと本自身に隠れ、外へはみ出すのは薄い裾だけになって
-     何も出ていないのと同じだった。top:100% から下へ伸ばす。
-
-     広がりは「本の高さ」ではなく「机に触れている幅」から出す。
-     高さに比例させていたため、背の高いA4判の絵本だけ影が大きく薄く
-     広がり、1冊目だけ浮いて見えていた。机に置いてある以上、
-     接地の影の締まり方は本の高さでは変わらない。 */
   left:-14%; right:-14%; top:100%;
   height:calc(var(--fw) * .34);
   pointer-events:none;
   background:
-    /* 足もとを締める線。これが本を机に置く */
     linear-gradient(180deg, rgba(0,0,0,.50) 0%, rgba(0,0,0,.20) 26%, rgba(0,0,0,0) 62%),
     radial-gradient(56% 120% at 50% 0%, rgba(0,0,0,.58), rgba(0,0,0,0) 70%);
   filter:blur(3px);
 }
-/* 地（手前の面）＝紙の束の小口。
-   以前はここを表紙と直角に立てていた（rotateX(-90deg)）。
-   立てるとカメラに正対するため、遠近で表紙より大きく写り、
-   本の幅を越えて左右にはみ出す。白い台の上に本が載っているように
-   見えていたのはこれ。本の底は、本より広くなりようがない。
-
-   表紙と同じ面の中に、帯として置く。表紙と一緒に foreshorten するので
-   幅は必ず表紙と一致する。 */
+/* 地（手前の面）＝紙の束の小口。表紙と同じ面の中に帯として置く */
 .flat::after{
   content:"";
   position:absolute; left:0; right:0; top:100%;
-  height:calc(var(--fe) * .74);   /* 寝た本の小口の見え幅 */
-  /* 参考画像の小口を実測した色で組む。
-       表紙の板の小口  rgb(37,28,27)   ほぼ黒。厚みの 2割
-       紙の束          rgb(166,142,114) 白ではなく、温かい生成り
-     これまでは白に近い一色だったため、紙の束ではなく
-     「白い縁のついた板」に見えていた。 */
+  height:calc(var(--fe) * .74);
   background:linear-gradient(180deg,
     #251c1b  0%, #251c1b 19%,   /* 表紙の板の小口 */
     #c3ac8d 23%,                /* 紙の束。上端は光を受ける */
     #a68e72 58%,
-    #7b6650 100%);              /* 机に近いほど落ちる */
+    #7b6650 100%);              /* 天板に近いほど落ちる */
   box-shadow:0 4px 9px -3px rgba(0,0,0,.75);
   border-radius:0 0 1px 1px;
 }
@@ -327,107 +423,29 @@
   transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(8px);
 }
 
-/* --- 画面幅に応じて見渡せる範囲を広げる ---------------------
-   本を大きくするのではなく、見える冊数を増やす。
-   背表紙は棚が画面外まで続くので、入るだけ入る（切り取りで自然に途切れる）。
-
-   平台は画面幅にかかわらず3〜4冊（要件定義書 2-3／3-2）。
-   以前は画面が広がるほど8冊・12冊と増やしていたが、
-   要件定義書は「画面が大きいほど…平台の奥行きや影も見えやすくなります」で、
-   冊数ではなく床と余白が広がる形。増やすぶん1冊が小さくなり、
-   「平台の本は大きく手前に」と逆になっていた。 */
-.platform__row .flat:nth-child(n+5){ display:none; }
-/* パソコンでは平台が広く、4冊では寂しい。8冊置く。
-   （要件定義書 2-3 は「平台 3〜4冊」。画面の広い環境だけ増やす形で、
-     書面の改訂が要る点は國分様にお伝えする） */
-@media (min-width:1200px){
-  .platform__row .flat:nth-child(n+5){ display:block; }
-  .platform__row .flat:nth-child(n+9){ display:none; }
+/* --- 光 ------------------------------------------------------
+   参考画像の光は、左上から入る温かい光。天板と棚の左上が明るく、
+   右下へ向かってなだらかに落ちる。左上の角には植物がかかる。
+   光の斑や葉の影は置かない（白いモヤに見えるため外した）。 */
+.case__light{
+  position:absolute; inset:0; z-index:6;
+  pointer-events:none;
+  background:
+    radial-gradient(75% 48% at 4% 0%, rgba(255,212,150,.20) 0%, rgba(255,212,150,.07) 45%, rgba(255,212,150,0) 72%),
+    radial-gradient(150% 110% at 15% 0%, rgba(14,8,3,0) 52%, rgba(14,8,3,.34) 100%);
 }
-/* 広い画面でも、本と本の間は詰める。
-   参考画像では本どうしが 14〜18px しか離れていない。
-   天板の幅に合わせて間を広げると（1440pxで63px）、本が台の上に
-   点々と散らばり、並べたのではなく置き忘れたように見えた。
-   天板が広く見えること自体は要件定義書 3-2 のとおり
-   （「画面が大きいほど…平台の奥行きや影も見えやすくなります」）。 */
-@media (min-width:900px){
-  .platform__row{ gap:clamp(16px,1.6vw,30px); }
+/* 左上にかかる植物。苔の絵のうち、葉がいちばん密なところ（縦 210〜630）を使う */
+.case__leaves{
+  --lw: clamp(96px, 26vw, 220px);
+  position:absolute; z-index:7;
+  left:calc(var(--post-w) * -.5); top:calc(var(--crown) * -2.2);
+  width:var(--lw); aspect-ratio:340 / 420;
+  background:url("../assets/images/wall-moss-edge.webp") no-repeat left calc(var(--lw) * -.62) / 100% auto;
+  -webkit-mask-image:radial-gradient(95% 95% at 0% 0%, #000 50%, transparent 100%);
+          mask-image:radial-gradient(95% 95% at 0% 0%, #000 50%, transparent 100%);
+  filter:drop-shadow(4px 8px 6px rgba(0,0,0,.55));
+  pointer-events:none;
 }
-.market__head{
-  position:relative; z-index:3;
-  display:flex; align-items:baseline; justify-content:space-between;
-  gap:14px;
-  margin:0 0 clamp(14px,3vh,26px);
-}
-.market__head .market__sign{ margin:0; text-align:left; }
-.market__head .market__sign::after{ margin-left:0; }
-.market__all{
-  flex:0 0 auto;
-  font-size:12px; letter-spacing:.14em;
-  color:var(--paper-dim); text-decoration:none;
-  padding:4px 2px;
-  border-bottom:1px solid transparent;
-  transition:color .3s var(--ease), border-color .3s var(--ease);
-}
-.market__all::after{ content:"\203A"; margin-left:.5em; }
-.market__all:hover,.market__all:focus-visible{
-  color:var(--paper); border-bottom-color:rgba(233,224,206,.4);
-}
-
-/* --- 店主のおすすめの立て札 ------------------------------------ */
-.signcard{
-  flex:0 0 auto;
-  align-self:flex-end;
-  width:calc(var(--card-w,45) * var(--u));
-  aspect-ratio:3/4;
-  display:flex; align-items:center; justify-content:center;
-  border-radius:2px;
-  background:linear-gradient(180deg, #2E3A31 0%, #202A23 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(201,168,118,.26),
-    inset 0 1px 0 rgba(255,246,228,.16),
-    0 8px 12px -7px rgba(0,0,0,.9);
-  transform-origin:50% 100%;
-  transform:rotateX(11deg) rotate(-1.2deg);
-}
-.signcard span{
-  font-size:calc(var(--card-fs,10) * var(--u));
-  line-height:1.6; letter-spacing:.08em;
-  color:var(--paper-dim);
-  text-align:center;
-}
-
-
-/* --- 並びを崩す -----------------------------------------------
-   完全に直立した長方形が等間隔で並ぶのは、棚ではなく定規。
-   本ごとにわずかな傾き・前後・天の高さの差をつける。 */
-/* 一冊ずつわずかに傾ける。定規で引いたように揃わないように */
-.spine{ transform-origin:50% 100%; transform:rotate(var(--lean,0deg)); }
-.spine:hover,.spine:focus-visible{
-  transform:rotate(var(--lean,0deg)) translateY(-5px);
-  filter:brightness(1.06);
-  /* 触れたほうは早く応える。戻りだけを長く残す */
-  transition-duration:.19s, .19s;
-  transition-timing-function:var(--ease-rise), var(--ease-rise);
-}
-.spine:nth-child(7n+1){ --lean:.7deg;  }
-.spine:nth-child(7n+2){ --lean:-.5deg; }
-.spine:nth-child(7n+3){ --lean:.3deg;  }
-.spine:nth-child(7n+4){ --lean:-.9deg; }
-.spine:nth-child(7n+5){ --lean:.5deg;  }
-.spine:nth-child(7n+6){ --lean:-.3deg; }
-.spine:nth-child(7n+7){ --lean:.9deg;  }
-
-/* 前後。奥に入っている本は光が回りにくく、少し暗い */
-.spine:nth-child(5n+2){ filter:brightness(.93); }
-.spine:nth-child(5n+4){ filter:brightness(.96); }
-.spine:nth-child(9n+5){ filter:brightness(1.04); }
-
-/* 天の高さ。きれいに切り揃わないようにする */
-.spine:nth-child(3n+1)::before{ height:4px; }
-.spine:nth-child(3n+2)::before{ height:6px; }
-.spine:nth-child(4n+3)::before{ height:5.5px; }
-
 
 /* ============================================================
    引き抜き
@@ -1309,255 +1327,4 @@
 
 @media (prefers-reduced-motion: reduce){
   .menu__scrim,.menu__panel{ transition:none; }
-}
-/* ============================================================
-   棚の奥行と光（提案・第2回デザイン用）
-   styles/shelf.css の末尾に足す。既存の宣言を上書きする形なので、
-   この節ごと外せば元の見え方に戻る。
-   ねらいは三つ。本に厚みを見せる／棚の中を暗く落とす／
-   森と同じ光を什器まで運ぶ。本は画像に焼き込まない（必須条件⑤）。
-   ============================================================ */
-
-/* --- 1. 天（本の上面） --------------------------------------
-   もともと .spine::before に天を描いていたが、書影の <img> が
-   あとから重なるため一度も見えていなかった。重ね順を直す。
-   天の見え幅は判横（mm）から出す。A4の絵本は深く、文庫は浅い。
-   見込み（--look）は段ごとに変える。下の段ほど上から見下ろす。 */
-.spine{
-  /* 判横(mm)。gen_data.py が1冊ずつ書き込む。既定はA5相当 */
-  --kw:   148;
-  --look: .075;
-  --top:  clamp(2px, calc(var(--kw) * var(--px-per-mm) * var(--u) * var(--look)), 13px);
-  /* 判型の高さ（--bh）は書影のぶん。天はその上に足す */
-  height: calc(var(--bh) + var(--top));
-}
-.case--2shelf .tier:nth-child(1) .spine{ --look:.055; }  /* 目の高さに近い段 */
-.case--2shelf .tier:nth-child(2) .spine{ --look:.115; }  /* 下の段。見下ろす */
-.case--1shelf .tier:nth-child(1) .spine{ --look:.065; }
-
-.spine img{
-  top:var(--top); height:calc(100% - var(--top));
-  z-index:1;   /* 天より下 */
-}
-.spine::before{
-  z-index:2;   /* 書影より上。これが無いと天が隠れる */
-  height:var(--top);
-  /* 奥（背板側）は影、手前の角だけが光る。紙の束の見え方 */
-  background:
-    linear-gradient(180deg,
-      rgba(46,32,20,.58)   0%,
-      rgba(46,32,20,.26)  22%,
-      rgba(46,32,20,.05)  52%,
-      rgba(255,246,226,.20) 84%,
-      rgba(46,32,20,.22) 100%),
-    linear-gradient(97deg,
-      color-mix(in srgb, var(--e) 58%, #7a6746)   0%,
-      color-mix(in srgb, var(--e) 84%, #9b8763)  34%,
-      color-mix(in srgb, var(--e) 96%, #c8b494)  62%,
-      color-mix(in srgb, var(--e) 70%, #8d7a55) 100%);
-  box-shadow:0 1px 2px rgba(0,0,0,.55), inset 0 -1px 0 rgba(0,0,0,.30);
-}
-/* 天の高さは判横から決まるので、固定値で上書きしていた指定は外す */
-.spine:nth-child(3n+1)::before,
-.spine:nth-child(3n+2)::before,
-.spine:nth-child(4n+3)::before{ height:var(--top); }
-
-/* --- 2. 棚の中を落とす ---------------------------------------
-   絵の背板が本と同じ明るさだと、箱の中に見えない。
-   奥を落とし、下からの照り返しだけ残す。黒ではなく焦茶で落とし、
-   木のあたたかみ（R-B）を保つ。 */
-.tier::before{
-  content:"";
-  position:absolute; inset:0; z-index:0;
-  pointer-events:none;
-  background:
-    /* 棚の中はこの絵の中でいちばん暗いところ。
-       参考画像の背板は輝度 48.3、手前の柱は 103.0（手前:奥 = 2.13:1）。
-       こちらは背板 111.9 / 柱 60.2 で、いちばん奥がいちばん明るく、
-       前後が逆だった。これが「奥行きが無い」の正体。 */
-    linear-gradient(180deg,
-      rgba(26,12,3,.93)   0%,   /* 上の棚板の裏。いちばん暗い */
-      rgba(26,12,3,.82)  14%,
-      rgba(26,12,3,.74)  48%,
-      rgba(26,12,3,.70)  86%,
-      rgba(26,12,3,.82) 100%),  /* 棚板との入隅 */
-    /* 天板の裏を舐める温かい光（参考画像 1.） */
-    linear-gradient(180deg, rgba(255,216,156,.22) 0%, rgba(255,216,156,.06) 9%, rgba(255,216,156,0) 22%),
-    radial-gradient(130% 100% at 50% 106%, rgba(214,158,86,.16), transparent 62%);
-}
-
-/* --- 3. 本の影 ------------------------------------------------
-   右へ落とす影は、右隣の本があればその本に隠れ、
-   隣が低いときだけ背板に現れる。実際の棚と同じ出かた。
-   溝（本と本のあいだ）は線ではなく、光が死んでいく幅を持たせる。 */
-.spine{
-  box-shadow:
-    inset  2px 0 1px -1px rgba(240,232,214,.42),
-    inset -6px 0 7px -5px rgba(0,0,0,.72),   /* 溝 */
-     7px 3px 9px -4px rgba(0,0,0,.62),       /* 背板・隣への投影 */
-     1px 0 0 rgba(0,0,0,.40),
-    -1px 0 0 rgba(240,232,214,.10),
-     0 -4px 7px -2px rgba(0,0,0,.5);
-}
-/* 足もと。棚板に接しているところだけを、本ごとに締める */
-.spine::after{
-  content:"";
-  position:absolute; z-index:3;
-  left:-4px; right:-4px; bottom:0;
-  height:calc(10 * var(--u));
-  pointer-events:none;
-  background:linear-gradient(180deg,
-    rgba(0,0,0,0) 0%, rgba(0,0,0,.30) 62%, rgba(0,0,0,.58) 100%);
-}
-/* 段ぜんたいの影は、本の足もとと二重になるぶん弱める */
-.row::after{
-  background:radial-gradient(70% 100% at 50% 0%,rgba(0,0,0,.30),rgba(0,0,0,0) 74%);
-}
-
-/* --- 4. 並びに抜きをつくる ------------------------------------
-   隙間があると、そこに背板と影が見える。棚がいちばん深く見えるのは
-   本のないところ。ぴったり詰めると壁になる。 */
-.spine:nth-child(11n+6) { margin-right:calc(7 * var(--u)); }
-.spine:nth-child(17n+13){ margin-right:calc(4 * var(--u)); }
-
-/* --- 5. 木漏れ日 ----------------------------------------------
-   森（ヒーロー）と什器で光が違うと、別の場所に見える。
-   同じ光の素を base.css に置き、森と売り場の両方から使う。
-   葉の隙間の形は、繰り返しの見えない不規則な斑でつくる。 */
-.market{ isolation:isolate; }   /* 苔（.market::after）より上に光を置くため */
-/* --- 窓からの光。参考画像にある「光のできごと」だけを置く ------
-   これまでここには枝のトレースを黒く敷いていた。参考画像を2.2倍に
-   持ち上げて確かめたところ、枝の影はどこにも無い。
-   あるのは三つだけだった。
-
-     1. 天板の裏を舐める、温かい光の帯
-     2. 柱の内側を走る縁の光と、その外の濃い溝
-     3. 下へ向かう減光（上の隅 63〜69／下の隅 41／中央 82）
-
-   木漏れ日は「葉のすき間から漏れる明るいところ」であって、
-   枝の黒い筋ではない。逆のものを描いていた。 */
-.scene::before{
-  content:"";
-  position:absolute; z-index:3;
-  /* 左右の柱には光を落とさない。柱の木は暗いので、そこへ淡い斑が
-     乗ると、光ではなく曇りガラス越しに見ているように見えた。
-     マスクを2枚重ねる手もあるが、mask-composite は一枚だけのときに
-     層ごと消えるなど扱いが難しい。層自体を柱の内側に収めるほうが確実。 */
-  left:var(--post-w); right:var(--post-w); top:0; height:100%;
-  pointer-events:none;
-  opacity:var(--sun-amt);
-  /* 葉の重なりの、抜けたところだけが光になる。
-     影は輪郭を持たず、光のほうが形を持つ——これが木漏れ日。
-     前に敷いていた枝のシルエットは、ちょうど逆だった。
-
-     棚にも台にも本にも落ちる必要があるので、この層だけは
-     売り場ぜんたい（棚 z:1／平台 z:2）の上に置く。 */
-  /* 木漏れ日のタイル。継ぎ目なく繰り返せるように作ってある。
-     大きさは px で固定する。cover にすると画面ごとに粒の大きさが変わり、
-     スマートフォンで 9px、パソコンで 22px と別物になってしまう。
-     380px に敷くと、画面上の光の粒は直径 11px 前後になる。
-     760px では粒が大きく「滲み」に見え、260px では細かすぎて
-     迷彩のようになった。並べて比べて 380px にしている。 */
-  background:
-    url("../assets/images/komorebi.webp") repeat left top / 380px 380px,
-    radial-gradient(70% 50% at 12% 2%, rgba(255,226,172,.26), transparent 76%);
-  /* 窓は左上。そこから離れるほど、光は弱まる */
-  -webkit-mask-image:radial-gradient(142% 118% at 10% -8%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
-          mask-image:radial-gradient(142% 118% at 10% -8%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
-          mask-image:radial-gradient(142% 118% at 10% -8%,
-    rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 32%, rgba(0,0,0,.52) 66%, rgba(0,0,0,.24) 100%);
-}
-/* 下へ向かう減光。参考画像は中央82／上の隅63〜69／下の隅41 */
-.scene::after{
-  content:"";
-  position:absolute; z-index:4;
-  left:50%; top:0; width:100vw; height:100%;
-  transform:translateX(-50%);
-  pointer-events:none;
-  opacity:var(--fall-amt);
-  background:
-    linear-gradient(180deg, rgba(18,10,4,0) 0%, rgba(18,10,4,0) 46%, rgba(18,10,4,.55) 100%),
-    radial-gradient(120% 86% at 22% 6%, rgba(18,10,4,0) 40%, rgba(18,10,4,.42) 100%);
-}
-  }
-}
-
-/* ============================================================
-   什器の質感を、絵を差し替えずに足す
-   ------------------------------------------------------------
-   國分様のご指摘「温かみのある木目や木漏れ日などの世界観／
-   棚の奥行や影などの表現」に対して、什器アートワークの作り直しを
-   待たずにできるところ。
-
-   什器の絵は 2062x609 で、画面では 1.7〜2.4倍に伸びる。
-   伸びた絵に細部は無いが、「描画のたびに作られる層」を上に重ねると、
-   細部があるように見える。しかもその層は解像度に依存しないので、
-   高精細画面でも、ブラウザの拡大表示でも、同じ細かさで出る。
-
-   置く層は4つ。すべて本より下（z-index:0）に敷き、
-   3D で組んである平置きの本には触らない。
-   ============================================================ */
-
-/* --- 1. 木肌。棚の中と棚板に、横に流れる繊維を重ねる ---------- */
-.case__box::before{
-  content:"";
-  position:absolute; inset:0; z-index:0;
-  pointer-events:none;
-  background:
-    var(--wood-blot),
-    var(--wood-grain);
-  background-size:760px 760px, 320px 320px;
-  background-blend-mode:soft-light;
-  mix-blend-mode:overlay;
-  opacity:var(--grain-amt);
-}
-
-/* 温かみは、同じ層の中に色として混ぜる。
-   別の層にすると合成の回数が増えるだけで、見た目は変わらない。 */
-.case__box::before{
-  background-image:
-    linear-gradient(rgba(214,132,52,var(--warm-amt)), rgba(178,98,36,var(--warm-amt))),
-    var(--wood-blot),
-    var(--wood-grain);
-  background-size:100% 100%, 760px 760px, 320px 320px;
-  background-blend-mode:soft-light, soft-light, normal;
-}
-
-/* --- 3. 木漏れ日を段の中まで落とす ---------------------------
-   光は上から入る。段の上のほうを明るく、奥へ行くほど弱く。
-   森（.hero__light）と同じ素を使うので、同じ太陽の光になる。 */
-/* 段の中に置いていた「乱数の斑を screen で足す層」は外した。
-   枝の形も無く、段の上半分を白っぽく曇らせるだけだった。
-   天板の裏を舐める光は .tier::before の中に入れてある。 */
-
-/* --- 4. 平台。天板は水平なので、光をいちばん受ける ------------
-   あわせて、絵が横に5回ほど繰り返されるのを、
-   繰り返しの周期と関係のないむらで見えにくくする。 */
-.platform::before{
-  content:"";
-  position:absolute; inset:0; z-index:0;
-  pointer-events:none;
-  background:
-    var(--wood-blot),
-    var(--wood-grain);
-  background-size:1010px 1010px, 300px 300px;   /* 絵の継ぎ目と揃わない周期 */
-  background-blend-mode:soft-light;
-  mix-blend-mode:overlay;
-  opacity:var(--blot-amt);
-}
-/* 天板の光も同じ理由で、乱数の斑ではなく素直な当たりにする */
-.platform::after{
-  content:"";
-  position:absolute; left:0; right:0; top:0; height:54%;
-  z-index:0;
-  pointer-events:none;
-  opacity:.5;
-  background:radial-gradient(58% 86% at 26% 2%, rgba(255,226,170,.30), transparent 72%);
-}
-
-/* 動きを減らす設定のときは、光を止める（下の drift と揃える） */
-@media (prefers-reduced-motion:reduce){
-  .tier::after,.platform::after{ animation:none; }
 }

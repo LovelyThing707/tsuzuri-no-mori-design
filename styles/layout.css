@@ -121,22 +121,18 @@
 /* --- 売り場は奥から手前へ順に置かれる -------------------------
    看板・棚・平台がひとかたまりで現れると、書き割りが一枚
    立つように見える。奥から順にわずかに遅らせる。 */
-.market.will-reveal .case,
-.market.will-reveal .platform{
+.market.will-reveal .case{
   /* 濃さは売り場ごと一枚で変える。ここで重ねて薄くすると、
      什器の木が同じ木の壁に溶けて、本だけが宙に浮いて見える */
   transform:translateY(var(--rise,0px));
   transition:transform var(--dur,.86s) var(--ease-carry) var(--lag,0s);
 }
-.market.will-reveal .case    { --rise:8px;  --lag:.08s; --dur:.9s; }
-.market.will-reveal .platform{ --rise:14px; --lag:.16s; --dur:1s;  }
-.market.is-in .case,
-.market.is-in .platform{ transform:none; }
+.market.will-reveal .case{ --rise:10px; --lag:.08s; --dur:.95s; }
+.market.is-in .case{ transform:none; }
 
 @media (prefers-reduced-motion: reduce){
   .will-reveal{ opacity:1; transform:none; }
-  .market.will-reveal .case,
-  .market.will-reveal .platform{ transform:none; }
+  .market.will-reveal .case{ transform:none; }
 }
 
 /* --- 上部の帯 -------------------------------------------------

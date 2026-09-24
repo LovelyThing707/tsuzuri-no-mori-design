@@ -5,21 +5,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
 import gen_pages as G
 
-def market(idx, name, tiers, lying, note):
-    """背表紙の棚と平台は別の什器。平台は棚の手前に、隙間なく置く。"""
-    TIER = """          <div class="tier">
-            <ul class="row">
-%s
-            </ul>
-          </div>"""
-    t = [TIER % D.tier(b) for b in tiers]
-    flat = """      <div class="platform" aria-hidden="true">
-        <ul class="platform__row">
-%s
-        </ul>
-      </div>""" % D.platform(lying)
-    # 什器は絵。背表紙の段数ごとに絵を出し分けるので、段数をクラスで持たせる
-    shelves = 'case--%dshelf' % len(tiers)
+def market(idx, name, books, lying, note):
+    """本棚は1台。段に背表紙が並び、下部のせり出した平台に表紙を上にして
+    本を寝かせる。左右の柱は天板から床まで通り、本棚は床に立つ。"""
+    w = D.sumw(lying)
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
@@ -30,14 +19,28 @@ def market(idx, name, tiers, lying, note):
     </div>
     <div class="scene">
       <p class="sr-only">%s</p>
-      <div class="case %s" aria-hidden="true">
-        <div class="case__box">
+      <div class="case" aria-hidden="true">
+        <div class="case__crown"></div>
+        <div class="tier">
+          <ul class="row">
 %s
+          </ul>
         </div>
-      </div>
+        <div class="case__board"></div>
+        <div class="deck">
+          <ul class="deck__row" style="--sumw3:%d;--sumw4:%d;--sumw8:%d">
 %s
+          </ul>
+        </div>
+        <div class="deck__lip"></div>
+        <div class="case__base"></div>
+        <div class="case__floor"></div>
+        <div class="case__light"></div>
+        <div class="case__leaves"></div>
+      </div>
     </div>
-  </section>""" % (idx, idx, name, note, shelves, "\n".join(t), flat)
+  </section>""" % (idx, idx, name, note, D.tier(books),
+                   w[3], w[4], w[8], D.platform(lying))
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">
@@ -313,10 +316,10 @@ PAGE = """<!DOCTYPE html>
 html = PAGE % dict(
     books   = D.book_json(),
     pages   = G.pages_html(),
-    market1 = market(1, '子供に読みたい本', [D.TIER_A1, D.TIER_A2], D.LYING_A,
-                     '背表紙の棚が2段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
-    market2 = market(2, '夜に読む本', [D.TIER_B1], D.LYING_B,
-                     '背表紙の棚が1段。その手前の平台に、表紙を上にして本を寝かせて置いています。'),
+    market1 = market(1, '子供に読みたい本', D.TIER_A1, D.LYING_A,
+                     '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
+    market2 = market(2, '夜に読む本', D.TIER_B1, D.LYING_B,
+                     '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)
 print('index.html:', len(html.splitlines()), 'lines')

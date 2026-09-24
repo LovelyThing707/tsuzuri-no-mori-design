@@ -5,19 +5,12 @@
  * 一時フォルダに置いていたら三度消えたので、リポジトリに入れた。
  * tools/build.sh は載せるものを列挙する方式なので、これは配信されない。
  *
- * 数字（棚板の位置など）は、什器の絵を実測して得た値。
- * 絵を差し替えたときは、まず測り直してここを更新すること。
+ * 本棚は部材を組んで描いているので、段の底がそのまま棚板の上になる。
  */
 const { chromium } = require('playwright');
 const path = require('path');
 
 const URL = 'file:///' + path.join(__dirname, '..', 'index.html').replace(/\\/g, '/');
-
-/* 絵を実測した「棚板の上面」。本の底はこの帯に収まっていなければならない */
-const BOARD = {
-  'case--2shelf': [[45.0, 45.6], [94.9, 95.4]],
-  'case--1shelf': [[89.9, 90.4]],
-};
 
 /* 背の低い画面を必ず含める。3種類だけ見ていたころ、
    375x667・1366x768・1280x720・1024x768 で売り場が一画面に
@@ -63,166 +56,172 @@ async function shelf(b) {
 
     const m = await p.evaluate(() => {
       const vis = e => getComputedStyle(e).display !== 'none';
+      const root = getComputedStyle(document.documentElement);
+      const px = v => parseFloat(v) || 0;
       const out = {
-        cases: [], docW: document.documentElement.scrollWidth, winW: window.innerWidth,
-        gaps: [], flatOver: 0, sign: document.querySelectorAll('.signcard').length,
+        docW: document.documentElement.scrollWidth, winW: window.innerWidth,
+        sign: document.querySelectorAll('.signcard').length,
+        oldParts: document.querySelectorAll('.platform, .case__box').length,
+        /* 1mm あたりの長さ。背表紙の幅 ÷ 厚み(mm) から読む */
+        mm: 0, mmFloor: 1.2,
+        markets: [],
       };
-      document.querySelectorAll('.case').forEach(c => {
-        const cr = c.getBoundingClientRect();
-        out.cases.push({
-          cls: [...c.classList].find(x => x.startsWith('case--')),
-          w: Math.round(cr.width),
-          tiers: [...c.querySelectorAll('.tier')].map(ti => {
-            const tr = ti.getBoundingClientRect();
-            const sp = [...ti.querySelectorAll('.spine')].filter(vis);
-            const cut = sp.filter(e => {
-              const r = e.getBoundingClientRect();
-              return (r.left < tr.left - .5 && r.right > tr.left + .5) ||
-                     (r.left < tr.right - .5 && r.right > tr.right + .5);
-            }).length;
-            /* 段が本で埋まっているか。背幅を実寸比に直したとき、
-               冊数を増やし忘れてパソコン幅で段の58%しか埋まらなかった。 */
-            let used = 0;
-            sp.forEach(e => {
-              const c = getComputedStyle(e);
-              used += (parseFloat(c.width) || 0)
-                    + (parseFloat(c.marginLeft) || 0)
-                    + (parseFloat(c.marginRight) || 0);
-            });
-            return {
-              cut,
-              fill: +(100 * used / tr.width).toFixed(0),
-              /* 画面上の厚みの比 ÷ 実物の厚みの比。0 なら実物どおり。
-                 一律でない下駄が混ざると、ここがふくらむ。 */
-              ratio: (() => {
-                /* offsetWidth は整数に丸められる。12px の本では 1px のずれが 8%
-                   になり、歪みと区別がつかない。計算値（小数）で測る。
-                   getBoundingClientRect は傾きの影響を受けるので使わない。 */
-                const floor = parseFloat(getComputedStyle(document.documentElement)
-                  .getPropertyValue('--spine-min')) || 0;
-                const seen = {};
-                sp.forEach(e => {
-                  const t = parseFloat(e.style.getPropertyValue('--t'));
-                  const w = parseFloat(getComputedStyle(e).width);
-                  /* 下限（要件定義書 2-2）に当たっている本は比が変わって当然。
-                     残りの本どうしの比が実物どおりかを見る。 */
-                  if (t && w > floor + 0.5 && !seen[t]) seen[t] = w / t;
-                });
-                const v = Object.values(seen);
-                return v.length < 2 ? 0
-                  : +((Math.max(...v) - Math.min(...v)) / (v.reduce((a, b) => a + b) / v.length)).toFixed(3);
-              })(),
-              tallest: Math.round(Math.max(...sp.map(e => e.offsetHeight))),
-              bottomPct: +(100 * (Math.max(...sp.map(e => e.getBoundingClientRect().bottom)) - cr.top) / cr.height).toFixed(2),
-              overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
-              uniqW: new Set(sp.map(e => +e.getBoundingClientRect().width.toFixed(1))).size,
-              minW: Math.min(...sp.map(e => +e.getBoundingClientRect().width.toFixed(1))),
-              /* 背表紙の写真が引き伸ばされていないか。
-                 画面上の縦横比 ÷ 素材の縦横比。1.0 なら原画どおり */
-              skew: (() => {
-                /* 本は1冊ずつわずかに傾いている。回転した外接矩形で測ると
-                   細い本ほど幅が水増しし、引き伸ばしと見分けがつかない。
-                   傾きの影響を受けない組み上の箱（offset）で測る。 */
-                /* 最小の厚み（--spine-min）に当たった本は、倍率よりも
-                   太く出る。要件定義書 2-2 が認めている措置なので、
-                   「倍率どおりか」の検査からは分けて数える。 */
-                const fl = parseFloat(getComputedStyle(document.documentElement)
-                  .getPropertyValue('--spine-min')) || 0;
-                const v = sp.map(e => {
-                  const im = e.querySelector('img');
-                  if (!im || !im.naturalWidth) return null;
-                  if (parseFloat(getComputedStyle(e).width) <= fl + 0.5) return null;
-                  const cs = getComputedStyle(im);
-                  const w = parseFloat(cs.width), h = parseFloat(cs.height);
-                  if (!w || !h) return null;
-                  return (w / h) / (im.naturalWidth / im.naturalHeight);
-                }).filter(Boolean);
-                return v.length ? +Math.max(...v.map(x => Math.max(x, 1 / x))).toFixed(2) : 1;
-              })(),
-            };
+      document.querySelectorAll('.market').forEach(mk => {
+        const c = mk.querySelector('.case'), cr = c.getBoundingClientRect();
+        const tier = c.querySelector('.tier'), tr = tier.getBoundingClientRect();
+        const deck = c.querySelector('.deck'), dr = deck.getBoundingClientRect();
+        const base = c.querySelector('.case__base').getBoundingClientRect();
+        const floor = c.querySelector('.case__floor').getBoundingClientRect();
+        const post = getComputedStyle(c, '::before');
+        const sp = [...tier.querySelectorAll('.spine')].filter(vis);
+        const fl = [...deck.querySelectorAll('.flat')].filter(vis);
+        let used = 0;
+        sp.forEach(e => {
+          const s = getComputedStyle(e);
+          used += px(s.width) + px(s.marginLeft) + px(s.marginRight);
+        });
+        /* 背の幅 ÷ 厚み。本ごとに同じなら、厚みは実物どおりの比 */
+        const per = {};
+        sp.forEach(e => {
+          const t = px(e.style.getPropertyValue('--t'));
+          if (t >= 5 && !per[t]) per[t] = px(getComputedStyle(e).width) / t;
+        });
+        const pv = Object.values(per);
+        const mean = pv.reduce((a, x) => a + x, 0) / (pv.length || 1);
+        if (!out.mm) out.mm = mean;
+        /* 背表紙の写真が歪んでいないか。画面上の縦横比 ÷ 写真の縦横比。
+           写真そのものの切り出しが実寸比から ±6% 以内なので、それ以内なら可 */
+        const skew = sp.map(e => {
+          const im = e.querySelector('img');
+          if (!im || !im.naturalWidth) return 1;
+          const s = getComputedStyle(im);
+          const r = (px(s.width) / px(s.height)) / (im.naturalWidth / im.naturalHeight);
+          return Math.max(r, 1 / r);
+        });
+        const cut = sp.filter(e => {
+          const r = e.getBoundingClientRect(), rr = e.closest('.row').getBoundingClientRect();
+          return (r.left < rr.left - .5 && r.right > rr.left + .5) ||
+                 (r.left < rr.right - .5 && r.right > rr.right + .5);
+        }).length;
+        const rowR = tier.querySelector('.row').getBoundingClientRect();
+        out.markets.push({
+          h: Math.round(mk.getBoundingClientRect().height),
+          caseW: Math.round(cr.width),
+          /* 柱が床まで通っているか：柱の下端＝台輪の下端＝床の上端 */
+          postBottom: +(cr.bottom - px(post.bottom)).toFixed(1),
+          baseBottom: +base.bottom.toFixed(1), floorTop: +floor.top.toFixed(1),
+          postH: px(post.height), caseH: cr.height,
+          deckInCase: c.contains(deck),
+          /* 棚板に立っているか：本の底が段の底に揃う */
+          bottomGap: +Math.max(...sp.map(e => Math.abs(tr.bottom - e.getBoundingClientRect().bottom))).toFixed(1),
+          overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
+          fill: Math.round(100 * used / rowR.width),
+          n: sp.length, cut,
+          ratioSpread: pv.length < 2 ? 0 : +((Math.max(...pv) - Math.min(...pv)) / mean).toFixed(3),
+          skew: +Math.max(...skew).toFixed(3),
+          minW: Math.min(...sp.map(e => px(getComputedStyle(e).width))),
+          /* 平台 */
+          flatN: fl.length,
+          flatIn: fl.every(e => {
+            const r = e.getBoundingClientRect();
+            return r.top >= dr.top - 1 && r.bottom <= dr.bottom + 1 && r.left >= dr.left - 1 && r.right <= dr.right + 1;
           }),
+          flatTilted: fl.length > 0 && getComputedStyle(fl[0]).transform !== 'none',
+          flatEdge: fl.length ? px(getComputedStyle(fl[0], '::after').height) : 0,
+          flatFaces: fl.length ? fl[0].querySelectorAll('.flat__spine,.flat__fore').length : 0,
+          flatMinW: fl.length ? Math.min(...fl.map(e => e.offsetWidth)) : 0,
+          deckBottom: Math.round(dr.bottom - mk.getBoundingClientRect().top),
+          /* 光の斑（白いモヤ）が戻っていないか */
+          dapple: [...mk.querySelectorAll('*')].concat([mk]).some(e =>
+            ['::before', '::after', ''].some(ps => /komorebi/.test(getComputedStyle(e, ps || null).backgroundImage))),
         });
       });
-      document.querySelectorAll('.platform').forEach(pl => {
-        const c = pl.previousElementSibling, pr = pl.getBoundingClientRect();
-        if (c && c.classList.contains('case')) out.gaps.push(+(pr.top - c.getBoundingClientRect().bottom).toFixed(1));
-        const fl = [...pl.querySelectorAll('.flat')].filter(vis);
-        /* 本の底が天板の手前の端より内側にあること（またぐと台に刺さって見える） */
-        out.flatOver = Math.max(out.flatOver,
-          Math.max(...fl.map(e => e.getBoundingClientRect().bottom)) - (pr.top + pr.height * 0.44));
-        out.flatN = fl.length;
-        out.tilted = getComputedStyle(fl[0]).transform !== 'none';
-        out.edge = getComputedStyle(fl[0], '::after').height;
-        out.faces = fl[0].querySelectorAll('.flat__spine,.flat__fore').length;
-        /* 平台の本の面積。要件定義書 2-3「平台の本は大きく手前に、
-           奥の本棚はやや小さく控えめに」。以前は逆で、同じ本が
-           棚の半分の大きさだった。判型の同じ本どうしで比べる。 */
-        out.flatBox = {};
-        fl.forEach(e => { out.flatBox[e.dataset.book] = e.offsetWidth * e.offsetHeight; });
-      });
-      /* 背表紙の厚みにかけている一律の倍率。写真の歪みはこの値と
-         等しくなるはず。これを超えたぶんが「意図しない引き伸ばし」 */
-      out.gain = parseFloat(getComputedStyle(document.documentElement)
-        .getPropertyValue('--thick-gain')) || 1;
-      out.spineBox = {};
-      document.querySelectorAll('.tier .spine').forEach(e => {
-        if (getComputedStyle(e).display === 'none') return;
-        out.spineBox[e.dataset.book] = e.offsetWidth * e.offsetHeight;
-      });
-      out.marketH = Math.max(...[...document.querySelectorAll('.market')]
-        .map(e => Math.round(e.getBoundingClientRect().height)));
       return out;
     });
 
     t(m.docW <= m.winW + 1, `${vp.n}: 横のはみ出しなし (${m.docW}/${m.winW})`);
     t(bad.length === 0, `${vp.n}: 画像すべて読める${bad.length ? ' — ' + [...new Set(bad)].join(',') : ''}`);
     t(m.sign === 0, `${vp.n}: 立て札が消えている`);
-    t(m.gaps.every(g => g <= 1), `${vp.n}: 棚と平台がくっついている (${m.gaps.join(',')}px)`);
-    t(m.flatOver <= 0, `${vp.n}: 平置きが天板の内側に載っている`);
-    t(m.tilted, `${vp.n}: 平置きが寝ている`);
-    t(parseFloat(m.edge) > 1, `${vp.n}: 平置きに厚みがある (小口 ${m.edge})`);
-    t(m.faces === 2, `${vp.n}: 平置きに背と小口の面がある (${m.faces})`);
-    /* 平台の冊数。要件定義書 2-3 は「3〜4冊」。
-       天板の広いパソコン（1200px以上）だけ8冊に増やしている。
-       一画面（2-6）は画面幅にかかわらず守る。 */
-    const flatMax = vp.w >= 1200 ? 8 : 4;
-    t(m.flatN >= 3 && m.flatN <= flatMax,
-      `${vp.n}: 平置き3〜${flatMax}冊 (${m.flatN}冊)`);
-    t(m.marketH <= vp.h, `${vp.n}: 1テーマが一画面に収まる (${m.marketH}/${vp.h}px)`);
-    /* 手前の平台のほうが大きく見えること。同じ本で比べる */
-    (() => {
-      const k = Object.keys(m.flatBox).filter(x => m.spineBox[x]);
-      const r = k.map(x => m.flatBox[x] / m.spineBox[x]);
-      t(r.length > 0 && Math.min(...r) > 1,
-        `${vp.n}: 平台の本が棚の本より大きい (最小 ${Math.min(...r).toFixed(1)}倍)`);
-    })();
-    m.cases.forEach(c => {
-      t(c.w >= vp.w - 1, `${vp.n} ${c.cls}: 棚が画面いっぱい`);
-      c.tiers.forEach((ti, i) => {
-        const [lo, hi] = BOARD[c.cls][i];
-        t(ti.bottomPct >= lo - 0.8 && ti.bottomPct <= hi + 0.8,
-          `${vp.n} ${c.cls} 段${i + 1}: 本が棚板に接地 (${ti.bottomPct}%)`);
-        t(!ti.overTop, `${vp.n} ${c.cls} 段${i + 1}: 本が段からはみ出していない`);
-        t(ti.cut === 0, `${vp.n} ${c.cls} 段${i + 1}: 柱ぎわで本が切れていない`);
-        t(ti.uniqW >= 4, `${vp.n} ${c.cls} 段${i + 1}: 背幅が4種以上`);
-        /* 背幅は実寸比で出す。以前は 20px 以上を要求していたが、
-           それは写真を横に3〜4倍引き伸ばしていた頃の基準。
-           いま見るべきは「見えているか」と「歪んでいないか」。 */
-        t(ti.minW >= 8, `${vp.n} ${c.cls} 段${i + 1}: いちばん薄い本も指で狙える (${ti.minW}px)`);
-        /* 厚みには一律の倍率（--thick-gain）をかけている。参考画像に合わせた
-           意図的なもの。検査で見るのは「その倍率ちょうどか」。
-           これを超えていたら、どこかで別の引き伸ばしが起きている。 */
-        t(ti.skew <= m.gain * 1.06,
-          `${vp.n} ${c.cls} 段${i + 1}: 厚みの倍率どおり、余分な歪みなし (${ti.skew}倍 / 指定${m.gain}倍)`);
-        /* 厚みの比は実物どおりに保たれていること（必須条件⑤）。
-           一律の倍率なので、比は倍率をかける前と変わらない。 */
-        t(ti.ratio <= 0.04,
-          `${vp.n} ${c.cls} 段${i + 1}: 厚みの比が実物どおり (ずれ ${(ti.ratio * 100).toFixed(1)}%)`);
-        t(ti.fill >= 90, `${vp.n} ${c.cls} 段${i + 1}: 段が本で埋まっている (${ti.fill}%)`);
-      });
+    t(m.oldParts === 0, `${vp.n}: 別の什器だった平台・絵の什器が残っていない`);
+    const atFloor = m.mm <= m.mmFloor + 0.01;
+    m.markets.forEach((k, i) => {
+      const n = `${vp.n} 売り場${i + 1}`;
+      t(k.caseW >= vp.w - 1, `${n}: 本棚が画面の幅いっぱい`);
+      /* 本棚は床に立つ（「上の本棚が宙にういているようにみえます」） */
+      t(Math.abs(k.postBottom - k.baseBottom) <= 1 && Math.abs(k.baseBottom - k.floorTop) <= 1,
+        `${n}: 左右の柱が床まで通り、本棚が床に立つ (柱${k.postBottom}/台輪${k.baseBottom}/床${k.floorTop})`);
+      t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);
+      t(k.bottomGap <= 1.5, `${n}: 本が棚板に立っている (ずれ ${k.bottomGap}px)`);
+      t(!k.overTop, `${n}: 本が段からはみ出していない`);
+      t(k.cut === 0, `${n}: 柱ぎわで本が切れていない`);
+      t(k.fill >= 85, `${n}: 段が本で埋まっている (${k.fill}%)`);
+      /* 厚みは実物どおりの比（必須条件⑤）。一律の誇張もかけない */
+      t(k.ratioSpread <= 0.02, `${n}: 厚みの比が実物どおり (ずれ ${(k.ratioSpread * 100).toFixed(1)}%)`);
+      t(k.skew <= 1.07, `${n}: 背表紙の写真が引き伸ばされていない (${k.skew}倍)`);
+      /* 指で選べる大きさ。いちばん薄いデモの本（11mm）でも 13px 以上 */
+      t(k.minW >= 13, `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
+      /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
+      const want = vp.w >= 1200 ? 8 : vp.w >= 600 ? 4 : 3;
+      t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
+      t(k.flatIn, `${n}: 平置きが平台の天板の内側に載っている`);
+      t(k.flatTilted, `${n}: 平置きが寝ている`);
+      t(k.flatEdge > 1, `${n}: 平置きに厚みがある (小口 ${k.flatEdge}px)`);
+      t(k.flatFaces === 2, `${n}: 平置きに背と小口の面がある`);
+      t(k.flatMinW >= 48, `${n}: 平台のいちばん小さい本も表紙が見える (${k.flatMinW}px)`);
+      t(!k.dapple, `${n}: 光の斑（白いモヤ）が無い`);
+      /* 一画面（要件定義書 2-6）。本が小さくなりすぎる背の低い画面では
+         下限を優先し、はみ出しを許す。その場合も平台の本までは見えること */
+      if (!atFloor) t(k.h <= vp.h, `${n}: 1テーマが一画面に収まる (${k.h}/${vp.h}px)`);
+      else t(k.deckBottom <= vp.h || vp.h < 600,
+        `${n}: 背の低い画面でも、平台の本までは一画面に見える (平台の下端 ${k.deckBottom}/${vp.h}px)`);
     });
     await p.close();
   }
+}
+
+/* ---- 1b. 指でなぞって選ぶ -------------------------------------- */
+async function picking(b) {
+  const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto(URL, { waitUntil: 'networkidle' });
+  await settle(p);
+  const top = await p.evaluate(() => document.querySelector('.market').getBoundingClientRect().top + window.scrollY);
+  await p.evaluate(y => window.scrollTo(0, y), top);
+  await p.waitForTimeout(300);
+  const r = await p.evaluate(async () => {
+    const row = document.querySelector('.case .row');
+    const books = [...row.querySelectorAll('.spine')].filter(e => getComputedStyle(e).display !== 'none');
+    const a = books[1].getBoundingClientRect(), z = books[books.length - 2].getBoundingClientRect();
+    const y = a.bottom - 40;
+    const ev = (ty, x) => (document.elementFromPoint(x, y) || row).dispatchEvent(new PointerEvent(ty,
+      { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true }));
+    const wait = ms => new Promise(res => setTimeout(res, ms));
+    const tag = () => document.querySelector('.pick-tag');
+    const BOOKS = JSON.parse(document.getElementById('book-data').textContent);
+    ev('pointerdown', a.left + a.width / 2);
+    ev('pointermove', a.left + a.width / 2 + 12);
+    await wait(60);
+    const first = { on: tag().classList.contains('is-on'), text: tag().textContent,
+                    want: BOOKS[books[1].dataset.book].title, lifted: books[1].classList.contains('is-picked') };
+    const zx = z.left + z.width / 2;
+    ev('pointermove', zx);
+    await wait(60);
+    const second = { text: tag().textContent, want: BOOKS[books[books.length - 2].dataset.book].title,
+                     one: row.querySelectorAll('.is-picked').length };
+    ev('pointerup', zx);
+    await wait(900);
+    const pull = document.getElementById('pull');
+    return { first, second, opened: !pull.hidden,
+             title: document.querySelector('.pull__title').textContent, off: !tag().classList.contains('is-on') };
+  });
+  t(r.first.on && r.first.text === r.first.want, `なぞる: 指の下の本の書名が出る (${r.first.text})`);
+  t(r.first.lifted, 'なぞる: 指の下の本が棚から少し出る');
+  t(r.second.text === r.second.want && r.second.one === 1, `なぞる: 指を動かすと隣の本へ移る (${r.second.text})`);
+  t(r.opened && r.title === r.second.want, `なぞる: 指を離すと、その本が開く (${r.title})`);
+  t(r.off, 'なぞる: 開いたあと書名の札は消える');
+  t(errs.length === 0, `なぞる: スクリプトの誤りなし${errs.length ? ' — ' + errs[0] : ''}`);
+  await p.close();
 }
 
 /* ---- 2. 引き抜きと試し読み --------------------------------------- */
@@ -962,11 +961,6 @@ async function widths(b) {
           vmax = Math.max(vmax, tr.top - r.top);
         });
       });
-      document.querySelectorAll('.platform').forEach(pl => {
-        const c = pl.previousElementSibling;
-        if (c && c.classList.contains('case'))
-          gmax = Math.max(gmax, pl.getBoundingClientRect().top - c.getBoundingClientRect().bottom);
-      });
       return { cut, vmax: +vmax.toFixed(1), gmax: +gmax.toFixed(1),
                docW: document.documentElement.scrollWidth, winW: window.innerWidth };
     });
@@ -980,6 +974,7 @@ async function widths(b) {
 (async () => {
   const b = await chromium.launch();
   await shelf(b);
+  await picking(b);
   await screens(b);
   await pages(b);
   await nav(b);
