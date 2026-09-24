@@ -130,6 +130,10 @@ async function shelf(b) {
           /* 柱が床まで通っているか：柱の下端＝台輪の下端＝床の上端 */
           postBottom: +(cr.top + px(post.top) + px(post.height)).toFixed(1),
           boardBottom: +[...c.querySelectorAll('.case__board')].pop().getBoundingClientRect().bottom.toFixed(1),
+          deckRectTop: +dr.top.toFixed(1), deckRectBottom: +dr.bottom.toFixed(1),
+          /* 最後の棚板と平台の天面のあいだに見える背板の高さ */
+          wallH: /case-back/.test(getComputedStyle(deck).backgroundImage) ? px(getComputedStyle(deck, '::before').top) : 0,
+          surfaceZ: +getComputedStyle(deck, '::before').zIndex, postZ: +post.zIndex,
           legs: /post-left.*post-right/.test(getComputedStyle(c.querySelector('.case__base')).backgroundImage),
           baseBottom: +base.bottom.toFixed(1), floorTop: +floor.top.toFixed(1),
           postH: px(post.height), caseH: cr.height,
@@ -175,10 +179,12 @@ async function shelf(b) {
       const n = `${vp.n} 売り場${i + 1}`;
       t(k.caseW >= vp.w - 1, `${n}: 本棚が画面の幅いっぱい`);
       /* 本棚は床に立つ（「上の本棚が宙にういているようにみえます」） */
-      /* 参考画像と同じ組み方。柱は本棚の上の部分（最後の棚板まで）で止まり、
-         平台はその手前へせり出す。平台の下は脚で支え、台輪が床に接する */
-      t(Math.abs(k.postBottom - k.boardBottom) <= 1,
-        `${n}: 柱は最後の棚板まで。平台は柱より手前にせり出す (柱${k.postBottom}/棚板${k.boardBottom})`);
+      /* 参考画像と同じ組み方。本棚の柱と背板は最後の棚板の下も続き、
+         その手前に平台の天面がせり出す。平台の下は脚で支え、台輪が床に接する */
+      t(Math.abs(k.deckRectTop - k.boardBottom) <= 1 && Math.abs(k.postBottom - k.deckRectBottom) <= 1,
+        `${n}: 柱は最後の棚板の下も続き、平台まで下りる (柱${k.postBottom}/平台${k.deckRectBottom})`);
+      t(k.wallH >= 17, `${n}: 最後の棚板と平台の天面のあいだに、本棚の背板が見える (${k.wallH}px)`);
+      t(k.surfaceZ > k.postZ, `${n}: 平台の天面は柱より手前にせり出す`);
       t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
         `${n}: 平台の下は脚で支え、本棚が床に立つ (台輪${k.baseBottom}/床${k.floorTop})`);
       t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);

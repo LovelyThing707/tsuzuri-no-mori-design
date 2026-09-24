@@ -44,7 +44,8 @@
   --head-h:    clamp(48px, 6vh, 72px);     /* 看板（テーマ名とすべて見る） */
   --crown:     clamp(14px, 2vh, 22px);     /* 天板 */
   --board:     clamp(12px, 1.7vh, 18px);   /* 棚板（本が立つ板の小口） */
-  --deck-h:    clamp(104px, 14vh, 170px);  /* 平台。奥の陰・天板の面・本 */
+  --deck-wall: clamp(18px, 2.8vh, 34px);   /* 最後の棚板と平台の天面のあいだに見える背板 */
+  --deck-h:    clamp(104px, 14vh, 170px);  /* 平台の天面。本を寝かせて置く */
   --lip:       clamp(12px, 1.8vh, 20px);   /* 平台の手前の縁 */
   --base-h:    clamp(40px, 6.4vh, 80px);   /* 台輪。脚で支えた抜けた空間 */
   --floor-h:   clamp(18px, 2.6vh, 32px);   /* 床 */

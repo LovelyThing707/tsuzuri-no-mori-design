@@ -1,8 +1,8 @@
 /* ============================================================
    売り場の什器
-   本棚は床に立つ1台の家具。天板・段・棚板・平台・台輪を部材で組み、
-   左右の柱が天板から床まで通る。平台は本棚の下部が手前へせり出した
-   ところで、本は表紙を上にして寝かせて置く。
+   本棚は床に立つ1台の家具。天板・段・棚板・平台・台輪を部材で組む。
+   左右の柱と背板は最後の棚板の下も続き、その手前に平台がせり出す。
+   平台には、本を表紙を上にして寝かせて置く。
    （國分様のご指摘「実際の書店で本棚の前にせり出した平置きの棚」
      「現状は上の本棚が宙にういているようにみえます」）
 
@@ -67,19 +67,19 @@
 .case__crown{ flex:0 0 var(--crown); }
 .tier       { flex:0 0 var(--tier-h); }
 .case__board{ flex:0 0 var(--board); }
-.deck       { flex:0 0 var(--deck-h); }
+.deck       { flex:0 0 calc(var(--deck-wall) + var(--deck-h)); }
 .deck__lip  { flex:0 0 var(--lip); }
 .case__base { flex:0 0 var(--base-h); }
 .case__floor{ flex:0 0 var(--floor-h); }
 
-/* 左右の柱。天板の上端から床まで一本で通す。
-   柱が床に届いていることが、本棚が立っている一番の手がかり。 */
+/* 左右の柱。天板の上端から、段・棚板を通って平台まで一本で通す。
+   平台の天面は柱より手前にせり出しているので、柱の下の端は天面に隠れる。 */
 .case::before,
 .case::after{
   content:"";
   position:absolute; z-index:4;
   top:0;
-  height:calc(var(--crown) + var(--tiers) * (var(--tier-h) + var(--board)));
+  height:calc(var(--crown) + var(--tiers) * (var(--tier-h) + var(--board)) + var(--deck-wall) + var(--deck-h));
   width:var(--post-w);
   background-repeat:no-repeat;
   background-size:100% 100%;
@@ -159,33 +159,47 @@
 }
 
 /* --- 平台 ----------------------------------------------------
-   本棚の下部が手前へせり出した、奥行きのある段。
-   上から見下ろす面なので、奥（棚板の下）は影、手前ほど光を受ける。 */
+   参考画像と同じ組み方。本棚の左右の柱と背板は、最後の棚板の下もそのまま
+   続く。その手前に、奥行きのある平台の天面がせり出している。
+     上 … 背板（縦の面）。最後の棚板と天面のあいだに、柱にはさまれて見える
+     下 … 天面（水平な面）。柱より手前まで出て、左右いっぱい。本はこの上に寝かせる
+   平台そのものには z-index を付けない。付けると天面が柱（z:4）より前に出られない。
+   背板は柱の奥、天面（z:5）と平台の本（z:6）は柱の手前に来る。 */
 .deck{
-  position:relative; z-index:2;
-  background:url("../assets/images/deck-top.webp") repeat-x left bottom / auto 118%;
-  filter:brightness(1.02);
+  position:relative;
+  /* 背板。段の背板と同じ板を、同じ大きさで続ける */
+  background:url("../assets/images/case-back.webp") repeat-x left top / auto var(--tier-h), #5a4e50;
+  background-blend-mode:multiply;
 }
-/* 奥の陰。ここと手前の面の明るさの差で、天板が奥へ伸びているのが分かる */
-.deck::before{
-  content:"";
-  position:absolute; inset:0; z-index:0;
-  pointer-events:none;
-  background:
-    /* 本棚の足もとの前板。ここで上の本棚と平台の天面が分かれる */
-    linear-gradient(180deg,
-      rgba(10,6,2,.92) 0%, rgba(10,6,2,.9) 11%,
-      rgba(10,6,2,.5) 13%, rgba(10,6,2,.22) 30%,
-      rgba(10,6,2,.08) 50%, rgba(10,6,2,0) 70%),
-    linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.18) 100%);
-}
-/* 日だまり。左上の窓からの光が、天板の左手前に落ちる */
+/* 背板の陰。棚板の下の影、天面との入隅、左右の側板の内側の面 */
 .deck::after{
   content:"";
-  position:absolute; inset:0; z-index:0;
+  position:absolute; left:0; right:0; top:0; height:var(--deck-wall);
+  z-index:1;
   pointer-events:none;
-  background:radial-gradient(55% 80% at 14% 84%,
-    rgba(255,192,112,.24) 0%, rgba(255,192,112,.09) 48%, rgba(255,192,112,0) 80%);
+  background:
+    linear-gradient(180deg, rgba(10,5,2,.6) 0%, rgba(10,5,2,.25) 45%, rgba(10,5,2,.1) 100%),
+    linear-gradient(90deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px)),
+    linear-gradient(270deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px));
+}
+/* 天面。上から見下ろす面なので、奥（背板との入隅）は影、手前ほど光を受ける。
+   左上の窓からの光が、左手前に日だまりをつくる */
+.deck::before{
+  content:"";
+  position:absolute; left:0; right:0; bottom:0; top:var(--deck-wall);
+  z-index:5;
+  pointer-events:none;
+  background:
+    radial-gradient(55% 80% at 14% 84%,
+      rgba(255,192,112,.24) 0%, rgba(255,192,112,.09) 48%, rgba(255,192,112,0) 80%),
+    linear-gradient(180deg,
+      rgba(10,6,2,.55) 0%, rgba(10,6,2,.24) 14%,
+      rgba(10,6,2,.08) 40%, rgba(10,6,2,0) 62%),
+    linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.18) 100%),
+    url("../assets/images/deck-top.webp") repeat-x left bottom / auto 118%;
+  filter:brightness(1.02);
+  /* 天面の奥の縁。背板との境目 */
+  box-shadow:0 -1px 0 rgba(0,0,0,.45);
 }
 /* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
    大きさ（--pmm＝1mm あたりの長さ）は、並べる冊数が平台の幅に収まること、
@@ -197,8 +211,9 @@
   --pmm-w: calc((100vw - 24px - (var(--n) + 1) * 12px) / var(--sumw));
   --pmm-h: calc(var(--deck-h) / 240);
   --pmm: min(var(--pmm-w), var(--pmm-h));
-  position:absolute; z-index:1;
-  left:0; right:0; top:12%; bottom:18%;
+  position:absolute; z-index:6;
+  left:0; right:0;
+  top:calc(var(--deck-wall) + var(--deck-h) * .12); bottom:calc(var(--deck-h) * .18);
   display:flex; align-items:flex-end; justify-content:space-evenly;
   padding:0 12px; margin:0; list-style:none;
 }
