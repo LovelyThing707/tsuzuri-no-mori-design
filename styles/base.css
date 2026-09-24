@@ -30,35 +30,26 @@
      高さにも厚みにも同じ一本の倍率をかけるので、背表紙は実物どおりの
      比になる（必須条件⑤・要件定義書 2-2）。
 
-     --mm は段の高さから決める。段の高さは、画面の高さから
-     上の帯・看板・天板・棚板・平台・台輪・床を引いた残り。
-     1テーマがちょうど一画面に収まる（要件定義書 2-6）。
+     本棚は参考画像と同じく2段。--mm は段の高さから決める。
 
-     ただし小さすぎると指で選べず、背表紙の書名も読めない
-     （國分様のご指摘。使いやすい大きさを優先してほしい、とのこと）。
-     実機のスマートフォンは、ブラウザの帯のぶん見える高さが短く
-     （iPhone の Safari で 660〜750px）、一画面に収めると本が小さくなる。
-     そこでスマートフォンでは下限を上げ、「本棚の段がまるごと一画面に
-     見える」ことを守る。平台はそのすぐ下に続く。
-     要件定義書 2-3 も一画面は「基本」とし、縦の続きは認めている。
-     上限は、背の高い画面で本が大きくなりすぎないためのもの。 */
+     タブレット・パソコン … 2段と平台まで、1テーマが一画面に収まる
+     スマートフォン        … 2段が一画面に見える。平台はそのすぐ下に続く。
+                             本は 1.0px/mm を下回らせない（参考画像の背表紙と
+                             ほぼ同じ太さ。これより細いと指で選べない） */
   --vh-full:   100vh;
   --bar-h:     calc(2 * clamp(14px,3.4vh,26px) + 32px);  /* 上の帯。売り場の上にかぶる */
   --head-h:    clamp(48px, 6vh, 72px);     /* 看板（テーマ名とすべて見る） */
-  --crown:     clamp(12px, 1.7vh, 20px);   /* 天板 */
-  --board:     clamp(11px, 1.6vh, 18px);   /* 棚板（本が立つ板の小口） */
-  --deck-h:    clamp(100px, 15vh, 184px);  /* 平台。奥の陰・天板の面・本 */
-  --lip:       clamp(14px, 2vh, 24px);     /* 平台の手前の縁。上の面が光を受ける */
-  --base-h:    clamp(26px, 3.4vh, 48px);   /* 台輪。平台の下から床まで */
-  --floor-h:   clamp(18px, 2.8vh, 34px);   /* 床 */
-  --stack:     calc(var(--bar-h) + var(--head-h) + var(--crown) + var(--board)
-                  + var(--deck-h) + var(--lip) + var(--base-h) + var(--floor-h));
-  /* 1mm あたりの長さ。300mm の本の上に、手を差し入れるだけの空きを取る（322）。
-       上限 2px   … タブレット・パソコンで本が画面を占めすぎない
-       下限       … タブレット・パソコン 1.12px。スマートフォンは下で上げる */
-  --fit-tier:  calc(var(--vh-full) - var(--stack));
-  --floor-tier: calc(1.12px * 322);
-  --tier-h:    min(calc(2px * 322), max(var(--fit-tier), var(--floor-tier)));
+  --crown:     clamp(14px, 2vh, 22px);     /* 天板 */
+  --board:     clamp(12px, 1.7vh, 18px);   /* 棚板（本が立つ板の小口） */
+  --deck-h:    clamp(104px, 14vh, 170px);  /* 平台。奥の陰・天板の面・本 */
+  --lip:       clamp(12px, 1.8vh, 20px);   /* 平台の手前の縁 */
+  --base-h:    clamp(40px, 6.4vh, 80px);   /* 台輪。脚で支えた抜けた空間 */
+  --floor-h:   clamp(18px, 2.6vh, 32px);   /* 床 */
+  --upper:     calc(var(--bar-h) + var(--head-h) + var(--crown) + 2 * var(--board));
+  --lower:     calc(var(--deck-h) + var(--lip) + var(--base-h) + var(--floor-h));
+  /* 1mm あたりの長さ。300mm の本の上に、手を差し入れるだけの空きを取る（322） */
+  --fit-tier:  calc((var(--vh-full) - var(--upper) - var(--lower)) / 2);
+  --tier-h:    clamp(calc(.7px * 322), var(--fit-tier), calc(1.3px * 322));
   --mm:        calc(var(--tier-h) / 322);
 
   /* 背の厚み。
@@ -122,28 +113,25 @@
 /* URL バーが出ているあいだの高さで合わせる。バーの裏に平台が隠れないように */
 @supports (height:100svh){ :root{ --vh-full:100svh; } }
 
-/* スマートフォン。本の大きさは 1.5px/mm（かがくのお話25 の背が約6.2mm）を
-   下回らせない。ただし段そのもの（天板から棚板まで）は必ず一画面に入れる。
-   背の低い画面では、段が入るところまで小さくする。 */
+/* スマートフォン。2段が一画面に見える大きさ。1.0px/mm を下回らせない */
 @media (max-width:599px){
   :root{
-    --shelf-fit: calc(var(--vh-full) - var(--bar-h) - var(--head-h) - var(--crown) - var(--board) - 10px);
-    --floor-tier: min(calc(1.5px * 322), var(--shelf-fit));
+    --fit-tier: calc((var(--vh-full) - var(--upper) - 6px) / 2);
+    --tier-h:   clamp(calc(1px * 322), var(--fit-tier), calc(1.3px * 322));
   }
 }
-/* 横向きのスマートフォン。見える高さが短く、一画面に1段も入らない。
-   本が1冊まるごと見えるよう、段を見える高さに合わせる。平台は下に続く */
+/* 横向きのスマートフォン。見える高さが短いので、1段が見える高さに合わせる */
 @media (orientation:landscape) and (max-height:500px){
   :root{
-    --head-h:    40px;
-    --floor-tier: calc(var(--vh-full) - var(--bar-h) - var(--head-h) - var(--crown) - var(--board) - 8px);
-    --tier-h:    min(calc(2px * 322), var(--floor-tier));
+    --head-h:   40px;
+    --fit-tier: calc(var(--vh-full) - var(--bar-h) - var(--head-h) - var(--crown) - var(--board) - 8px);
+    --tier-h:   clamp(calc(.6px * 322), var(--fit-tier), calc(1.3px * 322));
   }
 }
-/* 大きさを見比べるための指定（?size=fit … 一画面に収める／?size=l … 大きく） */
-:root.size-fit{ --floor-tier: calc(1.12px * 322); }
+/* 大きさを見比べるための指定（?size=fit … 2段と平台まで一画面／?size=l … 大きく） */
 @media (max-width:599px){
-  :root.size-l{ --floor-tier: min(calc(1.85px * 322), var(--shelf-fit)); }
+  :root.size-fit{ --tier-h: clamp(calc(.6px * 322), calc((var(--vh-full) - var(--upper) - var(--lower)) / 2), calc(1.3px * 322)); }
+  :root.size-l  { --tier-h: calc(1.35px * 322); }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }

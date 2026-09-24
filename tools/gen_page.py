@@ -5,10 +5,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
 import gen_pages as G
 
-def market(idx, name, books, lying, note):
-    """本棚は1台。段に背表紙が並び、下部のせり出した平台に表紙を上にして
-    本を寝かせる。左右の柱は天板から床まで通り、本棚は床に立つ。"""
+def market(idx, name, tiers, lying, note):
+    """本棚は1台。参考画像と同じく、背表紙の段が2つ、その下に平台がせり出す。
+    左右の柱は天板から床まで通り、本棚は床に立つ。
+    広い画面では、段を縦の仕切りで区画に分ける。"""
     w = D.sumw(lying)
+    def tier(bays):
+        return """        <div class="tier">
+%s
+        </div>""" % "\n".join("""          <div class="bay">
+            <ul class="row">
+%s
+            </ul>
+          </div>""" % D.tier(b) for b in bays)
+    upper = "\n        <div class=\"case__board\"></div>\n".join(tier(t) for t in tiers)
+    cubbies = "".join('<i class="cubby"></i>' for _ in range(8))
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
@@ -21,26 +32,22 @@ def market(idx, name, books, lying, note):
       <p class="sr-only">%s</p>
       <div class="case" aria-hidden="true">
         <div class="case__crown"></div>
-        <div class="tier">
-          <ul class="row">
 %s
-          </ul>
-        </div>
         <div class="case__board"></div>
         <div class="deck">
-          <ul class="deck__row" style="--sumw3:%d;--sumw4:%d;--sumw8:%d">
+          <ul class="deck__row" style="--sumw3:%d;--sumw4:%d;--sumw6:%d;--sumw8:%d">
 %s
           </ul>
         </div>
         <div class="deck__lip"></div>
-        <div class="case__base"></div>
+        <div class="case__base">%s</div>
         <div class="case__floor"></div>
         <div class="case__light"></div>
         <div class="case__leaves"></div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, D.tier(books),
-                   w[3], w[4], w[8], D.platform(lying))
+  </section>""" % (idx, idx, name, note, upper,
+                   w[3], w[4], w[6], w[8], D.platform(lying), cubbies)
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">
@@ -316,10 +323,10 @@ PAGE = """<!DOCTYPE html>
 html = PAGE % dict(
     books   = D.book_json(),
     pages   = G.pages_html(),
-    market1 = market(1, '子供に読みたい本', D.TIER_A1, D.LYING_A,
-                     '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
-    market2 = market(2, '夜に読む本', D.TIER_B1, D.LYING_B,
-                     '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
+    market1 = market(1, '子供に読みたい本', D.SHELF_A, D.LYING_A,
+                     '本棚の2つの段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
+    market2 = market(2, '夜に読む本', D.SHELF_B, D.LYING_B,
+                     '本棚の2つの段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)
 print('index.html:', len(html.splitlines()), 'lines')

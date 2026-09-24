@@ -77,24 +77,33 @@ def _shuffled(n, seed):
     return out[:n], rnd
 
 
-def row_books(n, seed=0):
-    """背表紙の並び。順序も傾きも売り場ごとに変える。"""
-    idx, rnd = _shuffled(n, seed)
+# 参考画像の棚は、4冊ひと組が同じ順で繰り返されている
+#   青い低めの本／背の高い絵本／赤い本／白い本
+# お預かりしている4冊は、ちょうどこの4つに当たる。
+#   モンテレッジオ（文庫）／すいかのプール（A4判）／アーヤと魔女（A5判）／かがくのお話25（A5判）
+# 以前は順不同に散らし、1冊ずつ傾けていた。本を大きくすると、
+# 背の高さの違う本が不規則に並んで、棚が散らかって見えた。
+UNIT = ['monte', 'suika', 'aya', 'kagaku']
+BY_KEY = dict((b['key'], b) for b in REAL)
+
+
+def row_books(n, start=0):
+    """背表紙の並び。4冊ひと組を、まっすぐに繰り返す。"""
     out = []
-    for k in idx:
-        b = dict(REAL[k])
-        b['lean'] = round(rnd.uniform(-0.9, 0.9), 1)
+    for i in range(n):
+        b = dict(BY_KEY[UNIT[(start + i) % len(UNIT)]])
+        b['lean'] = 0.0
         out.append(b)
     return out
 
 
-def flat_books(n, seed=0):
-    """平台に寝かせる本。表紙を上に向ける。"""
-    idx, rnd = _shuffled(n, seed)
+def flat_books(n):
+    """平台に寝かせる本。参考画像と同じく、まっすぐに置く。"""
+    order = ['suika', 'kagaku', 'aya', 'monte']
     out = []
-    for k in idx:
-        b = dict(REAL[k])
-        b['rot'] = round(rnd.uniform(-1.6, 1.6), 1)
+    for i in range(n):
+        b = dict(BY_KEY[order[i % len(order)]])
+        b['rot'] = 0.0
         out.append(b)
     return out
 
@@ -135,21 +144,34 @@ def sumw(books):
     """平台に並べる本の判横（mm）の合計。冊数ごと。
 
     平台の本の大きさは「並べた本が平台の幅に収まる」ところで決める。
-    何冊並べるかは画面幅で変わる（スマートフォン3冊・タブレット4冊・
-    パソコン8冊）ので、それぞれの合計を渡しておき、CSS が選ぶ。"""
-    return {n: sum(b['w'] for b in books[:n]) for n in (3, 4, 8)}
+    何冊並べるかは画面幅で変わる（スマートフォン・タブレット4冊、
+    パソコン6〜8冊）ので、それぞれの合計を渡しておき、CSS が選ぶ。"""
+    return {n: sum(b['w'] for b in books[:n]) for n in (3, 4, 6, 8)}
 
 
-# 背表紙は1段。段の幅に入る冊数だけが見え、入りきらないぶんは隠す
-# （scripts/main.js）。いちばん広い画面でも足りる冊数を出しておく。
-TIER_A1 = row_books(80, seed=11)
-TIER_B1 = row_books(80, seed=37)
+# 本棚は2段。各段は最大4区画（画面が広いほど多く見える）。
+# 1区画に入るより多めに出しておき、入りきらないぶんは隠す（scripts/main.js）。
+PER_BAY = 34
+BAYS = 4
 
-# 平台は冊数を決めて置く。スマートフォン・タブレットは4冊
-# （要件定義書 2-3／3-2「平台 3〜4冊」）。天板の広いパソコンは8冊。
-# 8冊だと、お預かりしている4冊が2周する。
-LYING_A = flat_books(8, seed=53)
-LYING_B = flat_books(8, seed=71)
+
+def shelf(start=0):
+    """2段 × 4区画ぶんの背表紙。
+
+    広い画面では区画が横に並ぶ。どの区画も同じ始まりだと、
+    同じ柄が縦にそろって壁紙のように見える。区画ごとに始まりをずらす。
+    いちばん左の区画（スマートフォンではこれだけが見える）は、
+    参考画像と同じく低い本から始める。"""
+    return [[row_books(PER_BAY, start + k) for k in range(BAYS)] for _ in range(2)]
+
+
+SHELF_A = shelf()
+SHELF_B = shelf()
+
+# 平台。スマートフォン・タブレットは4冊（要件定義書 2-3／3-2「平台 3〜4冊」）、
+# 広い画面は6〜8冊（区画が増えるぶん）。
+LYING_A = flat_books(8)
+LYING_B = flat_books(8)
 
 
 def book_json():

@@ -11,7 +11,17 @@
    本は画像に焼き込まず、1冊ずつ判型と厚みから描く（必須条件⑤）。
    ============================================================ */
 
-.market{ position:relative; padding-top:var(--bar-h); }
+.market{
+  position:relative; padding-top:var(--bar-h);
+  /* 看板のまわりの壁。参考画像では本棚の上は暗い木の壁で、看板の文字が浮く。
+     店内の壁（layout.css の .interior）の上に、売り場のぶんだけ影を重ねる */
+  background:linear-gradient(180deg, rgba(16,10,5,.46) 0%, rgba(16,10,5,.34) 100%);
+}
+/* 看板は本棚の内側の左右の端にそろえる（広い画面で、看板だけ中央に浮かないように） */
+.market > .wrap{
+  max-width:none;
+  padding-inline:calc(var(--post-w) + clamp(10px, 1.6vw, 26px));
+}
 
 /* --- 看板 --------------------------------------------------- */
 .market__head{
@@ -45,16 +55,25 @@
 .scene{ position:relative; }
 
 /* --- 本棚1台 -------------------------------------------------
-   上から 天板／段／棚板／平台の天板／平台の縁／台輪／床。
-   段の高さ（--tier-h）が本の大きさ（--mm）を決める。 */
+   参考画像と同じ組み立て。上から
+     天板／段／棚板／段／棚板／平台／平台の縁／台輪／床。
+   段は2つ。段の高さ（--tier-h）が本の大きさ（--mm）を決める。
+   広い画面では、段を縦の仕切りで区画に分ける。実際の書店の棚と同じで、
+   1枚の棚板が1m以上つながることはない（1区画は実寸でおよそ50〜60cm）。 */
 .case{
   position:relative; z-index:1;
   width:100vw; margin-inline:calc(50% - 50vw);
   display:grid;
   grid-template-rows:
-    var(--crown) var(--tier-h) var(--board)
+    var(--crown)
+    var(--tier-h) var(--board)
+    var(--tier-h) var(--board)
     var(--deck-h) var(--lip) var(--base-h) var(--floor-h);
+  --bays: 1;
 }
+@media (min-width:600px) { .case{ --bays:2; } }
+@media (min-width:1100px){ .case{ --bays:3; } }
+@media (min-width:1500px){ .case{ --bays:4; } }
 
 /* 左右の柱。天板の上端から床まで一本で通す。
    柱が床に届いていることが、本棚が立っている一番の手がかり。 */
@@ -62,15 +81,15 @@
 .case::after{
   content:"";
   position:absolute; z-index:4;
-  top:0; bottom:var(--floor-h);
+  top:0;
+  height:calc(var(--crown) + 2 * var(--tier-h) + 2 * var(--board));
   width:var(--post-w);
   background-repeat:no-repeat;
   background-size:100% 100%;
   pointer-events:none;
-  /* 枠の木は、参考画像のように明るく温かく。暗い背板との差が箱の奥行きになる */
-  filter:brightness(1.38) saturate(1.12);
+  /* 柱は本棚でいちばん明るい木（参考画像で明るさ 108）。暗い背板との差が箱の奥行き */
+  filter:brightness(1.5) saturate(1.05);
 }
-.case::after{ filter:brightness(1.12) saturate(1.08); }   /* 窓から遠い右の柱は控えめ */
 .case::before{
   left:env(safe-area-inset-left, 0px);
   background-image:url("../assets/images/post-left.webp");
@@ -80,46 +99,66 @@
   right:env(safe-area-inset-right, 0px);
   background-image:url("../assets/images/post-right.webp");
   box-shadow:-5px 0 10px -5px rgba(0,0,0,.8);
+  filter:brightness(1.36) saturate(1.05);   /* 窓から遠い右の柱は少し控えめ */
 }
 
 /* 天板 */
 .case__crown{
   position:relative; z-index:3;
   background:
-    linear-gradient(90deg, rgba(255,214,150,.26) 0%, rgba(255,214,150,0) 60%),
+    linear-gradient(90deg, rgba(255,214,150,.08) 0%, rgba(255,214,150,0) 60%),
     url("../assets/images/case-crown.webp") repeat-x left center / auto 100%;
-  filter:brightness(1.22) saturate(1.1);
-  box-shadow:0 3px 6px -2px rgba(0,0,0,.7);
+  filter:brightness(1.04);
+  box-shadow:0 4px 8px -2px rgba(0,0,0,.75), inset 0 -2px 0 rgba(0,0,0,.3);
 }
 
 /* --- 段 ------------------------------------------------------
-   背板の上に本が立つ。背板は奥にあるので暗く落とす。
-   黒ではなく焦茶で落とし、木のあたたかみを残す。 */
+   背板は奥にあって光が届かない。参考画像のとおり、本よりずっと暗い
+   焦茶に落とす。本がくっきり浮かぶのは、この暗さがあるから。 */
 .tier{
   position:relative; z-index:1;
   overflow:hidden;
-  background:url("../assets/images/case-back.webp") repeat-x left top / auto 100%;
+  display:flex; gap:var(--post-w);
+  padding:0 calc(var(--post-w) + env(safe-area-inset-right, 0px))
+          0 calc(var(--post-w) + env(safe-area-inset-left, 0px));
+  background:url("../assets/images/case-back.webp") repeat-x left top / auto 100%, #5a4e50;
+  background-blend-mode:multiply;
 }
 .tier::before{
   content:"";
   position:absolute; inset:0; z-index:0;
   pointer-events:none;
   background:
-    /* 左上の窓から差す光。背板の左上がいちばん明るい */
-    radial-gradient(80% 62% at 0% 0%, rgba(255,190,112,.34) 0%, rgba(255,190,112,.12) 45%, rgba(255,190,112,0) 75%),
-    /* 天板の下は影 */
-    linear-gradient(180deg, rgba(20,10,4,.55) 0%, rgba(20,10,4,0) 12%),
+    /* 天板・棚板の下は深い影。段の上のほうは光が届かない。
+       背の低い本（文庫）の上の空きが、穴ではなく奥の影として読める */
+    linear-gradient(180deg, rgba(10,5,2,.82) 0%, rgba(10,5,2,.45) 16%, rgba(10,5,2,.12) 34%, rgba(10,5,2,0) 46%),
     /* 棚板との入隅 */
-    linear-gradient(0deg, rgba(20,10,4,.5) 0%, rgba(20,10,4,0) 7%),
-    /* 背板ぜんたいを奥へ */
-    linear-gradient(rgba(38,20,8,.5), rgba(38,20,8,.5));
+    linear-gradient(0deg, rgba(10,5,2,.4) 0%, rgba(10,5,2,0) 5%),
+    /* 左右の側板の内側の面。箱の奥行き */
+    linear-gradient(90deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px)),
+    linear-gradient(270deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px));
 }
-/* 本は柱の内側に並ぶ。入りきらない本は下げる（scripts/main.js） */
+/* 区画。狭い画面は1つ、広くなるほど2・3・4つ */
+.bay{
+  position:relative; z-index:1;
+  flex:1 1 0; min-width:0;
+}
+.bay:nth-child(n+2){ display:none; }
+@media (min-width:600px) { .bay:nth-child(2){ display:block; } }
+@media (min-width:1100px){ .bay:nth-child(3){ display:block; } }
+@media (min-width:1500px){ .bay:nth-child(4){ display:block; } }
+/* 区画のあいだの仕切り板 */
+.bay + .bay::before{
+  content:"";
+  position:absolute; z-index:3; top:0; bottom:0;
+  left:calc(-1 * var(--post-w)); width:var(--post-w);
+  background:url("../assets/images/post-left.webp") no-repeat center / 100% 100%;
+  filter:brightness(1.36) saturate(1.05);
+  box-shadow:5px 0 9px -5px rgba(0,0,0,.8), -5px 0 9px -5px rgba(0,0,0,.8);
+}
+/* 本は区画の中に、すき間なく立つ。入りきらない本は下げる（scripts/main.js） */
 .row{
-  position:absolute; z-index:1;
-  left:calc(var(--post-w) + env(safe-area-inset-left, 0px));
-  right:calc(var(--post-w) + env(safe-area-inset-right, 0px));
-  top:0; bottom:0;
+  position:absolute; z-index:1; inset:0;
   display:flex; align-items:flex-end; justify-content:center;
   gap:0; padding:0; margin:0; list-style:none;
   /* 指で横になぞって本を選ぶ。縦に動かしたときはページを送る。
@@ -131,74 +170,73 @@
   -webkit-user-select:none; user-select:none;
 }
 
-/* 棚板。本はこの上に立つ */
+/* 棚板。本はこの上に立つ。上の角が光を受ける */
 .case__board{
   position:relative; z-index:2;
   background:
-    linear-gradient(90deg, rgba(255,214,150,.30) 0%, rgba(255,214,150,.08) 40%, rgba(255,214,150,0) 70%),
+    linear-gradient(180deg, rgba(255,222,170,.22) 0, rgba(255,222,170,.22) 1px, rgba(255,222,170,0) 2px),
     url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
-  box-shadow:0 4px 7px -3px rgba(0,0,0,.75);
-  filter:brightness(1.2) saturate(1.1);
+  box-shadow:0 5px 8px -3px rgba(0,0,0,.8);
+  filter:brightness(1.05);
 }
 
 /* --- 平台 ----------------------------------------------------
-   本棚の下部が手前へせり出した天板。上から見下ろす面なので、
-   奥（棚板の下）は影、手前ほど光を受ける。 */
+   本棚の下部が手前へせり出した、奥行きのある段。
+   上から見下ろす面なので、奥（棚板の下）は影、手前ほど光を受ける。 */
 .deck{
   position:relative; z-index:2;
-  /* 天板の絵の手前側（明るいところ）を広く見せる。
-     奥は棚板の下にもぐる陰、手前は窓の光を受ける水平な面 */
   background:url("../assets/images/deck-top.webp") repeat-x left bottom / auto 118%;
+  filter:brightness(1.02);
 }
-/* 奥の陰。棚板の下の奥まったところ。ここと手前の面の明るさの差で、
-   天板が水平に奥へ伸びているのが分かる */
+/* 奥の陰。ここと手前の面の明るさの差で、天板が奥へ伸びているのが分かる */
 .deck::before{
   content:"";
   position:absolute; inset:0; z-index:0;
   pointer-events:none;
   background:
+    /* 本棚の足もとの前板。ここで上の本棚と平台の天面が分かれる */
     linear-gradient(180deg,
-      rgba(10,6,2,.88) 0%, rgba(10,6,2,.62) 12%,
-      rgba(10,6,2,.22) 30%, rgba(10,6,2,0) 52%),
-    /* 右へ行くほど光が届かない */
-    linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.22) 100%);
+      rgba(10,6,2,.92) 0%, rgba(10,6,2,.9) 11%,
+      rgba(10,6,2,.5) 13%, rgba(10,6,2,.22) 30%,
+      rgba(10,6,2,.08) 50%, rgba(10,6,2,0) 70%),
+    linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.18) 100%);
 }
-/* 日だまり。左上の窓からの光が、天板の左手前に落ちる。
-   参考画像は平台の左が右のおよそ2倍の明るさ */
+/* 日だまり。左上の窓からの光が、天板の左手前に落ちる */
 .deck::after{
   content:"";
   position:absolute; inset:0; z-index:0;
   pointer-events:none;
-  background:radial-gradient(55% 80% at 14% 82%,
-    rgba(255,192,112,.52) 0%, rgba(255,192,112,.20) 48%, rgba(255,192,112,0) 80%);
+  background:radial-gradient(55% 80% at 14% 84%,
+    rgba(255,192,112,.24) 0%, rgba(255,192,112,.09) 48%, rgba(255,192,112,0) 80%);
 }
-/* 平台の本の並び。
+/* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
    大きさ（--pmm＝1mm あたりの長さ）は、並べる冊数が平台の幅に収まること、
    いちばん背の高い本（A4判）が天板の奥行きに収まること、の小さいほう。
    --sumw は並べる本の判横（mm）の合計。gen_data.py が冊数ごとに書き込む。 */
 .deck__row{
-  --n: 3;
-  --sumw: var(--sumw3, 500);
-  --pmm-w: calc((100vw - 2 * var(--post-w) - 20px - (var(--n) - 1) * var(--deck-gap)) * .97 / var(--sumw));
-  /* 寝かせたA4判の見え高は、1mm あたりの長さの約152倍。天板の奥行きの
-     8割強に収める（奥に少し木が見えているほうが、台に載って見える） */
-  --pmm-h: calc(var(--deck-h) / 232);
+  --n: 4;
+  --sumw: var(--sumw4, 600);
+  --pmm-w: calc((100vw - 24px - (var(--n) + 1) * 12px) / var(--sumw));
+  --pmm-h: calc(var(--deck-h) / 240);
   --pmm: min(var(--pmm-w), var(--pmm-h));
   position:absolute; z-index:1;
-  left:var(--post-w); right:var(--post-w); top:9%; bottom:19%;
-  display:flex; align-items:flex-end; justify-content:center;
-  gap:var(--deck-gap);
-  padding:0 10px; margin:0; list-style:none;
+  left:0; right:0; top:12%; bottom:18%;
+  display:flex; align-items:flex-end; justify-content:space-evenly;
+  padding:0 12px; margin:0; list-style:none;
 }
-.deck__row .flat:nth-child(n+4){ display:none; }
-@media (min-width:600px){
-  .deck__row{ --n:4; --sumw:var(--sumw4, 600); }
-  .deck__row .flat:nth-child(n+4){ display:block; }
-  .deck__row .flat:nth-child(n+5){ display:none; }
+.deck__row .flat:nth-child(n+5){ display:none; }
+@media (max-width:359px){
+  .deck__row{ --n:3; --sumw:var(--sumw3, 500); }
+  .deck__row .flat:nth-child(n+4){ display:none; }
 }
-@media (min-width:1200px){
-  .deck__row{ --n:8; --sumw:var(--sumw8, 1200); }
+@media (min-width:1100px){
+  .deck__row{ --n:6; --sumw:var(--sumw6, 900); }
   .deck__row .flat:nth-child(n+5){ display:block; }
+  .deck__row .flat:nth-child(n+7){ display:none; }
+}
+@media (min-width:1500px){
+  .deck__row{ --n:8; --sumw:var(--sumw8, 1200); }
+  .deck__row .flat:nth-child(n+7){ display:block; }
   .deck__row .flat:nth-child(n+9){ display:none; }
 }
 
@@ -206,53 +244,65 @@
 .deck__lip{
   position:relative; z-index:5;
   background:
-    linear-gradient(90deg, rgba(255,210,146,.36) 0%, rgba(255,210,146,.10) 42%, rgba(255,210,146,0) 72%),
+    linear-gradient(180deg, rgba(255,226,176,.24) 0%, rgba(255,226,176,0) 22%),
     url("../assets/images/deck-lip.webp") repeat-x left top / auto 100%;
-  box-shadow:0 -1px 0 rgba(255,226,180,.18), 0 6px 9px -4px rgba(0,0,0,.85);
-  filter:brightness(1.18) saturate(1.1);
+  box-shadow:0 6px 9px -4px rgba(0,0,0,.85);
+  filter:brightness(1.3) saturate(1.05);
 }
 
-/* 台輪。平台の下から床まで。柱のあいだは奥まった収納で、中は暗い。
-   まん中に仕切りが一本通る（参考画像の台と同じ組み方）。 */
+/* 台輪。平台の下は、脚で支えた抜けた空間。奥に床が見える。
+   脚は、区画の仕切りと同じ位置と、区画のまん中に立つ（参考画像の台と同じ）。 */
 .case__base{
   position:relative; z-index:2;
+  display:flex; gap:var(--post-w);
+  padding:0 calc(var(--post-w) + env(safe-area-inset-right, 0px))
+          0 calc(var(--post-w) + env(safe-area-inset-left, 0px));
   background:
-    linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.25) 38%, rgba(0,0,0,.45) 100%),
-    url("../assets/images/case-back.webp") repeat-x left center / auto 300%;
+    url("../assets/images/post-left.webp") left top / var(--post-w) 100% no-repeat,
+    url("../assets/images/post-right.webp") right top / var(--post-w) 100% no-repeat,
+    linear-gradient(180deg, rgba(6,4,2,.86) 0%, rgba(6,4,2,.6) 45%, rgba(6,4,2,.42) 100%),
+    url("../assets/images/floor-boards.webp") repeat-x center top / auto 220%;
 }
-.case__base::before{
+.cubby{ position:relative; flex:1 1 0; min-width:0; }
+.cubby:nth-child(n+3){ display:none; }
+@media (min-width:600px) { .cubby:nth-child(-n+4){ display:block; } }
+@media (min-width:1100px){ .cubby:nth-child(-n+6){ display:block; } }
+@media (min-width:1500px){ .cubby:nth-child(-n+8){ display:block; } }
+.cubby + .cubby::before{
   content:"";
-  position:absolute; top:0; bottom:0; left:50%;
-  width:var(--post-w); margin-left:calc(var(--post-w) / -2);
+  position:absolute; top:0; bottom:0;
+  left:calc(-1 * var(--post-w)); width:var(--post-w);
   background:url("../assets/images/post-left.webp") no-repeat center / 100% 100%;
+  filter:brightness(1.12) saturate(1.1);
   box-shadow:4px 0 8px -4px rgba(0,0,0,.8), -4px 0 8px -4px rgba(0,0,0,.8);
 }
-/* 床に接する見切り。台がここで床に載る */
+/* 平台の縁の下の見付け（幕板） */
 .case__base::after{
   content:"";
-  position:absolute; left:0; right:0; bottom:0;
-  height:clamp(4px,.7vh,7px);
+  position:absolute; left:0; right:0; top:0;
+  height:clamp(6px, 1vh, 10px);
   background:url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
-  filter:brightness(.7);
+  filter:brightness(.85);
+  box-shadow:0 4px 7px -3px rgba(0,0,0,.8);
 }
 
-/* 床。本棚の足もとに接地の影を落とす */
+/* 床。本棚の足もとに接地の影を落とす。左に日だまり */
 .case__floor{
   position:relative; z-index:0;
-  background:url("../assets/images/floor-boards.webp") repeat-x center top / auto 260%;
-  filter:brightness(1.3) saturate(1.1);
-  -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
-          mask-image:linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+  background:url("../assets/images/floor-boards.webp") repeat-x center top / auto 180%;
+  filter:brightness(.98);
+  -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
+          mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
 }
 .case__floor::before{
   content:"";
-  position:absolute; left:0; right:0; top:0; height:70%;
-  background:linear-gradient(180deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.3) 45%, rgba(0,0,0,0) 100%);
+  position:absolute; left:0; right:0; top:0; height:26%;
+  background:linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,0) 100%);
 }
 .case__floor::after{
   content:"";
   position:absolute; inset:0;
-  background:radial-gradient(48% 130% at 16% 70%, rgba(255,192,112,.46), rgba(255,192,112,0) 75%);
+  background:radial-gradient(46% 120% at 16% 60%, rgba(255,192,112,.22), rgba(255,192,112,0) 75%);
 }
 
 /* --- 背表紙 --------------------------------------------------
@@ -265,7 +315,7 @@
   --look: .028;    /* 天の見え方。目の高さに近いので、ごく浅い */
   --bh:   calc(clamp(var(--h-min), var(--h), var(--h-max)) * var(--mm));
   --w:    calc(max(var(--t), var(--t-min)) * var(--mm));
-  --top:  clamp(2px, calc(var(--kw) * var(--mm) * var(--look)), 8px);
+  --top:  clamp(1.5px, calc(var(--kw) * var(--mm) * var(--look)), 3px);
   position:relative; z-index:1;
   flex:0 0 auto;
   width:var(--w); height:calc(var(--bh) + var(--top));
@@ -302,8 +352,8 @@
   height:var(--top);
   border-radius:1px 1px 0 0;
   background:
-    /* 段の中は暗いので、天も明るく出しすぎない */
-    linear-gradient(rgba(30,18,8,.38), rgba(30,18,8,.38)),
+    /* 天は本の色のまま、少し暗く。紙のベージュを乗せると、ふたに見えた */
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 55%, #000) 0%, color-mix(in srgb, var(--c) 78%, #000) 100%),
     linear-gradient(180deg,
       rgba(46,32,20,.58)   0%,
       rgba(46,32,20,.26)  22%,
@@ -328,24 +378,10 @@
     rgba(0,0,0,0) 0%, rgba(0,0,0,.30) 62%, rgba(0,0,0,.58) 100%);
 }
 
-/* --- 並びを崩す -----------------------------------------------
-   完全に直立した長方形が等間隔で並ぶのは、棚ではなく定規。
-   本ごとにわずかな傾き・前後・抜きをつける。 */
-.spine:nth-child(7n+1){ --lean:.7deg;  }
-.spine:nth-child(7n+2){ --lean:-.5deg; }
-.spine:nth-child(7n+3){ --lean:.3deg;  }
-.spine:nth-child(7n+4){ --lean:-.9deg; }
-.spine:nth-child(7n+5){ --lean:.5deg;  }
-.spine:nth-child(7n+6){ --lean:-.3deg; }
-.spine:nth-child(7n+7){ --lean:.9deg;  }
-/* 前後。奥に入っている本は光が回りにくく、少し暗い */
-.spine:nth-child(5n+2){ filter:brightness(.93); }
-.spine:nth-child(5n+4){ filter:brightness(.96); }
-.spine:nth-child(9n+5){ filter:brightness(1.04); }
-/* 抜き。隙間があると背板と影が見え、棚が深く見える */
-.spine:nth-child(11n+6) { margin-right:calc(4 * var(--mm)); }
-.spine:nth-child(17n+13){ margin-right:calc(2.5 * var(--mm)); }
-
+/* --- 並び ---------------------------------------------------
+   参考画像のとおり、本はまっすぐに立て、すき間なく並べる。
+   以前は1冊ずつ傾け、明るさを変え、ところどころ間を空けていた。
+   本が小さかったころの工夫だったが、大きくすると棚が散らかって見えた。 */
 /* 指で選んでいる本。棚から少し引き出して、明るくする */
 .spine:hover,.spine:focus-visible,.spine.is-picked{
   transform:rotate(var(--lean,0deg)) translateY(calc(-3.5 * var(--mm)));
@@ -500,8 +536,7 @@
   position:absolute; inset:0; z-index:6;
   pointer-events:none;
   background:
-    radial-gradient(70% 40% at 0% 0%, rgba(255,206,140,.22) 0%, rgba(255,206,140,.07) 50%, rgba(255,206,140,0) 78%),
-    radial-gradient(150% 110% at 12% 0%, rgba(14,8,3,0) 55%, rgba(14,8,3,.26) 100%);
+    radial-gradient(40% 12% at 0% 0%, rgba(255,206,140,.12) 0%, rgba(255,206,140,0) 80%);
 }
 /* 左上にかかる植物。苔の絵のうち、葉がいちばん密なところを使う。
    ぼかしのマスクをかけると半透明の塊になり、白いモヤに見えた。
@@ -512,8 +547,10 @@
   position:absolute; z-index:7;
   left:0; top:calc(var(--head-h) * -.5);
   width:var(--lw);
-  height:calc(var(--head-h) * .5 + var(--crown) + var(--tier-h) * .045);
+  height:calc(var(--head-h) * .5 + var(--crown) + 6px);
   background:url("../assets/images/wall-moss-edge.webp") no-repeat left calc(var(--lw) * -.7) / 100% auto;
+  -webkit-mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
+          mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
   filter:drop-shadow(3px 6px 4px rgba(0,0,0,.6));
   pointer-events:none;
 }

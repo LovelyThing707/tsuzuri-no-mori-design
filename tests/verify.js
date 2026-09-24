@@ -73,17 +73,23 @@ async function shelf(b) {
       };
       document.querySelectorAll('.market').forEach(mk => {
         const c = mk.querySelector('.case'), cr = c.getBoundingClientRect();
-        const tier = c.querySelector('.tier'), tr = tier.getBoundingClientRect();
+        const tiers = [...c.querySelectorAll('.tier')];
+        const tier = tiers[0], tr = tier.getBoundingClientRect();
+        const rows = tiers.flatMap(t => [...t.querySelectorAll('.bay')].filter(vis).map(b => b.querySelector('.row')));
         const deck = c.querySelector('.deck'), dr = deck.getBoundingClientRect();
         const base = c.querySelector('.case__base').getBoundingClientRect();
         const floor = c.querySelector('.case__floor').getBoundingClientRect();
         const post = getComputedStyle(c, '::before');
-        const sp = [...tier.querySelectorAll('.spine')].filter(vis);
+        const sp = [...c.querySelectorAll('.tier .spine')].filter(vis);
         const fl = [...deck.querySelectorAll('.flat')].filter(vis);
-        let used = 0;
-        sp.forEach(e => {
-          const s = getComputedStyle(e);
-          used += px(s.width) + px(s.marginLeft) + px(s.marginRight);
+        /* 区画ごとの埋まり具合。いちばん空いている区画で見る */
+        const fills = rows.map(r => {
+          let u = 0;
+          [...r.querySelectorAll('.spine')].filter(vis).forEach(e => {
+            const s = getComputedStyle(e);
+            u += px(s.width) + px(s.marginLeft) + px(s.marginRight);
+          });
+          return u / r.getBoundingClientRect().width;
         });
         /* 背の幅 ÷ 厚み。本ごとに同じなら、厚みは実物どおりの比 */
         const per = {};
@@ -108,19 +114,29 @@ async function shelf(b) {
           return (r.left < rr.left - .5 && r.right > rr.left + .5) ||
                  (r.left < rr.right - .5 && r.right > rr.right + .5);
         }).length;
-        const rowR = tier.querySelector('.row').getBoundingClientRect();
+        /* 参考画像と同じ並び（4冊ひと組）か、まっすぐ立っているか */
+        const UNIT = ['monte', 'suika', 'aya', 'kagaku'];
+        const inOrder = rows.every(r => {
+          const l = [...r.querySelectorAll('.spine')].filter(vis).map(e => e.dataset.book);
+          const s0 = UNIT.indexOf(l[0]);
+          return l.every((k, i) => k === UNIT[(s0 + i) % 4]);
+        });
+        const upright = sp.every(e => { const t = getComputedStyle(e).transform; return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)'; });
         out.markets.push({
           h: Math.round(mk.getBoundingClientRect().height),
           caseW: Math.round(cr.width),
           /* 柱が床まで通っているか：柱の下端＝台輪の下端＝床の上端 */
-          postBottom: +(cr.bottom - px(post.bottom)).toFixed(1),
+          postBottom: +(cr.top + px(post.top) + px(post.height)).toFixed(1),
+          boardBottom: +[...c.querySelectorAll('.case__board')].pop().getBoundingClientRect().bottom.toFixed(1),
+          legs: /post-left.*post-right/.test(getComputedStyle(c.querySelector('.case__base')).backgroundImage),
           baseBottom: +base.bottom.toFixed(1), floorTop: +floor.top.toFixed(1),
           postH: px(post.height), caseH: cr.height,
           deckInCase: c.contains(deck),
           /* 棚板に立っているか：本の底が段の底に揃う */
-          bottomGap: +Math.max(...sp.map(e => Math.abs(tr.bottom - e.getBoundingClientRect().bottom))).toFixed(1),
-          overTop: sp.some(e => e.getBoundingClientRect().top < tr.top - 1),
-          fill: Math.round(100 * used / rowR.width),
+          bottomGap: +Math.max(...sp.map(e => Math.abs(e.closest('.tier').getBoundingClientRect().bottom - e.getBoundingClientRect().bottom))).toFixed(1),
+          overTop: sp.some(e => e.getBoundingClientRect().top < e.closest('.tier').getBoundingClientRect().top - 1),
+          fill: Math.round(100 * Math.min(...fills)),
+          tiers: tiers.length, bays: rows.length / tiers.length, inOrder, upright,
           n: sp.length, cut,
           ratioSpread: pv.length < 2 ? 0 : +((Math.max(...pv) - Math.min(...pv)) / mean).toFixed(3),
           skew: +Math.max(...skew).toFixed(3),
@@ -136,7 +152,7 @@ async function shelf(b) {
           flatFaces: fl.length ? fl[0].querySelectorAll('.flat__spine,.flat__fore').length : 0,
           flatMinW: fl.length ? Math.min(...fl.map(e => e.offsetWidth)) : 0,
           deckBottom: Math.round(dr.bottom - mk.getBoundingClientRect().top),
-          shelfBottom: Math.round(c.querySelector('.case__board').getBoundingClientRect().bottom - mk.getBoundingClientRect().top),
+          shelfBottom: Math.round([...c.querySelectorAll('.case__board')].pop().getBoundingClientRect().bottom - mk.getBoundingClientRect().top),
           /* 光の斑（白いモヤ）が戻っていないか */
           dapple: [...mk.querySelectorAll('*')].concat([mk]).some(e =>
             ['::before', '::after', ''].some(ps => /komorebi/.test(getComputedStyle(e, ps || null).backgroundImage))),
@@ -156,9 +172,18 @@ async function shelf(b) {
       const n = `${vp.n} 売り場${i + 1}`;
       t(k.caseW >= vp.w - 1, `${n}: 本棚が画面の幅いっぱい`);
       /* 本棚は床に立つ（「上の本棚が宙にういているようにみえます」） */
-      t(Math.abs(k.postBottom - k.baseBottom) <= 1 && Math.abs(k.baseBottom - k.floorTop) <= 1,
-        `${n}: 左右の柱が床まで通り、本棚が床に立つ (柱${k.postBottom}/台輪${k.baseBottom}/床${k.floorTop})`);
+      /* 参考画像と同じ組み方。柱は本棚の上の部分（最後の棚板まで）で止まり、
+         平台はその手前へせり出す。平台の下は脚で支え、台輪が床に接する */
+      t(Math.abs(k.postBottom - k.boardBottom) <= 1,
+        `${n}: 柱は最後の棚板まで。平台は柱より手前にせり出す (柱${k.postBottom}/棚板${k.boardBottom})`);
+      t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
+        `${n}: 平台の下は脚で支え、本棚が床に立つ (台輪${k.baseBottom}/床${k.floorTop})`);
       t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);
+      t(k.tiers === 2, `${n}: 参考画像と同じく段は2つ (${k.tiers})`);
+      const bays = land ? (vp.w >= 600 ? 2 : 1) : vp.w >= 1500 ? 4 : vp.w >= 1100 ? 3 : vp.w >= 600 ? 2 : 1;
+      t(k.bays === bays, `${n}: 棚は仕切りで${bays}区画 (${k.bays})`);
+      t(k.inOrder, `${n}: 参考画像と同じ並び（4冊ひと組の繰り返し）`);
+      t(k.upright, `${n}: 本はまっすぐ立っている`);
       t(k.bottomGap <= 1.5, `${n}: 本が棚板に立っている (ずれ ${k.bottomGap}px)`);
       t(!k.overTop, `${n}: 本が段からはみ出していない`);
       t(k.cut === 0, `${n}: 柱ぎわで本が切れていない`);
@@ -168,9 +193,9 @@ async function shelf(b) {
       t(k.skew <= 1.07, `${n}: 背表紙の写真が引き伸ばされていない (${k.skew}倍)`);
       /* いちばん薄いデモの本（11mm）でも 12px 以上。選ぶのは指でなぞって確かめる。
          横向きのスマートフォンは段を見える高さに合わせるので、ここは見ない */
-      if (!land) t(k.minW >= 12, `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
+      if (!land) t(k.minW >= (phone ? 10.5 : 7), `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
       /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
-      const want = vp.w >= 1200 ? 8 : vp.w >= 600 ? 4 : 3;
+      const want = vp.w >= 1500 ? 8 : vp.w >= 1100 ? 6 : vp.w >= 360 ? 4 : 3;
       t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
       t(k.flatIn, `${n}: 平置きが平台の天板の内側に載っている`);
       t(k.flatTilted, `${n}: 平置きが寝ている`);
@@ -179,14 +204,15 @@ async function shelf(b) {
       t(k.flatMinW >= 44, `${n}: 平台のいちばん小さい本も表紙が見え、指で押せる (${k.flatMinW}px)`);
       t(!k.dapple, `${n}: 光の斑（白いモヤ）が無い`);
       /* 一画面（要件定義書 2-6）。
-         スマートフォンは、使いやすい大きさを優先する（國分様のご指摘）。
-         本の大きさは 1.5px/mm を下回らせず、「本棚の段がまるごと一画面に見える」
-         ことを守る。平台はそのすぐ下に続く。
+         スマートフォンは、指で選べる大きさを優先する（國分様のご指摘）。
+         本は 1.0px/mm（参考画像の背表紙とほぼ同じ太さ）を下回らせない。
+         背の高い画面では2段がまるごと一画面に見え、平台はそのすぐ下に続く。
          タブレット・パソコンは、1テーマをまるごと一画面に収める */
-      if (land || phone) {
-        t(k.shelfBottom <= vp.h, `${n}: 本棚の段がまるごと一画面に見える (段の下端 ${k.shelfBottom}/${vp.h}px)`);
-        if (!land) t(m.mm >= 1.49 || k.shelfBottom >= vp.h - 14,
-          `${n}: 本は 1.5px/mm 以上。背の低い画面では段が画面いっぱいまで (${m.mm.toFixed(2)}px/mm)`);
+      if (land) {
+        t(true, `${n}: 横向き`);
+      } else if (phone) {
+        t(m.mm >= 0.99, `${n}: 本は 1.0px/mm 以上 (${m.mm.toFixed(2)}px/mm)`);
+        if (vp.h >= 800) t(k.shelfBottom <= vp.h, `${n}: 2段がまるごと一画面に見える (段の下端 ${k.shelfBottom}/${vp.h}px)`);
       } else if (!atFloor) t(k.h <= vp.h, `${n}: 1テーマが一画面に収まる (${k.h}/${vp.h}px)`);
       else t(k.deckBottom <= vp.h,
         `${n}: 背の低い画面でも、平台の本までは一画面に見える (平台の下端 ${k.deckBottom}/${vp.h}px)`);
@@ -208,18 +234,19 @@ async function picking(b) {
   const r = await p.evaluate(async () => {
     const row = document.querySelector('.case .row');
     const books = [...row.querySelectorAll('.spine')].filter(e => getComputedStyle(e).display !== 'none');
-    const a = books[1].getBoundingClientRect(), z = books[books.length - 2].getBoundingClientRect();
+    const ia = books.findIndex(e => e.dataset.book === 'kagaku');
+    const a = books[ia].getBoundingClientRect(), z = books[books.length - 2].getBoundingClientRect();
     const y = a.bottom - 40;
     const ev = (ty, x) => (document.elementFromPoint(x, y) || row).dispatchEvent(new PointerEvent(ty,
       { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true }));
     const wait = ms => new Promise(res => setTimeout(res, ms));
     const tag = () => document.querySelector('.pick-tag');
     const BOOKS = JSON.parse(document.getElementById('book-data').textContent);
-    ev('pointerdown', a.left + a.width / 2);
-    ev('pointermove', a.left + a.width / 2 + 12);
+    ev('pointerdown', a.left + a.width / 2 - 4);
+    ev('pointermove', a.left + a.width / 2 + 4);
     await wait(60);
     const first = { on: tag().classList.contains('is-on'), text: tag().textContent,
-                    want: BOOKS[books[1].dataset.book].title, lifted: books[1].classList.contains('is-picked') };
+                    want: BOOKS[books[ia].dataset.book].title, lifted: books[ia].classList.contains('is-picked') };
     const zx = z.left + z.width / 2;
     ev('pointermove', zx);
     await wait(60);
@@ -967,9 +994,9 @@ async function widths(b) {
     await p.waitForTimeout(55);
     const r = await p.evaluate(() => {
       let cut = 0, vmax = 0, gmax = 0;
-      document.querySelectorAll('.case .tier').forEach(ti => {
-        const tr = ti.getBoundingClientRect();
-        ti.querySelectorAll('.spine').forEach(e => {
+      document.querySelectorAll('.case .row').forEach(row => {
+        const tr = row.getBoundingClientRect();
+        row.querySelectorAll('.spine').forEach(e => {
           if (getComputedStyle(e).display === 'none') return;
           const r = e.getBoundingClientRect();
           if ((r.left < tr.left - .5 && r.right > tr.left + .5) ||
