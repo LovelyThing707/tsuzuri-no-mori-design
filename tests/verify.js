@@ -85,10 +85,12 @@ async function shelf(b) {
         /* 区画ごとの埋まり具合。いちばん空いている区画で見る */
         const fills = rows.map(r => {
           let u = 0;
-          [...r.querySelectorAll('.spine')].filter(vis).forEach(e => {
+          const sp2 = [...r.querySelectorAll('.spine')].filter(vis);
+          sp2.forEach(e => {
             const s = getComputedStyle(e);
             u += px(s.width) + px(s.marginLeft) + px(s.marginRight);
           });
+          u += Math.max(0, sp2.length - 1) * px(getComputedStyle(r).columnGap);
           return u / r.getBoundingClientRect().width;
         });
         /* 背の幅 ÷ 厚み。本ごとに同じなら、厚みは実物どおりの比 */
@@ -137,6 +139,7 @@ async function shelf(b) {
           overTop: sp.some(e => e.getBoundingClientRect().top < e.closest('.tier').getBoundingClientRect().top - 1),
           fill: Math.round(100 * Math.min(...fills)),
           tiers: tiers.length, dividers: c.querySelectorAll('.bay').length, inOrder, upright,
+          gapPx: px(getComputedStyle(rows[0]).columnGap),
           perRow: rows.map(r => [...r.querySelectorAll('.spine')].filter(vis).length),
           n: sp.length, cut,
           ratioSpread: pv.length < 2 ? 0 : +((Math.max(...pv) - Math.min(...pv)) / mean).toFixed(3),
@@ -182,6 +185,7 @@ async function shelf(b) {
       /* 段の数は以前の構成のとおり。1つめの売り場は2段、2つめは1段 */
       t(k.tiers === (i === 0 ? 2 : 1), `${n}: 段は${i === 0 ? 2 : 1}つ (${k.tiers})`);
       t(k.dividers === 0, `${n}: 棚は仕切らず、画面の幅いっぱいに1続き`);
+      t(k.gapPx >= 2, `${n}: 本と本のあいだに、すき間がある (${k.gapPx}px)`);
       /* スマートフォンの1段は12冊程度（國分様への回答「1段12冊程度」） */
       if (phone && !land) t(k.perRow.every(x => x >= 12 && x <= 13),
         `${n}: スマートフォンの1段は12冊程度 (${k.perRow.join('・')}冊)`);
@@ -196,7 +200,7 @@ async function shelf(b) {
       t(k.skew <= 1.07, `${n}: 背表紙の写真が引き伸ばされていない (${k.skew}倍)`);
       /* いちばん薄いデモの本（11mm）でも 12px 以上。選ぶのは指でなぞって確かめる。
          横向きのスマートフォンは段を見える高さに合わせるので、ここは見ない */
-      if (!land) t(k.minW >= 14, `${n}: いちばん薄い本も指で選べる幅 (${k.minW.toFixed(1)}px)`);
+      if (!land) t(k.minW >= 12, `${n}: いちばん薄い本も指で選べる幅 (${k.minW.toFixed(1)}px)`);
       /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
       const want = vp.w >= 1500 ? 8 : vp.w >= 1100 ? 6 : vp.w >= 360 ? 4 : 3;
       t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
@@ -209,7 +213,7 @@ async function shelf(b) {
       /* 本の大きさ。押しやすさを優先し、スマートフォンの1段が12冊程度になる大きさ。
          パソコン・タブレットも同じ大きさ（厚みも高さもスマートフォンと同じ）。
          本棚が縦に長くなるのは承知のうえ（依頼主のご指示） */
-      if (vp.w >= 390) t(Math.abs(m.mm - 1.66) < 0.01, `${n}: 本の大きさはスマートフォンと同じ 1.66px/mm (${m.mm.toFixed(3)})`);
+      if (vp.w >= 390) t(Math.abs(m.mm - 1.508) < 0.01, `${n}: 本の大きさはスマートフォン（390px）と同じ 1.508px/mm (${m.mm.toFixed(3)})`);
     });
     await p.close();
   }

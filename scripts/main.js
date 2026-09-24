@@ -85,6 +85,8 @@
       var i, b, cs, w, h;
       var cut = books.length;
       var used = 0, tall = 0;
+      /* 本と本のあいだのすき間（CSS の gap）。2冊目から1冊ごとに足す */
+      var gap = parseFloat(window.getComputedStyle(row).columnGap) || 0;
       for (i = 0; i < books.length; i++) {
         b = books[i];
         cs = window.getComputedStyle(b);
@@ -96,6 +98,7 @@
         /* 本はまっすぐ立てている（傾けていない）ので、端の余白は要らない。
            以前は傾きのぶん両端を空けていて、12冊目が入らなかった */
         h = Math.max(tall, parseFloat(cs.height) || 0);
+        if (i > 0) w += gap;
         if (used + w > avail) { cut = i; break; }
         used += w;
         tall = h;
