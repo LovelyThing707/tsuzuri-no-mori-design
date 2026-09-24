@@ -3,12 +3,6 @@
    演出は最小限に留める。動きを減らす設定の端末では何もしない。
    ============================================================ */
 (function () {
-  /* 本の大きさを見比べるための指定。?size=fit（一画面に収める）／?size=l（大きく） */
-  (function () {
-    var m = /[?&]size=(fit|l)\b/.exec(window.location.search);
-    if (m) document.documentElement.classList.add('size-' + m[1]);
-  })();
-
   'use strict';
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -99,11 +93,10 @@
         w = (parseFloat(cs.width) || 0)
           + (parseFloat(cs.marginLeft) || 0)
           + (parseFloat(cs.marginRight) || 0);
-        /* 本はわずかに傾けてある（最大0.9度）。背の高い本ほど上端が横へ
-           振れ、A4判では 8px ほど。端の本が柱の裏へ入らないよう、
-           そのぶんを両端に空けておく */
+        /* 本はまっすぐ立てている（傾けていない）ので、端の余白は要らない。
+           以前は傾きのぶん両端を空けていて、12冊目が入らなかった */
         h = Math.max(tall, parseFloat(cs.height) || 0);
-        if (used + w + 2 * h * 0.016 > avail) { cut = i; break; }
+        if (used + w > avail) { cut = i; break; }
         used += w;
         tall = h;
       }

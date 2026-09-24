@@ -55,25 +55,22 @@
 .scene{ position:relative; }
 
 /* --- 本棚1台 -------------------------------------------------
-   参考画像と同じ組み立て。上から
-     天板／段／棚板／段／棚板／平台／平台の縁／台輪／床。
-   段は2つ。段の高さ（--tier-h）が本の大きさ（--mm）を決める。
-   広い画面では、段を縦の仕切りで区画に分ける。実際の書店の棚と同じで、
-   1枚の棚板が1m以上つながることはない（1区画は実寸でおよそ50〜60cm）。 */
+   上から 天板／段／棚板（段の数だけ）／平台／平台の縁／台輪／床。
+   段の数は売り場ごと（--tiers。gen_page.py が書き込む）。
+   棚は画面の幅いっぱいに1続き。 */
 .case{
   position:relative; z-index:1;
   width:100vw; margin-inline:calc(50% - 50vw);
-  display:grid;
-  grid-template-rows:
-    var(--crown)
-    var(--tier-h) var(--board)
-    var(--tier-h) var(--board)
-    var(--deck-h) var(--lip) var(--base-h) var(--floor-h);
-  --bays: 1;
+  display:flex; flex-direction:column;
+  --tiers: 2;
 }
-@media (min-width:600px) { .case{ --bays:2; } }
-@media (min-width:1100px){ .case{ --bays:3; } }
-@media (min-width:1500px){ .case{ --bays:4; } }
+.case__crown{ flex:0 0 var(--crown); }
+.tier       { flex:0 0 var(--tier-h); }
+.case__board{ flex:0 0 var(--board); }
+.deck       { flex:0 0 var(--deck-h); }
+.deck__lip  { flex:0 0 var(--lip); }
+.case__base { flex:0 0 var(--base-h); }
+.case__floor{ flex:0 0 var(--floor-h); }
 
 /* 左右の柱。天板の上端から床まで一本で通す。
    柱が床に届いていることが、本棚が立っている一番の手がかり。 */
@@ -82,7 +79,7 @@
   content:"";
   position:absolute; z-index:4;
   top:0;
-  height:calc(var(--crown) + 2 * var(--tier-h) + 2 * var(--board));
+  height:calc(var(--crown) + var(--tiers) * (var(--tier-h) + var(--board)));
   width:var(--post-w);
   background-repeat:no-repeat;
   background-size:100% 100%;
@@ -118,9 +115,6 @@
 .tier{
   position:relative; z-index:1;
   overflow:hidden;
-  display:flex; gap:var(--post-w);
-  padding:0 calc(var(--post-w) + env(safe-area-inset-right, 0px))
-          0 calc(var(--post-w) + env(safe-area-inset-left, 0px));
   background:url("../assets/images/case-back.webp") repeat-x left top / auto 100%, #5a4e50;
   background-blend-mode:multiply;
 }
@@ -138,27 +132,11 @@
     linear-gradient(90deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px)),
     linear-gradient(270deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px));
 }
-/* 区画。狭い画面は1つ、広くなるほど2・3・4つ */
-.bay{
-  position:relative; z-index:1;
-  flex:1 1 0; min-width:0;
-}
-.bay:nth-child(n+2){ display:none; }
-@media (min-width:600px) { .bay:nth-child(2){ display:block; } }
-@media (min-width:1100px){ .bay:nth-child(3){ display:block; } }
-@media (min-width:1500px){ .bay:nth-child(4){ display:block; } }
-/* 区画のあいだの仕切り板 */
-.bay + .bay::before{
-  content:"";
-  position:absolute; z-index:3; top:0; bottom:0;
-  left:calc(-1 * var(--post-w)); width:var(--post-w);
-  background:url("../assets/images/post-left.webp") no-repeat center / 100% 100%;
-  filter:brightness(1.36) saturate(1.05);
-  box-shadow:5px 0 9px -5px rgba(0,0,0,.8), -5px 0 9px -5px rgba(0,0,0,.8);
-}
-/* 本は区画の中に、すき間なく立つ。入りきらない本は下げる（scripts/main.js） */
+/* 本は柱の内側に、すき間なく立つ。入りきらない本は下げる（scripts/main.js） */
 .row{
-  position:absolute; z-index:1; inset:0;
+  position:absolute; z-index:1; top:0; bottom:0;
+  left:calc(var(--post-w) + env(safe-area-inset-left, 0px));
+  right:calc(var(--post-w) + env(safe-area-inset-right, 0px));
   display:flex; align-items:flex-end; justify-content:center;
   gap:0; padding:0; margin:0; list-style:none;
   /* 指で横になぞって本を選ぶ。縦に動かしたときはページを送る。

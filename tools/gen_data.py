@@ -149,24 +149,19 @@ def sumw(books):
     return {n: sum(b['w'] for b in books[:n]) for n in (3, 4, 6, 8)}
 
 
-# 本棚は2段。各段は最大4区画（画面が広いほど多く見える）。
-# 1区画に入るより多めに出しておき、入りきらないぶんは隠す（scripts/main.js）。
-PER_BAY = 34
-BAYS = 4
+# 本棚の段。1段は画面の幅いっぱいに1続き。
+# いちばん広い画面でも足りる冊数を出しておき、入りきらないぶんは隠す（scripts/main.js）。
+PER_TIER = 72
 
 
-def shelf(start=0):
-    """2段 × 4区画ぶんの背表紙。
-
-    広い画面では区画が横に並ぶ。どの区画も同じ始まりだと、
-    同じ柄が縦にそろって壁紙のように見える。区画ごとに始まりをずらす。
-    いちばん左の区画（スマートフォンではこれだけが見える）は、
-    参考画像と同じく低い本から始める。"""
-    return [[row_books(PER_BAY, start + k) for k in range(BAYS)] for _ in range(2)]
+def shelf(tiers):
+    """段の数ぶんの背表紙。どの段も、参考画像と同じく低い本から始める。"""
+    return [row_books(PER_TIER) for _ in range(tiers)]
 
 
-SHELF_A = shelf()
-SHELF_B = shelf()
+# 1つめの売り場は2段、2つめは1段（以前の構成のとおり）
+SHELF_A = shelf(2)
+SHELF_B = shelf(1)
 
 # 平台。スマートフォン・タブレットは4冊（要件定義書 2-3／3-2「平台 3〜4冊」）、
 # 広い画面は6〜8冊（区画が増えるぶん）。

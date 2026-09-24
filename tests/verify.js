@@ -75,7 +75,7 @@ async function shelf(b) {
         const c = mk.querySelector('.case'), cr = c.getBoundingClientRect();
         const tiers = [...c.querySelectorAll('.tier')];
         const tier = tiers[0], tr = tier.getBoundingClientRect();
-        const rows = tiers.flatMap(t => [...t.querySelectorAll('.bay')].filter(vis).map(b => b.querySelector('.row')));
+        const rows = tiers.map(t => t.querySelector('.row'));
         const deck = c.querySelector('.deck'), dr = deck.getBoundingClientRect();
         const base = c.querySelector('.case__base').getBoundingClientRect();
         const floor = c.querySelector('.case__floor').getBoundingClientRect();
@@ -136,7 +136,8 @@ async function shelf(b) {
           bottomGap: +Math.max(...sp.map(e => Math.abs(e.closest('.tier').getBoundingClientRect().bottom - e.getBoundingClientRect().bottom))).toFixed(1),
           overTop: sp.some(e => e.getBoundingClientRect().top < e.closest('.tier').getBoundingClientRect().top - 1),
           fill: Math.round(100 * Math.min(...fills)),
-          tiers: tiers.length, bays: rows.length / tiers.length, inOrder, upright,
+          tiers: tiers.length, dividers: c.querySelectorAll('.bay').length, inOrder, upright,
+          perRow: rows.map(r => [...r.querySelectorAll('.spine')].filter(vis).length),
           n: sp.length, cut,
           ratioSpread: pv.length < 2 ? 0 : +((Math.max(...pv) - Math.min(...pv)) / mean).toFixed(3),
           skew: +Math.max(...skew).toFixed(3),
@@ -165,7 +166,6 @@ async function shelf(b) {
     t(bad.length === 0, `${vp.n}: 画像すべて読める${bad.length ? ' — ' + [...new Set(bad)].join(',') : ''}`);
     t(m.sign === 0, `${vp.n}: 立て札が消えている`);
     t(m.oldParts === 0, `${vp.n}: 別の什器だった平台・絵の什器が残っていない`);
-    const atFloor = m.mm <= m.mmFloor + 0.01;
     const phone = vp.w < 600;
     const land = vp.w > vp.h && vp.h <= 500;
     m.markets.forEach((k, i) => {
@@ -179,9 +179,12 @@ async function shelf(b) {
       t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
         `${n}: 平台の下は脚で支え、本棚が床に立つ (台輪${k.baseBottom}/床${k.floorTop})`);
       t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);
-      t(k.tiers === 2, `${n}: 参考画像と同じく段は2つ (${k.tiers})`);
-      const bays = land ? (vp.w >= 600 ? 2 : 1) : vp.w >= 1500 ? 4 : vp.w >= 1100 ? 3 : vp.w >= 600 ? 2 : 1;
-      t(k.bays === bays, `${n}: 棚は仕切りで${bays}区画 (${k.bays})`);
+      /* 段の数は以前の構成のとおり。1つめの売り場は2段、2つめは1段 */
+      t(k.tiers === (i === 0 ? 2 : 1), `${n}: 段は${i === 0 ? 2 : 1}つ (${k.tiers})`);
+      t(k.dividers === 0, `${n}: 棚は仕切らず、画面の幅いっぱいに1続き`);
+      /* スマートフォンの1段は12冊程度（國分様への回答「1段12冊程度」） */
+      if (phone && !land) t(k.perRow.every(x => x >= 12 && x <= 13),
+        `${n}: スマートフォンの1段は12冊程度 (${k.perRow.join('・')}冊)`);
       t(k.inOrder, `${n}: 参考画像と同じ並び（4冊ひと組の繰り返し）`);
       t(k.upright, `${n}: 本はまっすぐ立っている`);
       t(k.bottomGap <= 1.5, `${n}: 本が棚板に立っている (ずれ ${k.bottomGap}px)`);
@@ -193,7 +196,7 @@ async function shelf(b) {
       t(k.skew <= 1.07, `${n}: 背表紙の写真が引き伸ばされていない (${k.skew}倍)`);
       /* いちばん薄いデモの本（11mm）でも 12px 以上。選ぶのは指でなぞって確かめる。
          横向きのスマートフォンは段を見える高さに合わせるので、ここは見ない */
-      if (!land) t(k.minW >= (phone ? 10.5 : 7), `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
+      if (!land) t(k.minW >= 14, `${n}: いちばん薄い本も指で選べる幅 (${k.minW.toFixed(1)}px)`);
       /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
       const want = vp.w >= 1500 ? 8 : vp.w >= 1100 ? 6 : vp.w >= 360 ? 4 : 3;
       t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
@@ -203,19 +206,10 @@ async function shelf(b) {
       t(k.flatFaces === 2, `${n}: 平置きに背と小口の面がある`);
       t(k.flatMinW >= 44, `${n}: 平台のいちばん小さい本も表紙が見え、指で押せる (${k.flatMinW}px)`);
       t(!k.dapple, `${n}: 光の斑（白いモヤ）が無い`);
-      /* 一画面（要件定義書 2-6）。
-         スマートフォンは、指で選べる大きさを優先する（國分様のご指摘）。
-         本は 1.0px/mm（参考画像の背表紙とほぼ同じ太さ）を下回らせない。
-         背の高い画面では2段がまるごと一画面に見え、平台はそのすぐ下に続く。
-         タブレット・パソコンは、1テーマをまるごと一画面に収める */
-      if (land) {
-        t(true, `${n}: 横向き`);
-      } else if (phone) {
-        t(m.mm >= 0.99, `${n}: 本は 1.0px/mm 以上 (${m.mm.toFixed(2)}px/mm)`);
-        if (vp.h >= 800) t(k.shelfBottom <= vp.h, `${n}: 2段がまるごと一画面に見える (段の下端 ${k.shelfBottom}/${vp.h}px)`);
-      } else if (!atFloor) t(k.h <= vp.h, `${n}: 1テーマが一画面に収まる (${k.h}/${vp.h}px)`);
-      else t(k.deckBottom <= vp.h,
-        `${n}: 背の低い画面でも、平台の本までは一画面に見える (平台の下端 ${k.deckBottom}/${vp.h}px)`);
+      /* 本の大きさ。押しやすさを優先し、スマートフォンの1段が12冊程度になる大きさ。
+         パソコン・タブレットも同じ大きさ（厚みも高さもスマートフォンと同じ）。
+         本棚が縦に長くなるのは承知のうえ（依頼主のご指示） */
+      if (vp.w >= 390) t(Math.abs(m.mm - 1.66) < 0.01, `${n}: 本の大きさはスマートフォンと同じ 1.66px/mm (${m.mm.toFixed(3)})`);
     });
     await p.close();
   }

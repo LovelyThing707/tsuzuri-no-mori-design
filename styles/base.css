@@ -30,12 +30,13 @@
      高さにも厚みにも同じ一本の倍率をかけるので、背表紙は実物どおりの
      比になる（必須条件⑤・要件定義書 2-2）。
 
-     本棚は参考画像と同じく2段。--mm は段の高さから決める。
-
-     タブレット・パソコン … 2段と平台まで、1テーマが一画面に収まる
-     スマートフォン        … 2段が一画面に見える。平台はそのすぐ下に続く。
-                             本は 1.0px/mm を下回らせない（参考画像の背表紙と
-                             ほぼ同じ太さ。これより細いと指で選べない） */
+     --mm は「スマートフォンの1段に、本がおよそ12冊並ぶ」大きさにする。
+     國分様への回答「タップしやすい大きさにするには、1段12冊程度」のとおり。
+     お預かりの4冊ひと組は背幅の合計 71mm（19＋11＋16＋25）。12冊で 213mm。
+     390px 幅のスマートフォンで段の内側は 360px なので、1.66px/mm で12冊（端に少し余裕を残す）。
+     それより狭い画面では、12冊が入るところまで小さくする。
+     パソコン・タブレットも同じ大きさ（厚みも高さもスマートフォンと同じ）。
+     本を大きくしたぶん本棚は縦に長くなる。見やすさ・押しやすさを優先する。 */
   --vh-full:   100vh;
   --bar-h:     calc(2 * clamp(14px,3.4vh,26px) + 32px);  /* 上の帯。売り場の上にかぶる */
   --head-h:    clamp(48px, 6vh, 72px);     /* 看板（テーマ名とすべて見る） */
@@ -45,12 +46,9 @@
   --lip:       clamp(12px, 1.8vh, 20px);   /* 平台の手前の縁 */
   --base-h:    clamp(40px, 6.4vh, 80px);   /* 台輪。脚で支えた抜けた空間 */
   --floor-h:   clamp(18px, 2.6vh, 32px);   /* 床 */
-  --upper:     calc(var(--bar-h) + var(--head-h) + var(--crown) + 2 * var(--board));
-  --lower:     calc(var(--deck-h) + var(--lip) + var(--base-h) + var(--floor-h));
-  /* 1mm あたりの長さ。300mm の本の上に、手を差し入れるだけの空きを取る（322） */
-  --fit-tier:  calc((var(--vh-full) - var(--upper) - var(--lower)) / 2);
-  --tier-h:    clamp(calc(.7px * 322), var(--fit-tier), calc(1.3px * 322));
-  --mm:        calc(var(--tier-h) / 322);
+  --mm:        min(1.66px, calc((100vw - 2 * var(--post-w)) / 216));
+  /* 段の高さ。300mm の本の上に、手を差し入れるだけの空きを取る（322mm ぶん） */
+  --tier-h:    calc(var(--mm) * 322);
 
   /* 背の厚み。
      実物どおりの比で描く。いちばん薄い本だけ、線のように潰れないよう
@@ -112,27 +110,6 @@
 
 /* URL バーが出ているあいだの高さで合わせる。バーの裏に平台が隠れないように */
 @supports (height:100svh){ :root{ --vh-full:100svh; } }
-
-/* スマートフォン。2段が一画面に見える大きさ。1.0px/mm を下回らせない */
-@media (max-width:599px){
-  :root{
-    --fit-tier: calc((var(--vh-full) - var(--upper) - 6px) / 2);
-    --tier-h:   clamp(calc(1px * 322), var(--fit-tier), calc(1.3px * 322));
-  }
-}
-/* 横向きのスマートフォン。見える高さが短いので、1段が見える高さに合わせる */
-@media (orientation:landscape) and (max-height:500px){
-  :root{
-    --head-h:   40px;
-    --fit-tier: calc(var(--vh-full) - var(--bar-h) - var(--head-h) - var(--crown) - var(--board) - 8px);
-    --tier-h:   clamp(calc(.6px * 322), var(--fit-tier), calc(1.3px * 322));
-  }
-}
-/* 大きさを見比べるための指定（?size=fit … 2段と平台まで一画面／?size=l … 大きく） */
-@media (max-width:599px){
-  :root.size-fit{ --tier-h: clamp(calc(.6px * 322), calc((var(--vh-full) - var(--upper) - var(--lower)) / 2), calc(1.3px * 322)); }
-  :root.size-l  { --tier-h: calc(1.35px * 322); }
-}
 
 *,*::before,*::after{ box-sizing:border-box; }
 

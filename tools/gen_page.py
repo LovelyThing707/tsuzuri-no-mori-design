@@ -6,18 +6,15 @@ import gen_data as D
 import gen_pages as G
 
 def market(idx, name, tiers, lying, note):
-    """本棚は1台。参考画像と同じく、背表紙の段が2つ、その下に平台がせり出す。
-    左右の柱は天板から床まで通り、本棚は床に立つ。
-    広い画面では、段を縦の仕切りで区画に分ける。"""
+    """本棚は1台。背表紙の段（売り場ごとに1〜2段）の下に、平台がせり出す。
+    左右の柱は最後の棚板まで通り、平台の下は脚で支えて、本棚は床に立つ。"""
     w = D.sumw(lying)
-    def tier(bays):
+    def tier(books):
         return """        <div class="tier">
+          <ul class="row">
 %s
-        </div>""" % "\n".join("""          <div class="bay">
-            <ul class="row">
-%s
-            </ul>
-          </div>""" % D.tier(b) for b in bays)
+          </ul>
+        </div>""" % D.tier(books)
     upper = "\n        <div class=\"case__board\"></div>\n".join(tier(t) for t in tiers)
     cubbies = "".join('<i class="cubby"></i>' for _ in range(8))
     return """
@@ -30,7 +27,7 @@ def market(idx, name, tiers, lying, note):
     </div>
     <div class="scene">
       <p class="sr-only">%s</p>
-      <div class="case" aria-hidden="true">
+      <div class="case" style="--tiers:%d" aria-hidden="true">
         <div class="case__crown"></div>
 %s
         <div class="case__board"></div>
@@ -46,7 +43,7 @@ def market(idx, name, tiers, lying, note):
         <div class="case__leaves"></div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, upper,
+  </section>""" % (idx, idx, name, note, len(tiers), upper,
                    w[3], w[4], w[6], w[8], D.platform(lying), cubbies)
 
 PAGE = """<!DOCTYPE html>
@@ -326,7 +323,7 @@ html = PAGE % dict(
     market1 = market(1, '子供に読みたい本', D.SHELF_A, D.LYING_A,
                      '本棚の2つの段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
     market2 = market(2, '夜に読む本', D.SHELF_B, D.LYING_B,
-                     '本棚の2つの段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
+                     '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)
 print('index.html:', len(html.splitlines()), 'lines')
