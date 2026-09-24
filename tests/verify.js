@@ -85,10 +85,12 @@ async function shelf(b) {
         /* 区画ごとの埋まり具合。いちばん空いている区画で見る */
         const fills = rows.map(r => {
           let u = 0;
-          [...r.querySelectorAll('.spine')].filter(vis).forEach(e => {
+          const sp2 = [...r.querySelectorAll('.spine')].filter(vis);
+          sp2.forEach(e => {
             const s = getComputedStyle(e);
             u += px(s.width) + px(s.marginLeft) + px(s.marginRight);
           });
+          u += Math.max(0, sp2.length - 1) * px(getComputedStyle(r).columnGap);
           return u / r.getBoundingClientRect().width;
         });
         /* 背の幅 ÷ 厚み。本ごとに同じなら、厚みは実物どおりの比 */
@@ -137,6 +139,7 @@ async function shelf(b) {
           overTop: sp.some(e => e.getBoundingClientRect().top < e.closest('.tier').getBoundingClientRect().top - 1),
           fill: Math.round(100 * Math.min(...fills)),
           tiers: tiers.length, dividers: c.querySelectorAll('.bay').length, inOrder, upright,
+          gapPx: px(getComputedStyle(rows[0]).columnGap),
           perRow: rows.map(r => [...r.querySelectorAll('.spine')].filter(vis).length),
           n: sp.length, cut,
           ratioSpread: pv.length < 2 ? 0 : +((Math.max(...pv) - Math.min(...pv)) / mean).toFixed(3),
@@ -182,9 +185,10 @@ async function shelf(b) {
       /* 段の数は以前の構成のとおり。1つめの売り場は2段、2つめは1段 */
       t(k.tiers === (i === 0 ? 2 : 1), `${n}: 段は${i === 0 ? 2 : 1}つ (${k.tiers})`);
       t(k.dividers === 0, `${n}: 棚は仕切らず、画面の幅いっぱいに1続き`);
+      t(k.gapPx >= 2, `${n}: 本と本のあいだに、すき間がある (${k.gapPx}px)`);
       /* 390px 幅のスマートフォンで1段およそ20冊 */
-      if (vp.w === 390) t(k.perRow.every(x => x >= 18 && x <= 22),
-        `${n}: 1段およそ20冊 (${k.perRow.join('・')}冊)`);
+      if (vp.w === 390) t(k.perRow.every(x => x >= 16 && x <= 20),
+        `${n}: 1段およそ18冊（すき間のぶん少し減る） (${k.perRow.join('・')}冊)`);
       t(k.inOrder, `${n}: 参考画像と同じ並び（4冊ひと組の繰り返し）`);
       t(k.upright, `${n}: 本はまっすぐ立っている`);
       t(k.bottomGap <= 1.5, `${n}: 本が棚板に立っている (ずれ ${k.bottomGap}px)`);
