@@ -267,6 +267,313 @@ async function shelf(b) {
   }
 }
 
+/* ---- 1c. 光（窓の左上から差す日差し） -----------------------------
+   國分様のご指摘「木漏れ日の表現がお送りした画像と大きく違うようです。
+   また、白いモヤ？のようなものがところどころに浮いています」。
+   参考画像の光は、日が当たるところにだけ現れる。床の左下の日の筋、平台の天面の左、
+   寝かせた本の右に落ちる影、植物のそばの天板、左の柱の足もと。
+   段の中（背表紙・背板）には何も置かない。
+   白いモヤは、段の手前に明るい半透明の層を重ねたことで出た。 */
+
+/* 画面の一部を写して、明るさ（0〜255）の並びにする */
+async function lumaOf(p, clip) {
+  clip = { x: Math.round(clip.x), y: Math.round(clip.y), width: Math.round(clip.width), height: Math.round(clip.height) };
+  const png = (await p.screenshot({ clip })).toString('base64');
+  const a = await p.evaluate(async ({ png, w, h }) => {
+    const img = new Image();
+    await new Promise(r => { img.onload = r; img.src = 'data:image/png;base64,' + png; });
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+    const d = cx.getImageData(0, 0, w, h).data, out = new Array(w * h);
+    for (let i = 0; i < w * h; i++) out[i] = Math.round(0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]);
+    return out;
+  }, { png, w: clip.width, h: clip.height });
+  return { a, w: clip.width, h: clip.height, x: clip.x, y: clip.y };
+}
+/* 並びのうち、画面座標の矩形に入るところの平均 */
+function meanIn(img, x0, y0, x1, y1, skip) {
+  let s = 0, n = 0;
+  for (let y = Math.max(0, Math.round(y0 - img.y)); y < Math.min(img.h, Math.round(y1 - img.y)); y++) {
+    for (let x = Math.max(0, Math.round(x0 - img.x)); x < Math.min(img.w, Math.round(x1 - img.x)); x++) {
+      if (skip && skip(x + img.x, y + img.y)) continue;
+      s += img.a[y * img.w + x]; n++;
+    }
+  }
+  return n ? s / n : 0;
+}
+/* 日差しの層を消す（光だけの差を見るため） */
+const LIGHT_OFF = '.case__light,.case__floor::after,.case__crown::after{display:none!important}';
+
+async function light(b) {
+  /* 繰り返し検査で「komorebi」の名が戻らないように。以前の光の斑の絵（白いモヤの元）の名前 */
+  const fs = require('fs'), root = path.join(__dirname, '..'), named = [];
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(f => {
+    const q = path.join(d, f.name);
+    if (f.isDirectory()) { if (!/^(\.git|node_modules|tests|dist|fixture-src)$/.test(f.name)) walk(q); return; }
+    if (/komorebi/i.test(f.name) ||
+        (/\.(css|js|html|py|json|md|sh|txt)$/.test(f.name) && /komorebi/i.test(fs.readFileSync(q, 'utf8'))))
+      named.push(path.relative(root, q));
+  });
+  walk(root);
+  t(named.length === 0, `以前の光の斑の絵（komorebi）がどこにも残っていない${named.length ? ' — ' + named.join(',') : ''}`);
+
+  const VIEWS_L = [
+    { n: 'small', w: 360, h: 640 },
+    { n: 'phone', w: 390, h: 844 },
+    { n: 'tablet', w: 834, h: 1112 },
+    { n: 'desktop', w: 1440, h: 900 },
+    { n: 'wide', w: 1920, h: 955 },
+  ];
+  for (const vp of VIEWS_L) {
+    const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    await settle(p);
+    await p.evaluate(() => document.querySelectorAll('.shelf-hint').forEach(e => e.remove()));
+
+    /* --- 置き方（DOM と計算後のスタイル） --- */
+    const m = await p.evaluate(() => {
+      const px = v => parseFloat(v) || 0;
+      const top = s => { const o = []; let d = 0, c = '';
+        for (const ch of s) { if (ch === '(') d++; else if (ch === ')') d--; if (ch === ',' && d === 0) { o.push(c.trim()); c = ''; } else c += ch; }
+        if (c.trim()) o.push(c.trim()); return o; };
+      const rgba = c => { const v = (c.match(/[\d.]+/g) || []).map(Number); return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }; };
+      const lum = c => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      /* 明るい半透明の色（白・クリーム・灰・淡い金）。白いモヤの元 */
+      const pale = s => (s.match(/rgba?\([^)]*\)/g) || []).map(rgba).some(c => c.a > 0.02 && c.a < 0.98 && lum(c) > 110);
+      const LIGHTEN = /screen|lighten|dodge|plus-lighter|overlay|soft-light|hard-light/;
+      const out = { markets: [] };
+      document.querySelectorAll('.market').forEach(mk => {
+        const c = mk.querySelector('.case');
+        const tiers = [...c.querySelectorAll('.tier')];
+        /* 段の内側（柱のあいだ）。本が並ぶ .row の横幅と、段の高さ */
+        const boxes = tiers.map(tr => { const r = tr.getBoundingClientRect(), rr = tr.querySelector('.row').getBoundingClientRect();
+          return { l: rr.left, r: rr.right, t: r.top, b: r.bottom }; });
+        const hit = (x, y, w, h) => boxes.some(q => Math.min(x + w, q.r) - Math.max(x, q.l) >= 2 && Math.min(y + h, q.b) - Math.max(y, q.t) >= 2);
+        /* 段に重なる層。段を包む親（売り場・本棚、その外の店内・ページ）は、その ::before／::after
+           だけを見る（9/21 の光の斑は、親の ::before が段の手前に重なっていた）。
+           段の中は、本の並び（.row）より上に描くものだけを見る。本そのものは見ない */
+        const over = [];
+        const rowZ = +getComputedStyle(tiers[0].querySelector('.row')).zIndex || 0;
+        /* 段より手前に描かれるか。段と共通の親の中で、重なりの順（z-index）を比べる。
+           それぞれ、共通の親に至るまででいちばん外側の z-index が順を決める。
+           同じ順なら、あとに書かれたもの（親の ::after、段よりあとの要素）が手前 */
+        const zUnder = (el, ps, root) => { let z = 0;
+          const chain = ps ? [getComputedStyle(el, ps).zIndex] : [];
+          for (let a = el; a && a !== root; a = a.parentElement) chain.push(getComputedStyle(a).zIndex);
+          chain.forEach(v => { if (v !== 'auto') z = +v; });
+          return z; };
+        const aboveTiers = (el, ps) => {
+          let root = el; while (root && !root.contains(tiers[0])) root = root.parentElement;
+          const za = zUnder(el, ps, root), zt = zUnder(tiers[0], null, root);
+          if (za !== zt) return za > zt;
+          return root === el ? ps === '::after' : !!(tiers[0].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+        };
+        const outer = [];
+        for (let a = mk.parentElement; a && a !== document.documentElement; a = a.parentElement) outer.push(a);
+        [...outer, mk, ...mk.querySelectorAll('*')].forEach(e => {
+          if (e.closest('.row')) return;
+          const tierSelf = tiers.includes(e);
+          const inTier = !tierSelf && tiers.some(tr => tr.contains(e));
+          const parent = tiers.some(tr => e !== tr && e.contains(tr));
+          const outside = outer.includes(e);
+          const hr = e.getBoundingClientRect();
+          [null, '::before', '::after'].forEach(ps => {
+            if ((parent || tierSelf) && !ps) return;
+            const s = getComputedStyle(e, ps);
+            if (s.display === 'none' || (ps && s.content === 'none')) return;
+            if ((tierSelf || inTier) && !(+s.zIndex > rowZ)) return;
+            let x = hr.left, y = hr.top, w = hr.width, h = hr.height;
+            if (ps) {
+              if (!/absolute|fixed/.test(s.position)) return;
+              w = px(s.width); h = px(s.height);
+              x = s.left !== 'auto' ? hr.left + px(s.left) : hr.right - px(s.right) - w;
+              y = s.top !== 'auto' ? hr.top + px(s.top) : hr.bottom - px(s.bottom) - h;
+            }
+            if (!hit(x, y, w, h)) return;
+            /* 段の中で本の並びより上にあるものは、もともと手前。ほかは重なりの順で見る */
+            const above = tierSelf || inTier || aboveTiers(e, ps);
+            const paint = s.backgroundColor + ' ' + s.backgroundImage;
+            const tag = (e.className || e.tagName) + (ps || '') + ' ' + s.mixBlendMode;
+            if ((outside ? above : true) && (pale(paint) || LIGHTEN.test(s.mixBlendMode) || /komorebi/.test(paint))) {
+              over.push(tag); return;
+            }
+            /* 名前や色を変えて戻っても見つかるように。段より手前に描く絵の層（url）と、
+               半透明にした層は、どれも段に重ねない（9/21 の光の斑は、絵を .55 の半透明で重ねていた）。
+               左上の植物だけは、いちばん上の段の上の端（本の上の空き）に少しかかってよい */
+            if (!above) return;
+            const bg = s.backgroundImage !== 'none' || rgba(s.backgroundColor).a > 0;
+            if (!((+s.opacity < 1 && bg) || /url\(/.test(s.backgroundImage))) return;
+            const dip = Math.max(...boxes.map(q => Math.min(x + w, q.r) - Math.max(x, q.l) >= 2 ? Math.min(y + h, q.b) - Math.max(y, q.t) : 0));
+            if (!ps && e.classList.contains('case__leaves') && dip <= 10) return;
+            over.push(tag + ` opacity ${s.opacity}` + (/url\(/.test(s.backgroundImage) ? ' 絵' : ''));
+          });
+        });
+        /* 日差しの層。どれも色覆い焼きで、その面の木にだけ混ぜる */
+        const deck = c.querySelector('.deck'), dr = deck.getBoundingClientRect();
+        const lip = c.querySelector('.deck__lip').getBoundingClientRect();
+        const lt = c.querySelector('.case__light'), ls = getComputedStyle(lt), lr = lt.getBoundingClientRect();
+        const fs = getComputedStyle(c.querySelector('.case__floor'), '::after');
+        const cs = getComputedStyle(c.querySelector('.case__crown'), '::after');
+        const post = getComputedStyle(c, '::before');
+        const sheet = [...document.styleSheets].map(ss => { try { return [...ss.cssRules].map(r => r.cssText).join('\n'); } catch (e) { return ''; } }).join('\n');
+        /* 寝かせた本の影。本の右（日の当たらない側）へ、濃い影が落ちる */
+        const fl = [...deck.querySelectorAll('.flat')].filter(e => getComputedStyle(e).display !== 'none');
+        const cast = fl.map(e => top(getComputedStyle(e).boxShadow).some(sh => {
+          const col = rgba(sh.match(/rgba?\([^)]*\)/)[0]);
+          const len = sh.replace(/rgba?\([^)]*\)/, '').trim().split(/\s+/).map(px);
+          return !/inset/.test(sh) && len[0] > 2 && len[0] > Math.abs(len[1]) && col.a >= 0.5 && lum(col) < 60;
+        }));
+        /* 影の濃さは、窓に近い左の本ほど濃い（右へ行くほど同じか薄い） */
+        const alphas = fl.map(e => { const sh = top(getComputedStyle(e).boxShadow).filter(s => !/inset/.test(s)).pop();
+          return +rgba(sh.match(/rgba?\([^)]*\)/)[0]).a.toFixed(2); });
+        /* 光を重ねる面の下には暗い木の色を敷く。木の絵が届く前に、光の地図だけが
+           灰色の膜になって出ないように（白いモヤと同じ見え方になる） */
+        const under = [[deck, '::before'], [c.querySelector('.case__floor'), null], [c.querySelector('.case__crown'), null],
+          [c, '::before'], [c.querySelector('.deck__lip'), null], [c.querySelector('.case__base'), null]]
+          .map(([e, ps]) => rgba(getComputedStyle(e, ps).backgroundColor));
+        out.markets.push({
+          over,
+          blend: [ls.mixBlendMode, fs.mixBlendMode, cs.mixBlendMode],
+          maps: /sunlight-deck/.test(ls.backgroundImage) && /sunlight-floor/.test(fs.backgroundImage) &&
+                /sunlight-crown/.test(cs.backgroundImage) && /sunlight-post/.test(post.backgroundImage),
+          postDodge: /color-dodge/.test(post.backgroundBlendMode),
+          lightZ: +ls.zIndex, surfaceZ: +getComputedStyle(deck, '::before').zIndex, flatZ: +getComputedStyle(c.querySelector('.deck__row')).zIndex,
+          /* 日だまりの層は平台の天面の上だけ（段にも縁の下にもかからない） */
+          lightIn: lr.top >= dr.top + px(getComputedStyle(deck, '::before').top) - 1 && lr.bottom <= lip.top + 1 && lr.height > 20,
+          cast: cast.every(Boolean) && cast.length > 0,
+          alphas,
+          castGraded: alphas.every((a, j) => j === 0 || a <= alphas[j - 1]) && (alphas.length < 2 || alphas[0] > alphas[alphas.length - 1]),
+          under: under.every(col => col.a === 1 && lum(col) < 90),
+          sheetKomo: /komorebi/.test(sheet),
+        });
+      });
+      return out;
+    });
+    m.markets.forEach((k, i) => {
+      const n = `${vp.n} 売り場${i + 1}`;
+      t(k.over.length === 0, `${n}: 段の手前に明るい半透明の層や光の層を重ねない（白いモヤ）${k.over.length ? ' — ' + k.over.join(' / ') : ''}`);
+      t(k.blend.every(v => v === 'color-dodge') && k.maps && k.postDodge,
+        `${n}: 日差しは光の地図を色覆い焼きで木に重ねる（明るい膜を重ねない） (${k.blend.join('・')})`);
+      t(k.lightIn && k.lightZ >= k.surfaceZ && k.lightZ < k.flatZ,
+        `${n}: 平台の日だまりは天面の上だけに置き、本の下になる (z ${k.surfaceZ}/${k.lightZ}/${k.flatZ})`);
+      t(k.cast, `${n}: 寝かせた本は、どれも右へ影を落とす`);
+      t(k.castGraded, `${n}: 本の影は窓に近い左の本ほど濃い (${k.alphas.join('・')})`);
+      t(k.under, `${n}: 光を重ねる面の下に暗い木の色を敷く（木の絵が届く前に、光の地図が灰色の膜で出ない）`);
+      t(!k.sheetKomo, `${n}: スタイルに以前の光の斑（komorebi）が無い`);
+    });
+
+    /* --- 画素で見る。日差しの層を点けたときと消したときの差 --- */
+    /* 上の帯の下に来るように送る。帯は固定で、送ったあとに地が敷かれる */
+    await p.evaluate(() => {
+      const deck = document.querySelector('.market .case .deck');
+      const bar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+      window.scrollTo(0, deck.getBoundingClientRect().top + window.scrollY - bar - 12);
+    });
+    await p.waitForTimeout(250);
+    const g = await p.evaluate(() => {
+      const c = document.querySelector('.market .case');
+      const deck = c.querySelector('.deck');
+      return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
+        const dr = R(deck), wall = parseFloat(getComputedStyle(deck, '::before').top) || 0;
+        res({ W: window.innerWidth, deck: dr, surf: dr.t + wall, floor: R(c.querySelector('.case__floor')),
+              flats: [...deck.querySelectorAll('.flat')].filter(e => getComputedStyle(e).display !== 'none').map(R) });
+      })));
+    });
+    const W = g.W, clip = { x: 0, y: g.surf, width: W, height: Math.min(vp.h - g.surf, g.floor.b - g.surf) };
+    const on = await lumaOf(p, clip);
+    const off1 = await p.addStyleTag({ content: LIGHT_OFF });
+    await p.waitForTimeout(80);
+    const off = await lumaOf(p, clip);
+    await off1.evaluate(e => e.remove());
+    await p.waitForTimeout(80);
+    const lift = { a: on.a.map((v, i) => v - off.a[i]), w: on.w, h: on.h, x: on.x, y: on.y };
+    /* 本の上（表紙）は除く。本は日だまりより上に描くので、もともと差は出ない */
+    const onBook = (x, y) => g.flats.some(f => x >= f.l - 1 && x <= f.r + 1 && y >= f.t - 1 && y <= f.b + 1);
+    const fy0 = g.floor.t + 2, fy1 = g.floor.t + g.floor.h * .78;
+    const floorL = meanIn(lift, 0, fy0, Math.max(40, W * .1), fy1), floorR = meanIn(lift, W * .6, fy0, W, fy1);
+    t(floorL >= 8 && floorR <= 1,
+      `${vp.n}: 床は左下にだけ日の筋が落ちる（明るさの上がり 左 ${floorL.toFixed(1)} / 右 ${floorR.toFixed(1)}）`);
+    /* 筋は隅に詰まらず、幅の1割強まで斜めに伸びる（広い画面でも見える）。中ほどには届かない */
+    const floorM = meanIn(lift, W * .08, fy0, W * .14, fy1), floorC = meanIn(lift, W * .25, fy0, W * .6, fy1);
+    t(floorM >= 12 && floorC <= 1,
+      `${vp.n}: 床の日の筋は幅の1割強まで伸び、中ほどには届かない（明るさの上がり ${floorM.toFixed(1)} / ${floorC.toFixed(1)}）`);
+    const dy0 = g.surf + 2, dy1 = g.deck.b - 1;
+    const deckL = meanIn(lift, 0, dy0, W * .2, dy1, onBook), deckR = meanIn(lift, W * .7, dy0, W, dy1, onBook);
+    t(deckL >= 10 && deckR <= 1,
+      `${vp.n}: 平台の天面は左に日だまり、右には届かない（明るさの上がり 左 ${deckL.toFixed(1)} / 右 ${deckR.toFixed(1)}）`);
+    /* 手前の帯（本の手前の天面）。左の端が明るく、右ほど暗い */
+    const fb = Math.max(...g.flats.map(f => f.b)) + 3;
+    const stripL = meanIn(on, 0, fb, W * .15, dy1), stripR = meanIn(on, W * .85, fb, W, dy1);
+    t(stripL >= stripR * 1.35,
+      `${vp.n}: 平台の天面は左が明るく、右ほど落ち着く（本の手前 左 ${stripL.toFixed(0)} / 右 ${stripR.toFixed(0)}）`);
+    /* 日の当たる1冊目の本。右のきわは影、左のきわは日なた */
+    const f0 = g.flats[0], sy0 = f0.t + f0.h * .35, sy1 = f0.t + f0.h * .85;
+    const shR = meanIn(on, f0.r + 1, sy0, f0.r + 5, sy1), shL = meanIn(on, f0.l - 5, sy0, f0.l - 1, sy1);
+    t(shR <= shL * .75, `${vp.n}: 日なたの本は右へ影を落とす（本の右 ${shR.toFixed(0)} / 左 ${shL.toFixed(0)}）`);
+    /* 日の当たらない右の天面は、参考画像のとおり落ち着いた暗さ（明るさ 70〜80）。沈めすぎない */
+    t(stripR >= 55 && stripR <= 100, `${vp.n}: 日の当たらない右の天面は、沈めすぎない（本の手前 右 ${stripR.toFixed(0)}）`);
+    /* 本の右のきわの影。参考画像では明るさ 35〜45（日なたの1冊目は 50 前後）。
+       濃すぎて穴のように見えず、消えもしない */
+    const edges = g.flats.map((f, j) => {
+      const nx = j + 1 < g.flats.length ? g.flats[j + 1].l : W;
+      return nx - f.r < 7 ? null : meanIn(on, f.r + 1, f.t + f.h * .35, f.r + 5, f.t + f.h * .85);
+    }).filter(v => v !== null);
+    t(edges.length > 0 && edges.every(v => v >= 25 && v <= 72),
+      `${vp.n}: 本の右のきわの影は濃すぎず、消えもしない（${edges.map(v => v.toFixed(0)).join('・')}）`);
+
+    /* 左の柱の足もと。平台に落ちる日が柱の下のほうにも当たり、日の当たらない右の柱より明るい
+       （参考画像で左 121〜146、右 69〜72） */
+    await p.evaluate(() => {
+      const deck = document.querySelector('.market .case .deck');
+      const surf = deck.getBoundingClientRect().top + (parseFloat(getComputedStyle(deck, '::before').top) || 0);
+      window.scrollTo(0, surf + window.scrollY - window.innerHeight * .6);
+    });
+    await p.waitForTimeout(250);
+    const pf = await p.evaluate(() => {
+      const c = document.querySelector('.market .case'), deck = c.querySelector('.deck');
+      return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cr = c.getBoundingClientRect();
+        res({ surf: deck.getBoundingClientRect().top + (parseFloat(getComputedStyle(deck, '::before').top) || 0),
+              pw: parseFloat(getComputedStyle(c, '::before').width), l: cr.left, r: cr.right });
+      })));
+    });
+    const foot = await lumaOf(p, { x: 0, y: pf.surf - 50, width: W, height: 50 });
+    const postL = meanIn(foot, pf.l, pf.surf - 50, pf.l + pf.pw * .6, pf.surf);
+    const postR = meanIn(foot, pf.r - pf.pw * .6, pf.surf - 50, pf.r, pf.surf);
+    t(postL >= postR * 1.4 && postL <= 160,
+      `${vp.n}: 左の柱の足もとは平台からの日を受け、右の柱より明るい（左 ${postL.toFixed(0)} / 右 ${postR.toFixed(0)}）`);
+
+    /* 段の中（背表紙・背板）は、日差しの層を点けても消しても同じ */
+    await p.evaluate(() => {
+      const tr = [...document.querySelectorAll('.market .case .tier')].pop();
+      const bar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+      window.scrollTo(0, tr.getBoundingClientRect().top + window.scrollY - bar - 12);
+    });
+    await p.waitForTimeout(250);
+    const tb = await p.evaluate(() => {
+      const tr = [...document.querySelectorAll('.market .case .tier')].pop();
+      return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const r = tr.getBoundingClientRect(), rr = tr.querySelector('.row').getBoundingClientRect();
+        res({ x: rr.left, y: r.top, width: rr.width, height: Math.min(r.height, window.innerHeight - r.top) });
+      })));
+    });
+    const tOn = await lumaOf(p, tb);
+    const off2 = await p.addStyleTag({ content: LIGHT_OFF });
+    await p.waitForTimeout(80);
+    const tOff = await lumaOf(p, tb);
+    await off2.evaluate(e => e.remove());
+    /* 色覆い焼きの層があると、本棚は一枚にまとめて描き直され、文字の縁などがわずかに
+       揺れる（上下どちらにも ±10 ほど、ごく一部）。明るさが上がる画素の数と平均で見る */
+    let up = 0, sum = 0;
+    tOn.a.forEach((v, i) => { const d = v - tOff.a[i]; sum += d; if (d > 6) up++; });
+    const tMean = sum / tOn.a.length, tUp = up / tOn.a.length;
+    t(tMean <= 0.5 && tUp < 0.005,
+      `${vp.n}: 背表紙と段の背板には日差しを置かない（平均の差 ${tMean.toFixed(2)}、明るくなった画素 ${(tUp * 100).toFixed(2)}%）`);
+    await p.close();
+  }
+}
+
 /* ---- 1b. 指でなぞって選ぶ -------------------------------------- */
 async function picking(b) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
@@ -1063,6 +1370,7 @@ async function widths(b) {
 (async () => {
   const b = await chromium.launch();
   await shelf(b);
+  await light(b);
   await picking(b);
   await screens(b);
   await pages(b);

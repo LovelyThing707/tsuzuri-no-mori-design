@@ -210,6 +210,9 @@ html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
   -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 14%,#000 84%,transparent 100%);
   mask-image:linear-gradient(180deg,transparent 0%,#000 14%,#000 84%,transparent 100%);
   opacity:.92;
+  /* 絵の小さな葉は白っぽい灰緑で、暗い壁の上では淡い霞のように浮く。
+     暗く、緑を深くして、壁ぎわの陰を這う葉として見せる */
+  filter:brightness(.7) saturate(1.6);
 }
 /* 右側は左右反転。苔が画面の右の縁から入ってくる */
 .market::after, .aisle::after, .foot::after{ right:0; transform:scaleX(-1); }
