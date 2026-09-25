@@ -7,7 +7,10 @@ import gen_pages as G
 
 def market(idx, name, tiers, lying, note):
     """本棚は1台。背表紙の段（売り場ごとに1〜2段）の下に、平台がせり出す。
-    左右の柱は最後の棚板まで通り、平台の下は脚で支えて、本棚は床に立つ。"""
+    左右の柱は最後の棚板の下も続き、平台の天面の上に立つ。
+    平台の下は脚で支えて、本棚は床に立つ。
+    最後の棚板は目の高さより下にあり、見え方が中の棚板と違う（上の面が見える）。
+    そのため印（case__board--last）を付けて分ける。"""
     w = D.sumw(lying)
     def tier(books):
         return """        <div class="tier">
@@ -30,7 +33,7 @@ def market(idx, name, tiers, lying, note):
       <div class="case" style="--tiers:%d" aria-hidden="true">
         <div class="case__crown"></div>
 %s
-        <div class="case__board"></div>
+        <div class="case__board case__board--last"></div>
         <div class="deck">
           <ul class="deck__row" style="--sumw3:%d;--sumw4:%d;--sumw6:%d;--sumw8:%d">
 %s
