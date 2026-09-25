@@ -23,16 +23,22 @@
 
 .market{
   position:relative; padding-top:var(--bar-h);
+  /* 左上にかかる植物の幅。天板と看板の壁の日だまり、葉の影もこの幅で置く */
+  --lw: clamp(78px, 21vw, 180px);
   /* 看板のまわりの壁。参考画像では本棚の上は暗い木の壁で、看板の文字が浮く。
      店内の壁（layout.css の .interior）の上に、売り場のぶんだけ影を重ねる。
-     天板のすぐ上の壁だけは、窓の光がやわらかく当たる。
-     天板が光を受けた厚い板に見えるのは、まわりの壁にも同じ光があるから */
+     天板のすぐ上、植物の右には窓の日が当たる。日だまりは明るい色を重ねず、
+     影を薄くして壁の木そのものを見せる（色を重ねると、白くかすんで見える）。
+     植物の真下と右には葉の影が落ち、そのすき間だけ日が抜ける。 */
   background:
-    radial-gradient(ellipse 38vw calc(var(--head-h) * .8) at 27% calc(var(--bar-h) + var(--head-h)),
-      rgba(255,196,120,.12) 0%, rgba(255,196,120,.04) 55%, rgba(255,196,120,0) 100%),
+    url("../assets/images/leaf-shadow.webp")
+      calc(var(--lw) * .45) calc(var(--bar-h) + var(--head-h) * .45) / var(--lw) calc(var(--head-h) * .55) no-repeat,
+    radial-gradient(calc(var(--lw) * 1.6) calc(var(--head-h) * .95) at calc(var(--lw) * 1.75) 100%,
+      rgba(16,10,5,0) 0%, rgba(16,10,5,.12) 50%, rgba(16,10,5,.28) 100%)
+      left top / 100% calc(var(--bar-h) + var(--head-h)) no-repeat,
     linear-gradient(180deg,
-      rgba(16,10,5,.46) 0, rgba(16,10,5,.44) calc(var(--bar-h) + var(--head-h) * .6),
-      rgba(16,10,5,.26) calc(var(--bar-h) + var(--head-h)),
+      rgba(16,10,5,.25) 0, rgba(16,10,5,.22) calc(var(--bar-h) + var(--head-h) * .6),
+      rgba(16,10,5,0) calc(var(--bar-h) + var(--head-h)),
       rgba(16,10,5,.34) calc(var(--bar-h) + var(--head-h) + 1px), rgba(16,10,5,.34) 100%);
 }
 /* 看板は本棚の内側の左右の端にそろえる（広い画面で、看板だけ中央に浮かないように） */
@@ -85,6 +91,9 @@
   --tiers: 2;
   --pl: calc(var(--post-w) + env(safe-area-inset-left, 0px));
   --pr: calc(var(--post-w) + env(safe-area-inset-right, 0px));
+  /* 平台の天面に窓の日が届く幅（「光」の .case__light と、その先の日陰 .deck::before）。
+     スマートフォンでは幅の6割ほど、広い画面では左の3分の1ほど */
+  --sun-reach: max(calc(var(--deck-h) * 2.05), min(34%, 720px));
 }
 .case__crown{ flex:0 0 var(--crown); }
 .tier       { flex:0 0 var(--tier-h); }
@@ -129,9 +138,20 @@
     linear-gradient(0deg, rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,.3) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot) + 14px)),
     /* 内側の角。窓に背を向けて、陰に回り込む溝 */
     linear-gradient(270deg, rgba(10,5,2,.5) 0, rgba(10,5,2,.3) 5%, rgba(10,5,2,.1) 10%, rgba(10,5,2,0) 14%),
+    /* 足もとの日。平台に落ちる日が柱の下のほうにも当たり、平台に近いほど明るい。
+       上半分には当てない（黒の色覆い焼きは木の色を変えない） */
+    linear-gradient(180deg, rgb(0,0,0) 45%, var(--sun-post) calc(100% - var(--deck-h) + var(--post-foot))),
+    /* 窓の日を受ける柱。葉ごしの日が、縦にゆるく明暗の帯になる（光の地図。1000mm で繰り返す） */
+    url("../assets/images/sunlight-post.webp"),
     url("../assets/images/post-left.webp");
   /* 絵の右の端（内側の角の光る線）の5列は、柱の外に出す */
-  background-size:100% 100%, 100% 100%, calc(100% * 58 / 53) 100%;
+  background-size:100% 100%, 100% 100%, 100% 100%, 100% calc(var(--mm) * 1000), calc(100% * 58 / 53) 100%;
+  background-repeat:no-repeat, no-repeat, no-repeat, repeat-y, no-repeat;
+  background-blend-mode:normal, normal, color-dodge, color-dodge, normal;
+  /* 木の絵が届く前でも、光の地図が灰色のまま出ないように、下に暗い木の色を敷く */
+  background-color:var(--wood-dark);
+  /* 明るい帯を足したぶん、柱全体の明るさは以前（1.5倍）と同じくらいに戻す */
+  filter:brightness(1.22) saturate(1.05);
 }
 .case::after{
   right:env(safe-area-inset-right, 0px);
@@ -159,11 +179,10 @@
       rgba(20,11,5,.62) calc(var(--pl) + 2px), rgba(20,11,5,0) calc(var(--pl) + 2px),
       rgba(20,11,5,0) calc(100% - var(--pr) - 2px), rgba(20,11,5,.62) calc(100% - var(--pr) - 2px),
       rgba(20,11,5,.62) calc(100% - var(--pr) + 1px), rgba(20,11,5,0) calc(100% - var(--pr) + 1px)),
-    /* 窓の光のたまり。左寄りに一つだけ */
-    radial-gradient(ellipse 22vw 180% at 27% 30%, rgba(255,214,150,.16), rgba(255,214,150,0) 100%),
     linear-gradient(90deg, rgba(10,5,2,0) 45%, rgba(10,5,2,.1) 100%),
-    /* 板は1枚。画面が広くても同じ木目を繰り返さない */
-    url("../assets/images/case-crown-front.webp") left center / max(2062px, 100%) 100% no-repeat;
+    /* 板は1枚。画面が広くても同じ木目を繰り返さない。
+       下の色は、木の絵が届く前に日だまり（.case__crown::after）が灰色で出ないように */
+    url("../assets/images/case-crown-front.webp") left center / max(2062px, 100%) 100% no-repeat var(--wood-dark);
 }
 
 /* --- 段 ------------------------------------------------------
@@ -340,7 +359,8 @@
 }
 /* 天面。上から見下ろす面なので、奥（背板との入隅）は影、手前ほど光を受ける。
    入隅に線は引かない。明るさの変わり目と木目の向きで、角が読める。
-   左上の窓からの光が、左手前に日だまりをつくる。
+   左上の窓からの日は、左手前に日だまりをつくる（「光」の .case__light）。
+   日の当たらない右は、参考画像のとおり落ち着いた暗さに沈める。
    柱の足もとは切り欠いて、柱が天面の上に立つところを見せる。
    切り欠きは柱の幅だけ。切り欠きのある端末で柱が内側に入っても、
    柱の外の天面は画面の端まで平らに続く */
@@ -365,15 +385,16 @@
        影の芯は、切り欠きの斜めの縁が背板に届くところ（見えている隅）に置く */
     radial-gradient(calc(var(--side) * .6 + 22px) calc(var(--post-foot) + 12px) at calc(var(--pl) + var(--side)) 0, rgba(10,6,2,.5), rgba(10,6,2,0)),
     radial-gradient(calc(var(--side) * .6 + 22px) calc(var(--post-foot) + 12px) at calc(100% - var(--pr) - var(--side)) 0, rgba(10,6,2,.5), rgba(10,6,2,0)),
-    radial-gradient(55% 80% at 14% 84%,
-      rgba(255,192,112,.24) 0%, rgba(255,192,112,.09) 48%, rgba(255,192,112,0) 80%),
-    /* 奥は背板の陰で少し暗い。入隅のすぐ手前を、背板の下の端より暗くはしない
-       （暗い帯が入隅の溝に見える） */
-    linear-gradient(180deg, rgba(10,6,2,.05) 10%, rgba(10,6,2,.02) 30%, rgba(10,6,2,0) 45%),
+    /* 奥は上の棚板の陰で暗い（日を受ける手前との差で、日の当たり方が読める）。
+       入隅のすぐ手前を、背板の下の端より暗くはしない（暗い帯が入隅の溝に見える） */
+    linear-gradient(180deg, rgba(10,6,2,.08) 0%, rgba(10,6,2,.15) 14%, rgba(10,6,2,.07) 32%, rgba(10,6,2,0) 52%),
+    /* 窓の日が届かない中ほどから右は、日陰のまま少し沈める（参考画像で明るさ 70〜80） */
+    linear-gradient(90deg, rgba(10,6,2,0) calc(var(--sun-reach) * .45), rgba(10,6,2,.14) var(--sun-reach)),
     linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.18) 100%),
     /* 天板は1枚。画面が広くても同じ木目を繰り返さない。
-       絵の奥の端にある暗い帯は、背板の下に隠す */
-    url("../assets/images/deck-top.webp") left bottom / 100% 121% no-repeat;
+       絵の奥の端にある暗い帯は、背板の下に隠す。
+       下の色は、木の絵が届く前に日だまり（.case__light）が灰色で出ないように */
+    url("../assets/images/deck-top.webp") left bottom / 100% 121% no-repeat var(--wood-dark);
   filter:brightness(1.02);
 }
 /* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
@@ -409,16 +430,18 @@
 }
 
 /* 平台の手前の縁。厚い板の丸い角と前の面。柱より手前にせり出しているので、
-   柱の上にかぶる。丸い角は光を受け、前の面は天面より暗く、下ほど落ちる */
+   柱の上にかぶる。丸い角は光を受け、前の面は天面より暗く、下ほど落ちる。
+   窓の日は丸い角の左の三分の一にだけ当たる（色覆い焼きで木を明るく金色に）。
+   前の面は天面の縁の陰になり、日は届かない。 */
 .deck__lip{
   position:relative; z-index:5;
   background:
-    linear-gradient(180deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.3) 100%),
-    /* 左の窓の光 */
-    linear-gradient(90deg, rgba(255,196,120,.2) 0%, rgba(255,196,120,.07) 28%, rgba(255,196,120,0) 50%),
-    linear-gradient(90deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.12) 100%),
+    linear-gradient(180deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.34) 100%),
+    radial-gradient(38% 36% at 0% 20%, var(--sun-edge) 0%, rgb(0,0,0) 100%) left top / 100% 100% no-repeat,
+    linear-gradient(90deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.16) 100%),
     /* 縁は1枚の板。画面が広くても同じ木目を繰り返さない */
-    url("../assets/images/deck-lip-edge.webp") left top / 100% 100% no-repeat;
+    url("../assets/images/deck-lip-edge.webp") left top / 100% 100% no-repeat var(--wood-dark);
+  background-blend-mode:normal, color-dodge, normal, normal;
   box-shadow:0 1px 0 rgba(0,0,0,.6);
 }
 
@@ -441,8 +464,8 @@
     /* 右の脚の内側の角は、上の柱と同じく窓の光を受ける */
     linear-gradient(90deg, rgba(255,226,180,.2) 0, rgba(255,226,180,.1) 1.5px, rgba(255,226,180,0) 4px)
       right env(safe-area-inset-right, 0px) top 0 / var(--post-w) 100% no-repeat,
-    /* 左の脚は窓に近く、明るい */
-    linear-gradient(rgba(255,200,130,.16), rgba(255,200,130,.16))
+    /* 左の脚は窓に近く、日を受けて明るい。明るい色は重ねず、色覆い焼きで木を明るく金色にする */
+    linear-gradient(var(--sun-leg), var(--sun-leg))
       left env(safe-area-inset-left, 0px) top 0 / var(--post-w) 100% no-repeat,
     /* 内側の角は、上の柱と同じく陰に回り込む溝 */
     linear-gradient(270deg, rgba(10,5,2,.5) 0, rgba(10,5,2,.3) 5%, rgba(10,5,2,.1) 10%, rgba(10,5,2,0) 14%)
@@ -459,6 +482,10 @@
     linear-gradient(180deg, rgba(14,8,4,.93) 0, rgba(14,8,4,.86) 20%, rgba(14,8,4,.84) 100%)
       left top / 100% calc(var(--base-back) + 2px) no-repeat,
     url("../assets/images/case-back-panel.webp") repeat-x left top / auto calc(var(--base-back) + 2px);
+  /* 4番目の層（左の脚の日）だけ色覆い焼き。ほかはふつうに重ねる */
+  background-blend-mode:normal, normal, normal, color-dodge, normal, normal, normal, normal, normal, normal, normal;
+  /* 木の絵が届く前に、左の脚の日だけが灰色の板で出ないように、下に暗い木の色を敷く */
+  background-color:var(--wood-dark);
 }
 /* 外側の脚の内側の面。奥の縁は背板と床の境まで、下の縁は奥から脚の足もとへ斜めに下りる。
    木目は縦に通る。前の小口と同じ縮尺で貼り、上下に押しつぶさない。
@@ -542,19 +569,14 @@
 }
 
 /* 床。平台の下の床と同じ板を、同じ大きさ・同じ位置で続ける（つなぎ目を出さない）。
-   接地の影は脚の足もとだけ。左に日だまり */
+   接地の影は脚の足もとだけ。左下に日の筋が落ちる（「光」の .case__floor::after） */
 .case__floor{
   position:relative; z-index:0;
+  /* 下の色は、木の絵が届く前に日の筋（::after）が灰色で出ないように */
   background:url("../assets/images/floor-boards.webp")
-    center calc(var(--base-back) - var(--base-h)) / 100% calc(var(--base-h) - var(--base-back) + var(--floor-h)) no-repeat;
+    center calc(var(--base-back) - var(--base-h)) / 100% calc(var(--base-h) - var(--base-back) + var(--floor-h)) no-repeat var(--wood-dark);
   -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
           mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
-}
-/* 日だまりは床の上の縁で消えるようにして、平台の下の床と段差を作らない */
-.case__floor::after{
-  content:"";
-  position:absolute; inset:0;
-  background:radial-gradient(46% 100% at 16% 100%, rgba(255,192,112,.22), rgba(255,192,112,0) 75%);
 }
 
 /* --- 背表紙 --------------------------------------------------
@@ -712,9 +734,19 @@
   /* 遠近は1冊ごとに持たせる。段でひとつを共有すると、
      真ん中から離れた本ほど小口が片側だけ厚い楔形に写る */
   transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot));
-  box-shadow:0 3px 4px rgba(0,0,0,.45);
+  /* 本は天面と同じ面で寝かせてあるので、影もその面に落ちる（遠近も天面と同じにかかる）。
+     窓は左の奥の高いところ。本の右へ、少し手前寄りに、本の厚みに応じた長さの影が落ちる。
+     本のきわがいちばん濃く、離れるほどなだらかに天面の明るさに戻る。
+     影の濃さ（--cast）は、窓に近い左の本ほど濃い（下の :nth-child） */
+  --cast: .72;
+  box-shadow:
+    0 3px 4px rgba(0,0,0,.45),
+    calc(var(--fe) * .92) calc(var(--fe) * .34) var(--fe) calc(var(--fe) * -.06) rgba(14,7,3,var(--cast));
   transition:transform .34s var(--ease);
 }
+.deck__row .flat:nth-child(2){ --cast:.66; }
+.deck__row .flat:nth-child(n+3){ --cast:.6; }
+.deck__row .flat:nth-child(n+5){ --cast:.55; }
 .flat > img{
   position:absolute; inset:0;
   width:100%; height:100%;
@@ -751,11 +783,11 @@
   background:linear-gradient(90deg,#a4977e 0%,#ddd3bb 32%,#f2ebdc 70%,#e3dac3 100%);
   box-shadow:inset 2px 0 4px -2px rgba(0,0,0,.45);
 }
-/* 天板に落ちる影。本の足もと（接地線）から手前へ広げる */
+/* 天板に落ちる影。本の足もと（接地線）から手前へ広げる。日は左から来るので右へ寄せる */
 .flat::before{
   content:"";
   position:absolute; z-index:-1;
-  left:-14%; right:-14%; top:100%;
+  left:-4%; right:-24%; top:100%;
   height:calc(var(--fw) * .34);
   pointer-events:none;
   background:
@@ -781,21 +813,101 @@
 }
 
 /* --- 光 ------------------------------------------------------
-   参考画像の光は、左上から入る温かい光。天板と棚の左上が明るく、
-   右下へ向かってなだらかに落ちる。左上の角には植物がかかる。
-   光の斑や葉の影は置かない（白いモヤに見えるため外した）。 */
+   参考画像の光は、窓の左上から差す低い日差しがひとつ。植物のかかる左上の角から
+   入り、日が当たるところにだけ現れる。
+     看板の壁と天板 … 植物の右に日だまり。植物の真下は葉の影が落ち、すき間だけ日が抜ける
+     左の柱         … 縦にゆるく明暗の帯。平台に近い足もとほど明るい（柱の background）
+     左の脚         … 平台の下の左の脚も日を受けて少し明るい（.case__base）
+     平台の天面     … 左の端と手前がいちばん明るく、右下がりの光と影の帯。右へ消える。
+                      日の届かない中ほどから右は日陰（.deck::before）。
+                      寝かせた本は、どれも右へ影を落とす（.flat の影。窓に近い本ほど濃い）
+     平台の縁       … 丸い角の左の三分の一だけ（.deck__lip）
+     床             … 左下に、右下がりの細長い日の筋が数本。筋のあいだは日陰
+   背表紙、段の背板、平台の下の暗がり、右側には光を置かない（参考画像でも落ち着いた暗さ）。
+
+   光は「光の地図」（tools/gen_light.py が描く白黒の絵。白いほど日が強い）に日の色
+   （base.css の --sun-*）を掛け、色覆い焼き（color-dodge）で当たる面の木に重ねる。
+   覆い焼きは木の色に掛け算で効くので、木目を残したまま明るく金色になり、黒は黒のまま。
+   明るい色を半透明で重ねると、木が白くかすんで霧のように見えた（白いモヤ）。
+   光の層は当たる面の範囲にだけ置き、その面の木とだけ混ぜる。
+   段の中や本の手前には、何も重ねない。
+   光の下の面には暗い木の色（--wood-dark）を敷いておく。木の絵が届く前に、
+   光の地図だけが灰色の膜になって出ないように。
+   看板の壁だけは、影を薄くして日だまりにする（.market）。壁の木は売り場の外の
+   店内の壁（.interior）にあり、売り場が現れる途中は売り場の中だけで混ざるため。
+   床の筋の太さと間隔は、狭い画面では床の奥行き、広い画面では画面の幅に合わせる。
+   平台の帯は、窓から離れるほど間を広く、明暗をゆるくする。広い画面で細い筋や
+   同じ間隔の帯が並ぶと、日差しではなく縞模様に見える。
+   光は動かさない。 */
+
+/* 平台の天面の日だまり。天面（z:5）と縁のあとに描き、平台の本（z:6）より下に置く。
+   本の影は本が自分で落とすので、日だまりの上に影がのる。
+   帯の形は天面の奥行き（--deck-h）に合わせて縮尺し、形を崩さない。
+   どこまで日が届くかは .case の --sun-reach とマスクで決める。スマートフォンでは
+   幅の6割ほどで消え、広い画面では左の3分の1ほどで消える。
+   窓から遠いところでは帯がゆるみ、なだらかな日だまりになる（光の地図）。 */
 .case__light{
-  position:absolute; inset:0; z-index:6;
+  position:absolute; left:0; right:0; z-index:5;
+  bottom:calc(var(--lip) + var(--base-h) + var(--floor-h));
+  height:var(--deck-h);
   pointer-events:none;
   background:
-    radial-gradient(40% 12% at 0% 0%, rgba(255,206,140,.12) 0%, rgba(255,206,140,0) 80%);
+    linear-gradient(var(--sun-deck), var(--sun-deck)),
+    url("../assets/images/sunlight-deck.webp") left top / auto 100% no-repeat #000;
+  background-blend-mode:multiply, normal;
+  mix-blend-mode:color-dodge;
+  -webkit-mask-image:linear-gradient(90deg, #000 0, rgba(0,0,0,.9) calc(var(--sun-reach) * .55), rgba(0,0,0,.45) calc(var(--sun-reach) * .8), transparent var(--sun-reach));
+          mask-image:linear-gradient(90deg, #000 0, rgba(0,0,0,.9) calc(var(--sun-reach) * .55), rgba(0,0,0,.45) calc(var(--sun-reach) * .8), transparent var(--sun-reach));
+}
+/* 床の日の筋。地図の縮尺（--fs）は、スマートフォンでは床の奥行き（36mm）。
+   広い画面では画面の幅に合わせて大きくし、太い筋を広い間隔で数本だけ落とす
+   （床の奥行きのままだと、細い筋が隅に何本も詰まって縞模様に見える）。
+   筋が見えるのは左の2割ほど（--reach）。筋が床を斜めに横切れるよう、そのうち左の3割
+   （画面の幅の6%ほど）は弱めない。
+   奥の端（平台の陰から出たところ）はやわらかくぼかし、筋が線で切れないようにする。
+   床の下の端をぼかすマスク（.case__floor）は、筋にもそのままかかる */
+.case__floor::after{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  --fs: max(var(--floor-h), min(5.2vw, 100px));
+  --reach: 20vw;
+  background:
+    linear-gradient(var(--sun-floor), var(--sun-floor)),
+    url("../assets/images/sunlight-floor.webp") left top / auto var(--fs) no-repeat #000;
+  background-blend-mode:multiply, normal;
+  mix-blend-mode:color-dodge;
+  -webkit-mask-image:
+    linear-gradient(90deg, #000 0, #000 calc(var(--reach) * .3), rgba(0,0,0,.7) calc(var(--reach) * .65), transparent var(--reach)),
+    linear-gradient(180deg, transparent 0, #000 35%);
+  -webkit-mask-composite:source-in;
+          mask-image:
+    linear-gradient(90deg, #000 0, #000 calc(var(--reach) * .3), rgba(0,0,0,.7) calc(var(--reach) * .65), transparent var(--reach)),
+    linear-gradient(180deg, transparent 0, #000 35%);
+          mask-composite:intersect;
+}
+/* 天板の小口。植物の真下は葉の影が落ち、葉のすき間を抜けた日だけが小さく光る。
+   その右は葉にさえぎられない日だまりで、右へなだらかに消える。
+   地図の幅は植物の幅（--lw）に合わせる */
+.case__crown::after{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(var(--sun-crown), var(--sun-crown)),
+    url("../assets/images/sunlight-crown.webp") left top / calc(var(--lw) * 3.4) 100% no-repeat #000;
+  background-blend-mode:multiply, normal;
+  mix-blend-mode:color-dodge;
 }
 /* 左上にかかる植物。苔の絵のうち、葉がいちばん密なところを使う。
    ぼかしのマスクをかけると半透明の塊になり、白いモヤに見えた。
    葉の輪郭はそのまま使い、本の上端より下にはかけない
-   （A4判の本の上には段の高さの約7%の空きがある。その内側に収める）。 */
+   （A4判の本の上には段の高さの約7%の空きがある。その内側に収める）。
+   絵の小さな葉は白っぽい灰緑で、暗い壁の上では淡い霞に見える。
+   壁の苔（layout.css）と同じ考え方で、少し暗く、緑を濃くして葉として見せる。
+   植物は目の前にかかる主役なので、壁の苔より控えめに暗くする。
+   幅（--lw）は .market で決める */
 .case__leaves{
-  --lw: clamp(78px, 21vw, 180px);
   position:absolute; z-index:7;
   left:0; top:calc(var(--head-h) * -.5);
   width:var(--lw);
@@ -803,7 +915,7 @@
   background:url("../assets/images/wall-moss-edge.webp") no-repeat left calc(var(--lw) * -.7) / 100% auto;
   -webkit-mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
           mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
-  filter:drop-shadow(3px 6px 4px rgba(0,0,0,.6));
+  filter:brightness(.8) saturate(1.4) drop-shadow(3px 6px 4px rgba(0,0,0,.6));
   pointer-events:none;
 }
 
