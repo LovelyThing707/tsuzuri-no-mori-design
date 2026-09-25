@@ -6,6 +6,16 @@
    （國分様のご指摘「実際の書店で本棚の前にせり出した平置きの棚」
      「現状は上の本棚が宙にういているようにみえます」）
 
+   板にはどれも厚みがあり、面が二つ以上見える。板が薄く面が一つだけだと、
+   立体感がなく、細い木の棒を壁に平たく貼ったように見える。
+   板の厚み、段の奥の空間、箱の隅は、参考画像に合わせた。
+     柱   … 前の小口と、箱の内側へ奥まっていく側板の面
+     天板 … 前の小口と、下から見上げた裏（いちばん上の段の天井）
+     棚板 … 前の小口。中の棚板は裏が細く見え、最後の棚板は上の面がわずかに見える
+     平台 … 天面と、丸い角のついた縁。その下は脚で支えた抜けた空間
+   目の高さは1つめの売り場の下の段にある。光は左上の窓から入る。
+   箱の内側は、中央から見た遠近で描く（側板の面は、柱が中央から遠いほど広い）。
+
    部材は、以前の什器の絵から切り出したもの（tools/cut_fixture.py）。
    1枚の絵ではなく部材で組むのは、段の高さを本の大きさに合わせるため。
    本は画像に焼き込まず、1冊ずつ判型と厚みから描く（必須条件⑤）。
@@ -14,8 +24,16 @@
 .market{
   position:relative; padding-top:var(--bar-h);
   /* 看板のまわりの壁。参考画像では本棚の上は暗い木の壁で、看板の文字が浮く。
-     店内の壁（layout.css の .interior）の上に、売り場のぶんだけ影を重ねる */
-  background:linear-gradient(180deg, rgba(16,10,5,.46) 0%, rgba(16,10,5,.34) 100%);
+     店内の壁（layout.css の .interior）の上に、売り場のぶんだけ影を重ねる。
+     天板のすぐ上の壁だけは、窓の光がやわらかく当たる。
+     天板が光を受けた厚い板に見えるのは、まわりの壁にも同じ光があるから */
+  background:
+    radial-gradient(ellipse 38vw calc(var(--head-h) * .8) at 27% calc(var(--bar-h) + var(--head-h)),
+      rgba(255,196,120,.12) 0%, rgba(255,196,120,.04) 55%, rgba(255,196,120,0) 100%),
+    linear-gradient(180deg,
+      rgba(16,10,5,.46) 0, rgba(16,10,5,.44) calc(var(--bar-h) + var(--head-h) * .6),
+      rgba(16,10,5,.26) calc(var(--bar-h) + var(--head-h)),
+      rgba(16,10,5,.34) calc(var(--bar-h) + var(--head-h) + 1px), rgba(16,10,5,.34) 100%);
 }
 /* 看板は本棚の内側の左右の端にそろえる（広い画面で、看板だけ中央に浮かないように） */
 .market > .wrap{
@@ -57,12 +75,16 @@
 /* --- 本棚1台 -------------------------------------------------
    上から 天板／段／棚板（段の数だけ）／平台／平台の縁／台輪／床。
    段の数は売り場ごと（--tiers。gen_page.py が書き込む）。
-   棚は画面の幅いっぱいに1続き。 */
+   棚は画面の幅いっぱいに1続き。
+   --pl・--pr は左右の柱の内側の端。切り欠きのある端末では、柱が
+   画面の端から内側に入るので、柱にそろえるものはすべてこれを使う。 */
 .case{
   position:relative; z-index:1;
   width:100vw; margin-inline:calc(50% - 50vw);
   display:flex; flex-direction:column;
   --tiers: 2;
+  --pl: calc(var(--post-w) + env(safe-area-inset-left, 0px));
+  --pr: calc(var(--post-w) + env(safe-area-inset-right, 0px));
 }
 .case__crown{ flex:0 0 var(--crown); }
 .tier       { flex:0 0 var(--tier-h); }
@@ -71,9 +93,22 @@
 .deck__lip  { flex:0 0 var(--lip); }
 .case__base { flex:0 0 var(--base-h); }
 .case__floor{ flex:0 0 var(--floor-h); }
+/* 切り欠きのある端末を横に持つと、柱は画面の端から内側に入る。
+   本棚の板と背板は柱の外の面で止め、その外には部屋の壁を見せる。
+   板の端が柱の外へ突き出すと、1台の箱に見えなくなる。
+   平台は z-index を持たない（天面を柱より前に出すため）ので、切り抜かずに余白で止める */
+.case__crown, .tier, .case__board, .case__base{
+  -webkit-clip-path:inset(0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px));
+          clip-path:inset(0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px));
+}
 
-/* 左右の柱。天板の上端から、段・棚板を通って平台まで一本で通す。
-   平台の天面は柱より手前にせり出しているので、柱の下の端は天面に隠れる。 */
+/* 左右の柱（側板の前の小口）。天板の上端から、段・棚板を通って平台まで一本で通す。
+   柱は平台の天面の上に立つ。天面は柱より手前にせり出し、柱の下の端を隠す。
+   柱は側板と面一なので、横に影は落とさない（以前の黒い影は、柱が壁から
+   浮いた板に見える原因だった）。
+   柱の絵は内側の角に細く光る線がある。そのままでは描いた線に見えるので、
+   その数列は柱の外に出して使わず、角は光の向きに合わせて描く。
+   窓に背を向けた左の柱は陰に回り込む溝、窓に向いた右の柱は丸い角のやわらかな光。 */
 .case::before,
 .case::after{
   content:"";
@@ -89,48 +124,120 @@
 }
 .case::before{
   left:env(safe-area-inset-left, 0px);
-  background-image:url("../assets/images/post-left.webp");
-  box-shadow:5px 0 10px -5px rgba(0,0,0,.8);
+  background-image:
+    /* 平台に立つ足もと。天面に近いところは少し暗い */
+    linear-gradient(0deg, rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,.3) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot) + 14px)),
+    /* 内側の角。窓に背を向けて、陰に回り込む溝 */
+    linear-gradient(270deg, rgba(10,5,2,.5) 0, rgba(10,5,2,.3) 5%, rgba(10,5,2,.1) 10%, rgba(10,5,2,0) 14%),
+    url("../assets/images/post-left.webp");
+  /* 絵の右の端（内側の角の光る線）の5列は、柱の外に出す */
+  background-size:100% 100%, 100% 100%, calc(100% * 58 / 53) 100%;
 }
 .case::after{
   right:env(safe-area-inset-right, 0px);
-  background-image:url("../assets/images/post-right.webp");
-  box-shadow:-5px 0 10px -5px rgba(0,0,0,.8);
+  background-image:
+    linear-gradient(0deg, rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,.3) calc(var(--deck-h) - var(--post-foot)), rgba(12,7,3,0) calc(var(--deck-h) - var(--post-foot) + 14px)),
+    /* 内側の角。窓の光を受けて、丸い角がやわらかく光る */
+    linear-gradient(90deg, rgba(255,226,180,.2) 0, rgba(255,226,180,.1) 1.5px, rgba(255,226,180,0) 4px),
+    url("../assets/images/post-right.webp");
+  /* 絵の左の端（内側の角の光る線）の3列は、柱の外に出す */
+  background-size:100% 100%, 100% 100%, calc(100% * 58 / 55) 100%;
+  background-position:0 0, 0 0, right top;
   filter:brightness(1.36) saturate(1.05);   /* 窓から遠い右の柱は少し控えめ */
 }
 
-/* 天板 */
+/* 天板。柱のあいだに納めた厚い板。上の角が光を受け、下の角は裏へ回り込む。
+   影は落とさない。下には天板の裏（いちばん上の段の天井）が続く。 */
 .case__crown{
   position:relative; z-index:3;
   background:
-    linear-gradient(90deg, rgba(255,214,150,.08) 0%, rgba(255,214,150,0) 60%),
-    url("../assets/images/case-crown.webp") repeat-x left center / auto 100%;
-  filter:brightness(1.04);
-  box-shadow:0 4px 8px -2px rgba(0,0,0,.75), inset 0 -2px 0 rgba(0,0,0,.3);
+    /* 上の角 */
+    linear-gradient(180deg, rgba(255,228,180,.16) 0, rgba(255,228,180,.16) 1px, rgba(255,228,180,.06) 2px, rgba(255,228,180,0) 3px),
+    /* 柱との継ぎ目 */
+    linear-gradient(90deg,
+      rgba(20,11,5,0) calc(var(--pl) - 1px), rgba(20,11,5,.62) calc(var(--pl) - 1px),
+      rgba(20,11,5,.62) calc(var(--pl) + 2px), rgba(20,11,5,0) calc(var(--pl) + 2px),
+      rgba(20,11,5,0) calc(100% - var(--pr) - 2px), rgba(20,11,5,.62) calc(100% - var(--pr) - 2px),
+      rgba(20,11,5,.62) calc(100% - var(--pr) + 1px), rgba(20,11,5,0) calc(100% - var(--pr) + 1px)),
+    /* 窓の光のたまり。左寄りに一つだけ */
+    radial-gradient(ellipse 22vw 180% at 27% 30%, rgba(255,214,150,.16), rgba(255,214,150,0) 100%),
+    linear-gradient(90deg, rgba(10,5,2,0) 45%, rgba(10,5,2,.1) 100%),
+    /* 板は1枚。画面が広くても同じ木目を繰り返さない */
+    url("../assets/images/case-crown-front.webp") left center / max(2062px, 100%) 100% no-repeat;
 }
 
 /* --- 段 ------------------------------------------------------
+   段は奥行きのある箱。奥に背板、上に板の裏、左右に側板の内側の面が見える。
    背板は奥にあって光が届かない。参考画像のとおり、本よりずっと暗い
-   焦茶に落とす。本がくっきり浮かぶのは、この暗さがあるから。 */
+   焦茶に落とす。本がくっきり浮かぶのは、この暗さがあるから。
+   上の板の裏は、いちばん上の段は天板の裏（--ceil）、それより下の段は
+   中の棚板の裏（--board-under）。 */
 .tier{
   position:relative; z-index:1;
   overflow:hidden;
-  background:url("../assets/images/case-back.webp") repeat-x left top / auto 100%, #5a4e50;
+  --roof-h: var(--board-under);
+  --roof-dim: .18;
+  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto 100%, #5a4e50;
   background-blend-mode:multiply;
 }
+.case__crown + .tier{ --roof-h: var(--ceil); --roof-dim: 0; }
+/* 背板の陰と、側板の内側の面。どちらも本の奥にある。
+   側板の面には柱と同じ木を使う。柱の絵は内側の角が光っているので、
+   左右を入れ替えて、光る角が面の手前（柱の側）に来るようにし、さらに少しずらして
+   柱の裏に隠す。そのままでは、面の手前の縁や背板との入隅に明るい線が立つ。
+   木の絵は面の奥の端より 1px 手前で止め、入隅には陰だけを残す */
 .tier::before{
   content:"";
   position:absolute; inset:0; z-index:0;
   pointer-events:none;
   background:
-    /* 天板・棚板の下は深い影。段の上のほうは光が届かない。
-       背の低い本（文庫）の上の空きが、穴ではなく奥の影として読める */
-    linear-gradient(180deg, rgba(10,5,2,.82) 0%, rgba(10,5,2,.45) 16%, rgba(10,5,2,.12) 34%, rgba(10,5,2,0) 46%),
+    /* 本の並ぶ高さでは、側板の面は本の陰になる */
+    linear-gradient(180deg, rgba(8,4,2,0) 8%, rgba(8,4,2,.4) 30%, rgba(8,4,2,.5) 100%) var(--pl) 0 / var(--side) 100% no-repeat,
+    linear-gradient(180deg, rgba(8,4,2,0) 8%, rgba(8,4,2,.4) 30%, rgba(8,4,2,.5) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
+    /* 左の側板の内側の面。窓に背を向けて陰になる。背板との入隅がいちばん暗い */
+    linear-gradient(90deg, rgba(14,8,4,.2), rgba(14,8,4,.86)) var(--pl) 0 / var(--side) 100% no-repeat,
+    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) 100% no-repeat,
+    /* 右の側板の内側の面。窓のほうを向き、手前の角ほど光を受ける */
+    linear-gradient(90deg, rgba(14,8,4,.62) 0%, rgba(14,8,4,.34) 40%, rgba(255,204,146,0) 62%, rgba(255,204,146,.3) 92%, rgba(255,214,160,.46) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
+    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) 100% no-repeat,
+    /* 上の板の裏の下に落ちる短い影。奥まで黒く塗ると、段の上の空きが穴に見える。
+       入隅のすぐ下は、板の裏より明るい（光は背板に当たり、板の裏は奥ほど暗い） */
+    linear-gradient(180deg,
+      rgba(10,5,2,.16) var(--roof-h), rgba(10,5,2,.1) calc(var(--roof-h) + var(--mm) * 8),
+      rgba(10,5,2,.05) calc(var(--roof-h) + var(--mm) * 30), rgba(10,5,2,0) calc(var(--roof-h) + var(--mm) * 60)),
     /* 棚板との入隅 */
     linear-gradient(0deg, rgba(10,5,2,.4) 0%, rgba(10,5,2,0) 5%),
-    /* 左右の側板の内側の面。箱の奥行き */
-    linear-gradient(90deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px)),
-    linear-gradient(270deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px));
+    /* 側板との入隅。窓に遠い左の隅ほど暗い */
+    linear-gradient(90deg, rgba(10,5,2,.5) calc(var(--pl) + var(--side)), rgba(10,5,2,.2) calc(var(--pl) + var(--side) + 24px), rgba(10,5,2,0) calc(var(--pl) + var(--side) + 60px)),
+    linear-gradient(270deg, rgba(10,5,2,.3) calc(var(--pr) + var(--side)), rgba(10,5,2,0) calc(var(--pr) + var(--side) + 26px)),
+    /* 窓から遠い右へ、ゆるやかに暗くなる */
+    linear-gradient(90deg, rgba(10,5,2,0) 50%, rgba(10,5,2,.18) 100%);
+}
+/* 上の板の裏。下から見上げた面なので、手前は明るく、奥ほど光が届かず、
+   背板との入隅で細く暗くなる。
+   両端は側板の内側の面と斜めに留める（台形）。この台形が側板の面の
+   上の端を覆い、箱の隅の留めになる。 */
+.tier::after{
+  content:"";
+  position:absolute; z-index:0;
+  left:0; right:0; top:0;
+  height:var(--roof-h);
+  pointer-events:none;
+  -webkit-clip-path:polygon(var(--pl) 0, calc(100% - var(--pr)) 0,
+    calc(100% - var(--pr) - var(--side)) 100%, calc(var(--pl) + var(--side)) 100%);
+          clip-path:polygon(var(--pl) 0, calc(100% - var(--pr)) 0,
+    calc(100% - var(--pr) - var(--side)) 100%, calc(var(--pl) + var(--side)) 100%);
+  background:
+    /* 奥ほど暗い。いちばん奥の細い暗がり（背板との入隅）は、板の絵の折れ目をそのまま使う */
+    linear-gradient(180deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.3) 85%, rgba(10,5,2,.42) 100%),
+    /* 中の棚板の裏は、天板の裏より光が届かない */
+    linear-gradient(rgba(10,5,2,var(--roof-dim)), rgba(10,5,2,var(--roof-dim))),
+    /* 左右の隅は光が届かない */
+    linear-gradient(90deg,
+      rgba(10,5,2,.5) calc(var(--pl) + var(--side) * .6), rgba(10,5,2,0) max(calc(var(--pl) + var(--side) + 90px), 16%),
+      rgba(10,5,2,0) min(calc(100% - var(--pr) - var(--side) - 90px), 84%), rgba(10,5,2,.32) calc(100% - var(--pr) - var(--side) * .6)),
+    url("../assets/images/case-ceiling.webp") left top / max(2062px, 100%) 100% no-repeat;
+  filter:saturate(.72) brightness(1.03);
 }
 /* 本は柱の内側に、すき間なく立つ。入りきらない本は下げる（scripts/main.js） */
 .row{
@@ -148,14 +255,42 @@
   -webkit-user-select:none; user-select:none;
 }
 
-/* 棚板。本はこの上に立つ。上の角が光を受ける */
+/* 棚板。本はこの上に立つ。柱のあいだに納めた厚い板の前の小口。
+   上の角は丸く光を受け、下の角は裏へ回り込んで暗い。
+   影は落とさない。棚板の下の影は、下の段の背板に描く。 */
 .case__board{
   position:relative; z-index:2;
   background:
-    linear-gradient(180deg, rgba(255,222,170,.22) 0, rgba(255,222,170,.22) 1px, rgba(255,222,170,0) 2px),
-    url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
-  box-shadow:0 5px 8px -3px rgba(0,0,0,.8);
-  filter:brightness(1.05);
+    /* 柱との継ぎ目 */
+    linear-gradient(90deg, rgba(10,5,2,0) var(--pl), rgba(10,5,2,.65) var(--pl), rgba(10,5,2,.65) calc(var(--pl) + 1px),
+      rgba(10,5,2,.22) calc(var(--pl) + 2.5px), rgba(10,5,2,0) calc(var(--pl) + 4.5px)),
+    linear-gradient(270deg, rgba(10,5,2,0) var(--pr), rgba(10,5,2,.65) var(--pr), rgba(10,5,2,.65) calc(var(--pr) + 1px),
+      rgba(10,5,2,.22) calc(var(--pr) + 2.5px), rgba(10,5,2,0) calc(var(--pr) + 4.5px)),
+    /* 上の角と下の角 */
+    linear-gradient(180deg,
+      rgba(255,222,170,.1) 0, rgba(255,222,170,.06) calc(var(--mm) * 1.5), rgba(255,222,170,0) calc(var(--mm) * 3),
+      rgba(10,5,2,0) calc(100% - 4px), rgba(10,5,2,.14) calc(100% - 2.5px), rgba(10,5,2,.14) calc(100% - 1.5px), rgba(10,5,2,.5) calc(100% - 1px)),
+    /* 窓に近い左は明るく、遠い右ほど暗い */
+    linear-gradient(90deg, rgba(255,214,150,.08) 0%, rgba(255,214,150,0) 30%, rgba(10,5,2,0) 45%, rgba(10,5,2,.14) 100%),
+    url("../assets/images/case-board-front.webp") left center / max(2062px, 100%) 100% no-repeat;
+  filter:brightness(.94);
+}
+/* 最後の棚板は目の高さより下にある。裏は見えず、上の面がわずかに見えて光を受ける。
+   窓から遠いぶん、中の棚板より少し暗い。
+   板の絵は右の端から使う。中の棚板と同じところを使うと、節が縦にそろって並ぶ */
+.case__board--last{
+  background:
+    linear-gradient(90deg, rgba(10,5,2,0) var(--pl), rgba(10,5,2,.65) var(--pl), rgba(10,5,2,.65) calc(var(--pl) + 1px),
+      rgba(10,5,2,.22) calc(var(--pl) + 2.5px), rgba(10,5,2,0) calc(var(--pl) + 4.5px)),
+    linear-gradient(270deg, rgba(10,5,2,0) var(--pr), rgba(10,5,2,.65) var(--pr), rgba(10,5,2,.65) calc(var(--pr) + 1px),
+      rgba(10,5,2,.22) calc(var(--pr) + 2.5px), rgba(10,5,2,0) calc(var(--pr) + 4.5px)),
+    /* 上の面。2〜3mm だけ見える */
+    linear-gradient(180deg,
+      rgba(255,214,160,.26) 0, rgba(255,214,160,.18) calc(var(--mm) * 1.5), rgba(255,214,160,0) calc(var(--mm) * 3)),
+    linear-gradient(180deg, rgba(10,5,2,0) calc(var(--mm) * 3), rgba(10,5,2,.08) calc(var(--mm) * 3),
+      rgba(10,5,2,.08) calc(100% - 3px), rgba(10,5,2,.42) 100%),
+    linear-gradient(90deg, rgba(255,214,150,.06) 0%, rgba(255,214,150,0) 30%, rgba(10,5,2,0) 45%, rgba(10,5,2,.16) 100%),
+    url("../assets/images/case-board-front.webp") right center / max(2062px, 100%) 100% no-repeat;
 }
 
 /* --- 平台 ----------------------------------------------------
@@ -163,43 +298,83 @@
    続く。その手前に、奥行きのある平台の天面がせり出している。
      上 … 背板（縦の面）。最後の棚板と天面のあいだに、柱にはさまれて見える
      下 … 天面（水平な面）。柱より手前まで出て、左右いっぱい。本はこの上に寝かせる
+   柱は天面の上に立つので、柱の足もとは入隅より少し下（手前）に見える。
    平台そのものには z-index を付けない。付けると天面が柱（z:4）より前に出られない。
    背板は柱の奥、天面（z:5）と平台の本（z:6）は柱の手前に来る。 */
 .deck{
   position:relative;
   /* 背板。段の背板と同じ板を、同じ大きさで続ける */
-  background:url("../assets/images/case-back.webp") repeat-x left top / auto var(--tier-h), #5a4e50;
+  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto var(--tier-h), #5a4e50;
   background-blend-mode:multiply;
+  /* 背板も柱の外の面で止める（上の段と同じ）。天面・奥の陰・本の並びは
+     余白を含めた枠を基準に置くので、位置は変わらない */
+  padding-inline:env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+  background-clip:content-box;
 }
-/* 背板の陰。棚板の下の影、天面との入隅、左右の側板の内側の面 */
+/* 背板の陰と、側板の内側の面。側板は段から続き、平台の天面に立つ。
+   天面が柱の足もとを切り欠いたところに、側板の面の下の端が斜めに見える。
+   側板の木目は縦に通る。段の面と同じ大きさで貼り、細い帯に押しつぶさない */
 .deck::after{
   content:"";
-  position:absolute; left:0; right:0; top:0; height:var(--deck-wall);
+  position:absolute; left:0; right:0; top:0;
+  height:calc(var(--deck-wall) + var(--post-foot));
   z-index:1;
   pointer-events:none;
+  -webkit-clip-path:inset(0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px));
+          clip-path:inset(0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px));
   background:
-    linear-gradient(180deg, rgba(10,5,2,.6) 0%, rgba(10,5,2,.25) 45%, rgba(10,5,2,.1) 100%),
-    linear-gradient(90deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px)),
-    linear-gradient(270deg, rgba(20,11,5,.85) calc(var(--post-w)), rgba(20,11,5,.3) calc(var(--post-w) + 7px), rgba(20,11,5,0) calc(var(--post-w) + 8px));
+    /* 左の側板の内側の面（陰） */
+    linear-gradient(90deg, rgba(14,8,4,.45), rgba(14,8,4,.86)) var(--pl) 0 / var(--side) 100% no-repeat,
+    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) var(--tier-h) no-repeat,
+    /* 右の側板の内側の面（光） */
+    linear-gradient(90deg, rgba(14,8,4,.66) 0%, rgba(14,8,4,.4) 40%, rgba(255,204,146,0) 62%, rgba(255,204,146,.26) 92%, rgba(255,214,160,.4) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
+    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) var(--tier-h) no-repeat,
+    /* 側板との入隅 */
+    linear-gradient(90deg, rgba(12,7,3,.4) calc(var(--pl) + var(--side)), rgba(12,7,3,0) calc(var(--pl) + var(--side) + 30px)) left top / 100% var(--deck-wall) no-repeat,
+    linear-gradient(270deg, rgba(12,7,3,.25) calc(var(--pr) + var(--side)), rgba(12,7,3,0) calc(var(--pr) + var(--side) + 20px)) left top / 100% var(--deck-wall) no-repeat,
+    /* 窓から遠い右へ、ゆるやかに暗くなる（段の背板、平台の天面と同じ） */
+    linear-gradient(90deg, rgba(12,7,3,0) 50%, rgba(12,7,3,.18) 100%) left top / 100% var(--deck-wall) no-repeat,
+    /* 最後の棚板の下の影。板のすぐ下より、少し下がったところがいちばん暗く、
+       天面との入隅へ向かって明るくなる（天面からの照り返し） */
+    linear-gradient(180deg, rgba(12,7,3,.2) 0, rgba(12,7,3,.34) 22%, rgba(12,7,3,.26) 44%, rgba(12,7,3,.1) 76%, rgba(12,7,3,.08) 100%) left top / 100% var(--deck-wall) no-repeat;
 }
 /* 天面。上から見下ろす面なので、奥（背板との入隅）は影、手前ほど光を受ける。
-   左上の窓からの光が、左手前に日だまりをつくる */
+   入隅に線は引かない。明るさの変わり目と木目の向きで、角が読める。
+   左上の窓からの光が、左手前に日だまりをつくる。
+   柱の足もとは切り欠いて、柱が天面の上に立つところを見せる。
+   切り欠きは柱の幅だけ。切り欠きのある端末で柱が内側に入っても、
+   柱の外の天面は画面の端まで平らに続く */
 .deck::before{
   content:"";
   position:absolute; left:0; right:0; bottom:0; top:var(--deck-wall);
   z-index:5;
   pointer-events:none;
+  -webkit-clip-path:polygon(0 0, env(safe-area-inset-left, 0px) 0, env(safe-area-inset-left, 0px) var(--post-foot),
+    var(--pl) var(--post-foot), calc(var(--pl) + var(--side)) 0, calc(100% - var(--pr) - var(--side)) 0,
+    calc(100% - var(--pr)) var(--post-foot), calc(100% - env(safe-area-inset-right, 0px)) var(--post-foot),
+    calc(100% - env(safe-area-inset-right, 0px)) 0, 100% 0, 100% 100%, 0 100%);
+          clip-path:polygon(0 0, env(safe-area-inset-left, 0px) 0, env(safe-area-inset-left, 0px) var(--post-foot),
+    var(--pl) var(--post-foot), calc(var(--pl) + var(--side)) 0, calc(100% - var(--pr) - var(--side)) 0,
+    calc(100% - var(--pr)) var(--post-foot), calc(100% - env(safe-area-inset-right, 0px)) var(--post-foot),
+    calc(100% - env(safe-area-inset-right, 0px)) 0, 100% 0, 100% 100%, 0 100%);
   background:
+    /* 柱の足もとの接地の影 */
+    linear-gradient(180deg, rgba(10,6,2,.5) 0, rgba(10,6,2,.18) 3px, rgba(10,6,2,0) 8px) left env(safe-area-inset-left, 0px) top var(--post-foot) / var(--post-w) 8px no-repeat,
+    linear-gradient(180deg, rgba(10,6,2,.5) 0, rgba(10,6,2,.18) 3px, rgba(10,6,2,0) 8px) right env(safe-area-inset-right, 0px) top var(--post-foot) / var(--post-w) 8px no-repeat,
+    /* 奥の隅。側板・背板・天面の三つが出会うところは、光が回らない。
+       影の芯は、切り欠きの斜めの縁が背板に届くところ（見えている隅）に置く */
+    radial-gradient(calc(var(--side) * .6 + 22px) calc(var(--post-foot) + 12px) at calc(var(--pl) + var(--side)) 0, rgba(10,6,2,.5), rgba(10,6,2,0)),
+    radial-gradient(calc(var(--side) * .6 + 22px) calc(var(--post-foot) + 12px) at calc(100% - var(--pr) - var(--side)) 0, rgba(10,6,2,.5), rgba(10,6,2,0)),
     radial-gradient(55% 80% at 14% 84%,
       rgba(255,192,112,.24) 0%, rgba(255,192,112,.09) 48%, rgba(255,192,112,0) 80%),
-    linear-gradient(180deg,
-      rgba(10,6,2,.55) 0%, rgba(10,6,2,.24) 14%,
-      rgba(10,6,2,.08) 40%, rgba(10,6,2,0) 62%),
+    /* 奥は背板の陰で少し暗い。入隅のすぐ手前を、背板の下の端より暗くはしない
+       （暗い帯が入隅の溝に見える） */
+    linear-gradient(180deg, rgba(10,6,2,.05) 10%, rgba(10,6,2,.02) 30%, rgba(10,6,2,0) 45%),
     linear-gradient(90deg, rgba(10,6,2,0) 50%, rgba(10,6,2,.18) 100%),
-    url("../assets/images/deck-top.webp") repeat-x left bottom / auto 118%;
+    /* 天板は1枚。画面が広くても同じ木目を繰り返さない。
+       絵の奥の端にある暗い帯は、背板の下に隠す */
+    url("../assets/images/deck-top.webp") left bottom / 100% 121% no-repeat;
   filter:brightness(1.02);
-  /* 天面の奥の縁。背板との境目 */
-  box-shadow:0 -1px 0 rgba(0,0,0,.45);
 }
 /* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
    大きさ（--pmm＝1mm あたりの長さ）は、並べる冊数が平台の幅に収まること、
@@ -233,69 +408,153 @@
   .deck__row .flat:nth-child(n+9){ display:none; }
 }
 
-/* 平台の手前の縁。柱より手前にせり出しているので、柱の上にかぶる */
+/* 平台の手前の縁。厚い板の丸い角と前の面。柱より手前にせり出しているので、
+   柱の上にかぶる。丸い角は光を受け、前の面は天面より暗く、下ほど落ちる */
 .deck__lip{
   position:relative; z-index:5;
   background:
-    linear-gradient(180deg, rgba(255,226,176,.24) 0%, rgba(255,226,176,0) 22%),
-    url("../assets/images/deck-lip.webp") repeat-x left top / auto 100%;
-  box-shadow:0 6px 9px -4px rgba(0,0,0,.85);
-  filter:brightness(1.3) saturate(1.05);
+    linear-gradient(180deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.3) 100%),
+    /* 左の窓の光 */
+    linear-gradient(90deg, rgba(255,196,120,.2) 0%, rgba(255,196,120,.07) 28%, rgba(255,196,120,0) 50%),
+    linear-gradient(90deg, rgba(10,5,2,0) 30%, rgba(10,5,2,.12) 100%),
+    /* 縁は1枚の板。画面が広くても同じ木目を繰り返さない */
+    url("../assets/images/deck-lip-edge.webp") left top / 100% 100% no-repeat;
+  box-shadow:0 1px 0 rgba(0,0,0,.6);
 }
 
-/* 台輪。平台の下は、脚で支えた抜けた空間。奥に床が見える。
-   脚は、区画の仕切りと同じ位置と、区画のまん中に立つ（参考画像の台と同じ）。 */
+/* 平台の下。脚で支えた、手が入るほどの抜けた空間。
+   奥に背板が見え、その手前は床。床は本棚の前の床と同じ板が一続きに通る。
+   左右の外側の脚は、側板がそのまま床まで下りたもの。前の小口と内側の面が見える。
+   中ほどの脚は区画の仕切りと同じ位置に立つ。中央から離れた脚ほど、
+   中央を向いた側の面が広く見える（段の側板と同じ遠近）。 */
 .case__base{
   position:relative; z-index:2;
-  display:flex; gap:var(--post-w);
-  padding:0 calc(var(--post-w) + env(safe-area-inset-right, 0px))
-          0 calc(var(--post-w) + env(safe-area-inset-left, 0px));
+  --n: 2;   /* 見えている区画の数。中ほどの脚の面の向きを決める */
+  display:flex; gap:var(--leg-w);
+  padding:0 var(--pr) 0 var(--pl);
   background:
-    url("../assets/images/post-left.webp") left top / var(--post-w) 100% no-repeat,
-    url("../assets/images/post-right.webp") right top / var(--post-w) 100% no-repeat,
-    linear-gradient(180deg, rgba(6,4,2,.86) 0%, rgba(6,4,2,.6) 45%, rgba(6,4,2,.42) 100%),
-    url("../assets/images/floor-boards.webp") repeat-x center top / auto 220%;
+    /* 外側の脚。上は平台の縁の下の影、足もとは床との接地の線 */
+    linear-gradient(180deg, rgba(8,4,2,.6) 0, rgba(8,4,2,.15) calc(var(--mm) * 16), rgba(8,4,2,.15) calc(100% - 3px), rgba(0,0,0,.75) 100%)
+      left env(safe-area-inset-left, 0px) top 0 / var(--post-w) 100% no-repeat,
+    linear-gradient(180deg, rgba(8,4,2,.6) 0, rgba(8,4,2,.15) calc(var(--mm) * 16), rgba(8,4,2,.15) calc(100% - 3px), rgba(0,0,0,.75) 100%)
+      right env(safe-area-inset-right, 0px) top 0 / var(--post-w) 100% no-repeat,
+    /* 右の脚の内側の角は、上の柱と同じく窓の光を受ける */
+    linear-gradient(90deg, rgba(255,226,180,.2) 0, rgba(255,226,180,.1) 1.5px, rgba(255,226,180,0) 4px)
+      right env(safe-area-inset-right, 0px) top 0 / var(--post-w) 100% no-repeat,
+    /* 左の脚は窓に近く、明るい */
+    linear-gradient(rgba(255,200,130,.16), rgba(255,200,130,.16))
+      left env(safe-area-inset-left, 0px) top 0 / var(--post-w) 100% no-repeat,
+    /* 内側の角は、上の柱と同じく陰に回り込む溝 */
+    linear-gradient(270deg, rgba(10,5,2,.5) 0, rgba(10,5,2,.3) 5%, rgba(10,5,2,.1) 10%, rgba(10,5,2,0) 14%)
+      left env(safe-area-inset-left, 0px) top 0 / var(--post-w) 100% no-repeat,
+    /* 柱と同じく、絵の内側の角の光る線は脚の外（内側の面の下）に出す */
+    url("../assets/images/post-left.webp") left env(safe-area-inset-left, 0px) top 0 / calc(var(--post-w) * 58 / 53) auto no-repeat,
+    url("../assets/images/post-right.webp") right env(safe-area-inset-right, 0px) top 0 / calc(var(--post-w) * 58 / 55) auto no-repeat,
+    /* 床。奥ほど暗い */
+    linear-gradient(180deg, rgba(6,4,2,.55) 0%, rgba(6,4,2,.25) 40%, rgba(6,4,2,0) 100%)
+      left bottom / 100% calc(100% - var(--base-back)) no-repeat,
+    url("../assets/images/floor-boards.webp")
+      center top var(--base-back) / 100% calc(var(--base-h) - var(--base-back) + var(--floor-h)) no-repeat,
+    /* 奥の背板。平台の縁の陰で、段の背板よりさらに暗い */
+    linear-gradient(180deg, rgba(14,8,4,.93) 0, rgba(14,8,4,.86) 20%, rgba(14,8,4,.84) 100%)
+      left top / 100% calc(var(--base-back) + 2px) no-repeat,
+    url("../assets/images/case-back-panel.webp") repeat-x left top / auto calc(var(--base-back) + 2px);
+}
+/* 外側の脚の内側の面。奥の縁は背板と床の境まで、下の縁は奥から脚の足もとへ斜めに下りる。
+   木目は縦に通る。前の小口と同じ縮尺で貼り、上下に押しつぶさない。
+   木の絵は奥の端より 1px 手前で止め、背板との入隅には陰だけを残す */
+.case__base::before,
+.case__base::after{
+  content:"";
+  position:absolute; z-index:1; top:0; bottom:0;
+  width:var(--side);
+  pointer-events:none;
+}
+/* 左の脚。窓に背を向けて陰になる */
+.case__base::before{
+  left:var(--pl);
+  -webkit-clip-path:polygon(0 0, 100% 0, 100% var(--base-back), 0 100%);
+          clip-path:polygon(0 0, 100% 0, 100% var(--base-back), 0 100%);
+  background:
+    linear-gradient(180deg, rgba(8,4,2,.5) 0, rgba(8,4,2,0) 30%),
+    linear-gradient(90deg, rgba(8,4,2,.64) 0%, rgba(8,4,2,.78) 100%),
+    url("../assets/images/post-right.webp") left top / calc(100% - 1px) auto no-repeat;
+}
+/* 右の脚。窓のほうを向き、手前の角ほど光を受ける */
+.case__base::after{
+  right:var(--pr);
+  -webkit-clip-path:polygon(0 0, 100% 0, 100% 100%, 0 var(--base-back));
+          clip-path:polygon(0 0, 100% 0, 100% 100%, 0 var(--base-back));
+  background:
+    linear-gradient(180deg, rgba(8,4,2,.45) 0, rgba(8,4,2,0) 30%),
+    linear-gradient(90deg, rgba(8,4,2,.7) 0%, rgba(8,4,2,.25) 100%),
+    linear-gradient(90deg, rgba(255,204,146,0) 55%, rgba(255,214,160,.2) 100%),
+    url("../assets/images/post-left.webp") right top / calc(100% - 1px) auto no-repeat;
 }
 .cubby{ position:relative; flex:1 1 0; min-width:0; }
 .cubby:nth-child(n+3){ display:none; }
-@media (min-width:600px) { .cubby:nth-child(-n+4){ display:block; } }
-@media (min-width:1100px){ .cubby:nth-child(-n+6){ display:block; } }
-@media (min-width:1500px){ .cubby:nth-child(-n+8){ display:block; } }
+@media (min-width:600px) { .cubby:nth-child(-n+4){ display:block; } .case__base{ --n:4; } }
+@media (min-width:1100px){ .cubby:nth-child(-n+6){ display:block; } .case__base{ --n:6; } }
+@media (min-width:1500px){ .cubby:nth-child(-n+8){ display:block; } .case__base{ --n:8; } }
+/* 区画の番号（左から0）。脚の位置が中央からどれだけ離れているかに使う */
+.cubby:nth-child(2){ --k:1; } .cubby:nth-child(3){ --k:2; } .cubby:nth-child(4){ --k:3; }
+.cubby:nth-child(5){ --k:4; } .cubby:nth-child(6){ --k:5; } .cubby:nth-child(7){ --k:6; }
+.cubby:nth-child(8){ --k:7; }
+/* 区画の中の陰。窓は左なので、脚の右側の背板ほど暗い */
+.cubby::after{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  background:linear-gradient(90deg, rgba(8,4,2,.48) 0, rgba(8,4,2,0) 24%, rgba(8,4,2,0) 78%, rgba(8,4,2,.28) 100%);
+  -webkit-mask-image:linear-gradient(180deg, #000 70%, rgba(0,0,0,.35) 100%);
+          mask-image:linear-gradient(180deg, #000 70%, rgba(0,0,0,.35) 100%);
+}
+/* 中ほどの脚。前の小口と、中央を向いた側の面。
+   --d は中央からの位置（左端 -1、中央 0、右端 1）。
+   中央より右の脚は左の面（窓の光を受ける）、左の脚は右の面（陰）が見える。
+   前の小口は、光る角が左に来る右の柱の絵を使う。脚ごとに絵の高さをずらし、
+   同じ木目の脚が並ばないようにする。面の木目も上下に押しつぶさない。
+   面の絵の光る角の数列は、前の小口の下に隠す（段の側板の面と同じ） */
 .cubby + .cubby::before{
   content:"";
-  position:absolute; top:0; bottom:0;
-  left:calc(-1 * var(--post-w)); width:var(--post-w);
-  background:url("../assets/images/post-left.webp") no-repeat center / 100% 100%;
-  filter:brightness(1.12) saturate(1.1);
-  box-shadow:4px 0 8px -4px rgba(0,0,0,.8), -4px 0 8px -4px rgba(0,0,0,.8);
-}
-/* 平台の縁の下の見付け（幕板） */
-.case__base::after{
-  content:"";
-  position:absolute; left:0; right:0; top:0;
-  height:clamp(6px, 1vh, 10px);
-  background:url("../assets/images/case-board.webp") repeat-x left center / auto 100%;
-  filter:brightness(.85);
-  box-shadow:0 4px 7px -3px rgba(0,0,0,.8);
+  --d: calc(2 * var(--k) / var(--n) - 1);
+  --sl: calc(max(0, var(--d)) * var(--side));
+  --sr: calc(max(0, -1 * var(--d)) * var(--side));
+  position:absolute; z-index:1; top:0; bottom:0;
+  left:calc(-1 * var(--leg-w) - var(--sl));
+  width:calc(var(--leg-w) + var(--sl) + var(--sr));
+  pointer-events:none;
+  -webkit-clip-path:polygon(0 0, 100% 0, 100% var(--base-back), calc(100% - var(--sr)) 100%, var(--sl) 100%, 0 var(--base-back));
+          clip-path:polygon(0 0, 100% 0, 100% var(--base-back), calc(100% - var(--sr)) 100%, var(--sl) 100%, 0 var(--base-back));
+  background:
+    /* 上は平台の縁の下の影、足もとは床との接地の線 */
+    linear-gradient(180deg, rgba(8,4,2,.6) 0, rgba(8,4,2,.15) calc(var(--mm) * 16), rgba(8,4,2,.15) calc(100% - 3px), rgba(0,0,0,.75) 100%)
+      var(--sl) 0 / var(--leg-w) 100% no-repeat,
+    /* 左の角は光を受け、右の角は陰 */
+    linear-gradient(90deg, rgba(255,226,180,.35) 0 1px, rgba(255,226,180,0) 2px, rgba(0,0,0,0) calc(100% - 1px), rgba(0,0,0,.45) calc(100% - 1px))
+      var(--sl) 0 / var(--leg-w) 100% no-repeat,
+    url("../assets/images/post-right.webp") var(--sl) calc(var(--k) * 14%) / var(--leg-w) max(100%, calc(var(--leg-w) * 17.3)) no-repeat,
+    linear-gradient(90deg, rgba(8,4,2,.7) 0%, rgba(8,4,2,.25) 100%) left top / var(--sl) 100% no-repeat,
+    linear-gradient(90deg, rgba(255,204,146,0) 55%, rgba(255,214,160,.2) 100%) left top / var(--sl) 100% no-repeat,
+    url("../assets/images/post-left.webp") left calc(var(--k) * 11%) / calc(var(--sl) * 1.095) max(100%, calc(var(--sl) * 18.9)) no-repeat,
+    linear-gradient(90deg, rgba(8,4,2,.64) 0%, rgba(8,4,2,.78) 100%) right top / var(--sr) 100% no-repeat,
+    url("../assets/images/post-right.webp") right calc(var(--k) * 11%) / calc(var(--sr) * 1.055) max(100%, calc(var(--sr) * 18.2)) no-repeat;
 }
 
-/* 床。本棚の足もとに接地の影を落とす。左に日だまり */
+/* 床。平台の下の床と同じ板を、同じ大きさ・同じ位置で続ける（つなぎ目を出さない）。
+   接地の影は脚の足もとだけ。左に日だまり */
 .case__floor{
   position:relative; z-index:0;
-  background:url("../assets/images/floor-boards.webp") repeat-x center top / auto 180%;
-  filter:brightness(.98);
+  background:url("../assets/images/floor-boards.webp")
+    center calc(var(--base-back) - var(--base-h)) / 100% calc(var(--base-h) - var(--base-back) + var(--floor-h)) no-repeat;
   -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
           mask-image:linear-gradient(180deg, #000 0%, #000 82%, transparent 100%);
 }
-.case__floor::before{
-  content:"";
-  position:absolute; left:0; right:0; top:0; height:26%;
-  background:linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,0) 100%);
-}
+/* 日だまりは床の上の縁で消えるようにして、平台の下の床と段差を作らない */
 .case__floor::after{
   content:"";
   position:absolute; inset:0;
-  background:radial-gradient(46% 120% at 16% 60%, rgba(255,192,112,.22), rgba(255,192,112,0) 75%);
+  background:radial-gradient(46% 100% at 16% 100%, rgba(255,192,112,.22), rgba(255,192,112,0) 75%);
 }
 
 /* --- 背表紙 --------------------------------------------------

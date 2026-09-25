@@ -124,7 +124,37 @@ async function shelf(b) {
           return l.every((k, i) => k === UNIT[(s0 + i) % 4]);
         });
         const upright = sp.every(e => { const t = getComputedStyle(e).transform; return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)'; });
+        /* 板の厚みと、箱の内側の面。背景の重ねを1枚ずつに分けて読む */
+        const layers = v => {
+          const o = []; let d = 0, s = '';
+          for (const ch of v) {
+            if (ch === '(') d++; else if (ch === ')') d--;
+            if (ch === ',' && d === 0) { o.push(s.trim()); s = ''; } else s += ch;
+          }
+          o.push(s.trim()); return o;
+        };
+        const baseEl = c.querySelector('.case__base'), floorEl = c.querySelector('.case__floor');
+        const bs = getComputedStyle(baseEl), fs = getComputedStyle(floorEl);
+        const bImg = layers(bs.backgroundImage), bSize = layers(bs.backgroundSize), bPosY = layers(bs.backgroundPositionY);
+        const fi = bImg.findIndex(v => /floor-boards/.test(v));
+        const ceil = getComputedStyle(tiers[0], '::after');
+        const faceImg = e => { const v = getComputedStyle(e[0], e[1]).backgroundImage; return /post-left/.test(v) && /post-right/.test(v); };
         out.markets.push({
+          boardH: [...c.querySelectorAll('.case__board')].map(e => +e.getBoundingClientRect().height.toFixed(2)),
+          crownH: +c.querySelector('.case__crown').getBoundingClientRect().height.toFixed(2),
+          ceilOn: ceil.content !== 'none' && /case-ceiling/.test(ceil.backgroundImage) && /polygon/.test(ceil.clipPath),
+          ceilH: px(ceil.height),
+          faces: faceImg([tiers[0], '::before']) && faceImg([deck, '::after']),
+          legFaces: ['::before', '::after'].every(ps => {
+            const s = getComputedStyle(baseEl, ps); return s.content !== 'none' && px(s.width) >= 8 && /polygon/.test(s.clipPath);
+          }),
+          /* 中ほどの脚の面の向きは --n（見えている区画の数）で決める */
+          cubN: +bs.getPropertyValue('--n'),
+          cubVis: [...baseEl.querySelectorAll('.cubby')].filter(e => getComputedStyle(e).display !== 'none').length,
+          backPanel: /case-back/.test(bs.backgroundImage),
+          floorJoin: fi >= 0 && /floor-boards/.test(fs.backgroundImage) && bSize[fi] === fs.backgroundSize &&
+            Math.abs((baseEl.getBoundingClientRect().top + px(bPosY[fi])) - (floorEl.getBoundingClientRect().top + px(fs.backgroundPositionY))) <= 1,
+          floorBand: getComputedStyle(floorEl, '::before').content !== 'none',
           h: Math.round(mk.getBoundingClientRect().height),
           caseW: Math.round(cr.width),
           /* 柱が床まで通っているか：柱の下端＝台輪の下端＝床の上端 */
@@ -188,6 +218,20 @@ async function shelf(b) {
       t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
         `${n}: 平台の下は脚で支え、本棚が床に立つ (台輪${k.baseBottom}/床${k.floorTop})`);
       t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);
+      /* 板は本と同じ縮尺の実寸の厚み。天板 21mm・棚板 24mm。
+         画面の高さで決めていたころは、板が細い棒に見えるとのご指摘を受けた */
+      t(k.boardH.every(h => Math.abs(h - 24 * m.mm) <= 1),
+        `${n}: 棚板の小口は厚さ24mm (${k.boardH.join('・')}px / ${(24 * m.mm).toFixed(1)}px)`);
+      t(Math.abs(k.crownH - 21 * m.mm) <= 1, `${n}: 天板の小口は厚さ21mm (${k.crownH}px / ${(21 * m.mm).toFixed(1)}px)`);
+      /* 箱の内側が見える。天板の裏、左右の側板の内側の面、平台の下の脚の内側の面 */
+      t(k.ceilOn && Math.abs(k.ceilH - 18 * m.mm) <= 1,
+        `${n}: いちばん上の段に天板の裏が見え、両端を側板と斜めに留める (${k.ceilH}px)`);
+      t(k.faces, `${n}: 段と平台の奥に、左右の側板の内側の面が見える`);
+      t(k.legFaces, `${n}: 平台の下の外側の脚に、内側の面が見える`);
+      t(k.cubN === k.cubVis, `${n}: 中ほどの脚の面の向きは、見えている区画の数に合う (${k.cubN}/${k.cubVis})`);
+      /* 平台の下は抜けた空間。奥に背板、手前は本棚の前の床と一続きの床。黒い帯を敷かない */
+      t(k.backPanel && k.floorJoin && !k.floorBand,
+        `${n}: 平台の下の奥に背板があり、床は手前の床とつなぎ目なく続く`);
       /* 段の数は以前の構成のとおり。1つめの売り場は2段、2つめは1段 */
       t(k.tiers === (i === 0 ? 2 : 1), `${n}: 段は${i === 0 ? 2 : 1}つ (${k.tiers})`);
       t(k.dividers === 0, `${n}: 棚は仕切らず、画面の幅いっぱいに1続き`);
