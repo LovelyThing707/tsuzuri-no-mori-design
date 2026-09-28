@@ -350,12 +350,14 @@ async function shelf(b) {
 /* ---- 1d. 一画面に収まるか ---------------------------------------
    9/28 のご依頼：すいかのプールを除いた2段で、背表紙の棚と平置きまで、スクロールせずに
    一画面で見られるか。
-   見方は、標準的な iPhone の画面（390x844）で、売り場の看板の列が上の帯のすぐ下に
-   来たとき（「棚をのぞく」やメニューで寄せると、看板はこれより 13px ほど下に来る）。
+   9/29 から、下へ読み進めると上の帯が引っ込む（4b）。見方は、標準的な iPhone の画面
+   （390x844）で、帯が引っ込み、売り場の看板の列が画面の上端に来たとき。
+   下へ送って来たときと、「棚をのぞく」で寄せたとき（看板の列は上端にそろう）の両方で見る。
    平台に寝かせた本と、平台の手前の縁が画面に入っていれば可。
-   ほかの大きさのスマートフォンも同じ見方で見る。「棚をのぞく」で寄せたときも確かめる。
+   ほかの大きさのスマートフォンも同じ見方で見る。
    背の低い画面（375x667、Safari で帯が出ているときの 390x664 など）は、まだ収まらない。
-   収まらない量を毎回書き出しておく（失敗にはしない）。
+   収まらない量を毎回書き出しておく（失敗にはしない）。Safari で帯が引っ込んだときの
+   390x750 は収まる（これも書き出すだけ）。
    平置きの倍率（幅 360px 以上で 0.6px/mm 以上）と、端の本が柱にかからないことは、
    ここで見るどの画面でも確かめる。 */
 async function oneScreen(b) {
@@ -370,15 +372,16 @@ async function oneScreen(b) {
   for (const vp of FIT.concat(INFO)) {
     const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
     await p.goto(URL, { waitUntil: 'networkidle' });
+    /* 先頭から下へ送り、看板の列を画面の上端に（帯は途中で引っ込む） */
     await p.evaluate(() => {
       const head = document.querySelector('.market__head');
-      const bar = document.querySelector('.topbar').getBoundingClientRect().height;
-      window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - bar);
+      window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY);
     });
     await p.waitForTimeout(150);
     const fit = () => {
       const mk = document.querySelector('.market');
       const bar = document.querySelector('.topbar').getBoundingClientRect();
+      const away = document.querySelector('.topbar').classList.contains('is-away');
       const head = mk.querySelector('.market__head').getBoundingClientRect();
       const lip = mk.querySelector('.deck__lip').getBoundingClientRect();
       const post = parseFloat(getComputedStyle(mk.querySelector('.case'), '::before').width);
@@ -391,7 +394,7 @@ async function oneScreen(b) {
         return r;
       });
       const first = vis[0].getBoundingClientRect(), last = vis[vis.length - 1].getBoundingClientRect();
-      return { head: Math.round(head.top), bar: Math.round(bar.bottom), h: window.innerHeight,
+      return { head: +head.top.toFixed(1), bar: +bar.bottom.toFixed(1), away, h: window.innerHeight,
                books: +Math.max(...bands.map(r => r.bottom)).toFixed(1), lip: +lip.bottom.toFixed(1),
                /* 平置きの倍率（表紙の幅 ÷ 判横 mm）のうち小さいほう */
                k: Math.min(...vis.map(f => parseFloat(getComputedStyle(f).width) / parseFloat(f.style.getPropertyValue('--w')))),
@@ -400,23 +403,27 @@ async function oneScreen(b) {
                       window.innerWidth - post - Math.max(last.right, bands[bands.length - 1].right)] };
     };
     const r = await p.evaluate(fit);
-    const msg = `${vp.n} ${vp.w}x${vp.h}: 看板を帯の下に寄せたとき、平台の本と手前の縁が一画面に入る` +
-      `（余り 本 ${(r.h - r.books).toFixed(1)}px・縁 ${(r.h - r.lip).toFixed(1)}px）`;
-    if (FIT.includes(vp)) t(Math.abs(r.head - r.bar) <= 1 && r.books <= r.h && r.lip <= r.h, msg);
+    /* 帯は引っ込み（下の端が画面の上端より上）、看板の列は画面の上端にある */
+    const top = s => s.away && s.bar <= 0.5 && Math.abs(s.head) <= 1;
+    const msg = `${vp.n} ${vp.w}x${vp.h}: 下へ送って看板の列を画面の上端に寄せたとき、帯は引っ込み、平台の本と手前の縁が一画面に入る` +
+      `（看板 ${r.head}px・帯の下の端 ${r.bar}px、余り 本 ${(r.h - r.books).toFixed(1)}px・縁 ${(r.h - r.lip).toFixed(1)}px）`;
+    t(top(r), `${vp.n} ${vp.w}x${vp.h}: 下へ送ると帯は引っ込み、看板の列を画面の上端に置ける（看板 ${r.head}px・帯の下の端 ${r.bar}px）`);
+    if (FIT.includes(vp)) t(top(r) && r.books <= r.h && r.lip <= r.h, msg);
     else console.log('  INFO  ' + msg.replace('入る', '入るか'));
     if (vp.w >= 360) t(r.k >= 0.6, `${vp.n} ${vp.w}x${vp.h}: 平置きの倍率が 0.6px/mm 以上 (${r.k.toFixed(3)})`);
     t(r.ends.every(e => e >= 2.5),
       `${vp.n} ${vp.w}x${vp.h}: 平置きの端の本は柱にかからない (左 ${r.ends[0].toFixed(1)}・右 ${r.ends[1].toFixed(1)}px)`);
     await p.close();
 
-    /* 「棚をのぞく」で寄せたとき（読み手が実際にたどる道）。看板は上の帯から少し下に来る */
+    /* 「棚をのぞく」で寄せたとき（読み手が実際にたどる道）。帯は引っ込み、看板の列は画面の上端 */
     const q = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
     await q.goto(URL, { waitUntil: 'networkidle' });
     await q.click('.hero__scroll'); await q.waitForTimeout(400);
     const j = await q.evaluate(fit);
-    const jmsg = `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で寄せたとき、平台の本と手前の縁が一画面に入る` +
-      `（看板は帯の ${j.head - j.bar}px 下、余り 本 ${(j.h - j.books).toFixed(1)}px・縁 ${(j.h - j.lip).toFixed(1)}px）`;
-    if (FIT.includes(vp)) t(j.head >= j.bar && j.books <= j.h && j.lip <= j.h, jmsg);
+    const jmsg = `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で寄せたとき、帯は引っ込み、平台の本と手前の縁が一画面に入る` +
+      `（看板 ${j.head}px・帯の下の端 ${j.bar}px、余り 本 ${(j.h - j.books).toFixed(1)}px・縁 ${(j.h - j.lip).toFixed(1)}px）`;
+    t(top(j), `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で、帯は引っ込み、看板の列が画面の上端に来る（看板 ${j.head}px・帯の下の端 ${j.bar}px）`);
+    if (FIT.includes(vp)) t(top(j) && j.books <= j.h && j.lip <= j.h, jmsg);
     else console.log('  INFO  ' + jmsg.replace('入る', '入るか'));
     await q.close();
   }
@@ -1816,7 +1823,9 @@ async function nav(b) {
     t(s.top >= 0 && s.top < s.h * 0.4,
       `${vp.n}: 選んだ売り場の看板が画面に入る（上から${s.top}px）`);
 
-    /* 覆いを押して閉じる。左から出るので、押すのは右の端 */
+    /* 覆いを押して閉じる。左から出るので、押すのは右の端。
+       下へ送ったあとは帯が引っ込んでいるので、読み手と同じく少し上へ戻して出してから押す */
+    await p.evaluate(() => window.scrollBy(0, -24)); await p.waitForTimeout(450);
     await p.click('#menu-open'); await p.waitForTimeout(600);
     await p.mouse.click(vp.w - 8, 8); await p.waitForTimeout(600);
     t(await p.evaluate(() => document.getElementById('menu').hidden),
@@ -1833,6 +1842,433 @@ async function nav(b) {
     t(errs.length === 0,
       `${vp.n}: メニューでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
     await p.close();
+  }
+}
+
+/* ---- 4b. 上の帯の出し入れ ------------------------------------------
+   9/29 のご依頼。棚と平台を一画面に収めるため、店内を下へ読み進めるあいだは上の帯を引っ込める。
+   少し上へ戻せば出る。森が見えているうち（ページの先頭を含む）、覆いを開いているあいだ、
+   キーボードで帯に来たときは出したまま。本を手に取った層は帯ごと覆うので、
+   層を開いても閉じても帯の出し入れは変えない。「棚をのぞく」とメニューの売り場は、下へ送るときは
+   看板の列を画面の上端に、上へ送るときは出てきた帯のすぐ下にそろえる。
+   指（本物のタッチ）、マウスの輪、キーボード、iOS の Safari の高さの変わり方で確かめる。 */
+
+/* 指で画面を送る。dy が正なら下へ（指は上へ動く）。
+   指が動き始めてから画面が付いてくるまでの遊び（15px ほど）を足しておく。
+   離す前に指を止め、離したあとに画面が流れ続けないようにする */
+async function fingerScroll(cdp, p, x, y, dy) {
+  const d = dy + Math.sign(dy) * 15;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 12; i++) {
+    await p.waitForTimeout(16);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - d * i / 12 }] });
+  }
+  await p.waitForTimeout(120);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+/* 帯の様子。出し入れの動き（0.3 秒）が止まってから読む。
+   機械が混んでいると動きの始まりが遅れることがあるので、まだ滑っている途中なら止まるまで待つ */
+async function barState(p, ms = 450) {
+  await p.waitForTimeout(ms);
+  await p.waitForFunction(() => document.querySelector('.topbar').getAnimations().every(a => a.playState !== 'running'),
+    null, { timeout: 1500 }).catch(() => {});
+  return p.evaluate(() => {
+    const b = document.querySelector('.topbar'), r = b.getBoundingClientRect();
+    const hidden = id => document.getElementById(id).hidden;
+    return {
+      away: b.classList.contains('is-away'), lit: b.classList.contains('is-lit'),
+      top: +r.top.toFixed(1), bottom: +r.bottom.toFixed(1),
+      shown: Math.abs(r.top) <= 0.5, gone: r.bottom <= 0.5,
+      heads: [...document.querySelectorAll('.market__head')].map(e => +e.getBoundingClientRect().top.toFixed(1)),
+      y: Math.round(window.scrollY),
+      /* ページの終わりまで送ってある（これより下へは送れない） */
+      end: window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1,
+      open: ['menu', 'cart', 'focus', 'item', 'peek'].filter(id => !hidden(id)).join(','),
+    };
+  });
+}
+/* 帯の出し入れを書き留める（送りの途中で、一度引っ込めた帯が出てこないか） */
+const watchBar = p => p.evaluate(() => {
+  const b = document.querySelector('.topbar');
+  window.__bar = [];
+  if (window.__barMo) window.__barMo.disconnect();
+  window.__barMo = new MutationObserver(() => {
+    const v = b.classList.contains('is-away');
+    if (!window.__bar.length || window.__bar[window.__bar.length - 1] !== v) window.__bar.push(v);
+  });
+  window.__barMo.observe(b, { attributes: true, attributeFilter: ['class'] });
+});
+/* 帯の上の端を、描くたびに書き留める（滑らせずに出し入れしたか、途中の位置を見る） */
+const trackBar = p => p.evaluate(() => {
+  const b = document.querySelector('.topbar');
+  window.__tops = []; window.__track = true;
+  const f = () => {
+    if (!window.__track) return;
+    window.__tops.push(+b.getBoundingClientRect().top.toFixed(1));
+    requestAnimationFrame(f);
+  };
+  requestAnimationFrame(f);
+});
+const trackedTops = p => p.evaluate(() => { window.__track = false; return window.__tops; });
+const centerOf = (p, sel) => p.evaluate(sel => {
+  const r = document.querySelector(sel).getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}, sel);
+
+async function topbarHide(b) {
+  /* --- 指で送る。スマートフォン2機種とタブレット（出し入れは画面の大きさによらない） --- */
+  for (const vp of [{ n: 'phone', w: 390, h: 844 }, { n: 'phone-short', w: 375, h: 667 }, { n: 'tablet', w: 834, h: 1112 }]) {
+    const ctx = await b.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: true, isMobile: vp.w < 600, deviceScaleFactor: 2 });
+    const p = await ctx.newPage();
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(() => { try { localStorage.setItem('shelf-hint', '1'); } catch (e) {} });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    const cdp = await ctx.newCDPSession(p);
+    const n = vp.n, x = Math.round(vp.w / 2), y = Math.round(vp.h * 0.75);
+    const tap = async sel => { const c = await centerOf(p, sel); await p.touchscreen.tap(c.x, c.y); };
+
+    let s = await barState(p, 100);
+    t(s.shown && !s.away && !s.lit, `${n}: ページの先頭（森の上）では帯が出ている`);
+    await fingerScroll(cdp, p, x, y, Math.round(vp.h * 0.3));
+    s = await barState(p);
+    t(s.shown && !s.away && s.y > 100, `${n}: 森が見えているうちは、下へ送っても帯は出たまま（${s.y}px 送った）`);
+    /* 森の下の端が帯の裏に入っても、まだ画面に残っているうちは出したまま（地は敷く） */
+    await p.evaluate(() => window.scrollBy(0, document.querySelector('.hero').getBoundingClientRect().bottom - 30));
+    s = await barState(p);
+    t(s.shown && !s.away && s.lit, `${n}: 森の下の端が画面に残っているうちは、帯は出たまま（地は敷く）`);
+    /* 森を抜けるまで、指で下へ送る */
+    for (let i = 0; i < 8 && (await p.evaluate(() => window.scrollY)) < vp.h + 150; i++) {
+      await fingerScroll(cdp, p, x, y, Math.round(vp.h * 0.4));
+    }
+    s = await barState(p);
+    t(s.away && s.gone && s.lit, `${n}: 森を抜けて下へ送ると、帯は上へ引っ込む（${s.y}px、帯の下の端 ${s.bottom}px）`);
+    const geo = await p.evaluate(() => {
+      const b = document.querySelector('.topbar'), cs = getComputedStyle(b);
+      return { disp: cs.display, vis: cs.visibility, tf: cs.transform, h: +b.getBoundingClientRect().height.toFixed(1),
+               bar: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bar')),
+               docH: document.documentElement.scrollHeight };
+    });
+    const ty = +((geo.tf.match(/^matrix\((?:[^,]+,){5}\s*([-\d.]+)\)$/) || [])[1]);
+    t(geo.disp !== 'none' && geo.vis === 'visible' && Math.abs(ty + geo.h) <= 0.5 && Math.abs(geo.h - geo.bar) <= 0.2,
+      `${n}: 引っ込めるのは、帯をその高さだけ上へずらすだけ（消さない、高さはそのまま ${geo.h}px、${geo.tf}）`);
+    /* 数 px の揺れでは出し入れしない */
+    await p.evaluate(() => window.scrollBy(0, -4));
+    s = await barState(p, 250);
+    t(s.away, `${n}: 4px 戻っただけでは、帯は出てこない`);
+    await fingerScroll(cdp, p, x, y, -16);
+    s = await barState(p);
+    t(s.shown && !s.away && s.lit, `${n}: 指で少し上へ戻すと、帯が出る（店内の地も敷いたまま、${s.y}px）`);
+    t(geo.docH === await p.evaluate(() => document.documentElement.scrollHeight),
+      `${n}: 帯を出し入れしても、本文の寸法は変わらない（ページの長さ ${geo.docH}px）`);
+    await p.evaluate(() => window.scrollBy(0, 5));
+    s = await barState(p, 250);
+    t(!s.away, `${n}: 5px 進んだだけでは、帯は引っ込まない`);
+    await fingerScroll(cdp, p, x, y, 40);
+    s = await barState(p);
+    t(s.away && s.gone, `${n}: また下へ送ると、帯は引っ込む`);
+
+    /* 「棚をのぞく」。下へ送るので、帯は引っ込んで着き、看板の列が画面の上端に来る。
+       送りの途中や、止まる間際の小さな動きで、帯が出てこない */
+    await p.evaluate(() => window.scrollTo(0, 0));
+    s = await barState(p);
+    t(s.shown && !s.away, `${n}: 先頭へ戻ると、帯が出ている`);
+    await watchBar(p);
+    await tap('.hero__scroll');
+    s = await barState(p, 1800);
+    let log = await p.evaluate(() => window.__bar);
+    t(s.away && s.gone && Math.abs(s.heads[0]) <= 1 && log.join() === 'true',
+      `${n}: 「棚をのぞく」で、帯は引っ込み、看板の列が画面の上端に来る。途中で帯は出てこない（看板の列 ${s.heads[0]}px、出し入れ ${log.join('→')}）`);
+
+    /* メニューの売り場。下の売り場へは看板の列を画面の上端に、上の売り場へは出てきた帯のすぐ下に */
+    await fingerScroll(cdp, p, x, y, -16);
+    s = await barState(p);
+    await tap('#menu-open'); await p.waitForTimeout(600);
+    s = await barState(p, 0);
+    t(s.open === 'menu' && s.shown && !s.away, `${n}: メニューを開いているあいだ、帯は出ている`);
+    await watchBar(p);
+    await tap('#menu-markets li:nth-child(2) a');
+    s = await barState(p, 1800);
+    log = await p.evaluate(() => window.__bar);
+    /* 背の高い画面では、2つめの売り場はページの終わりに近く、看板の列を上端まで送れない。
+       そのときはページの終わりで止まる */
+    t(!s.open && s.away && s.gone && (Math.abs(s.heads[1]) <= 1 || (s.end && s.heads[1] > 0)) && log.join() === 'true',
+      `${n}: メニューで下の売り場を選ぶと、帯は引っ込み、看板の列が画面の上端に来る（看板の列 ${s.heads[1]}px${s.end ? '、ページの終わり' : ''}、出し入れ ${log.join('→')}）`);
+    await fingerScroll(cdp, p, x, y, -16);
+    await barState(p);
+    await tap('#menu-open'); await p.waitForTimeout(600);
+    await tap('#menu-markets li:nth-child(1) a');
+    s = await barState(p, 1800);
+    t(!s.open && s.shown && !s.away && Math.abs(s.heads[0] - s.bottom) <= 1,
+      `${n}: メニューで上の売り場を選ぶと、帯は出たまま、看板の列は帯のすぐ下に来る（看板の列 ${s.heads[0]}px / 帯の下の端 ${s.bottom}px）`);
+    /* 覆いの端で閉じたあとも出したまま。次に下へ送ると引っ込む */
+    await tap('#menu-open'); await p.waitForTimeout(600);
+    await p.touchscreen.tap(vp.w - 8, Math.round(vp.h / 2));
+    s = await barState(p, 600);
+    t(!s.open && s.shown && !s.away, `${n}: メニューを閉じたあとも、帯は出ている`);
+    await fingerScroll(cdp, p, x, y, 40);
+    s = await barState(p);
+    t(s.away, `${n}: そのあと下へ送ると、帯は引っ込む`);
+
+    /* カート。開いているあいだは出たまま（指で送ろうとしても）。閉じたあとも出ている */
+    await fingerScroll(cdp, p, x, y, -16);
+    await barState(p);
+    await tap('#cart-open'); await p.waitForTimeout(600);
+    await fingerScroll(cdp, p, x, y, 80);
+    s = await barState(p);
+    t(s.open === 'cart' && s.shown && !s.away, `${n}: カートを開いているあいだ、指で送ろうとしても帯は出ている`);
+    await tap('.cart__close');
+    s = await barState(p, 600);
+    t(!s.open && s.shown && !s.away, `${n}: カートを閉じたあとも、帯は出ている`);
+
+    /* 手に取った本の層。帯を引っ込めて棚を見ているところで本をタップしても、帯は引っ込めたまま
+       （層が帯ごと覆うので、出してもぼかしの向こうでちらつくだけ）。
+       棚にもどっても引っ込めたまま。本を見て戻っただけで、帯が看板の列にかぶらない */
+    await p.evaluate(() => {
+      const h = document.querySelector('.market__head');
+      window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 120);
+    });
+    await barState(p);
+    await fingerScroll(cdp, p, x, Math.round(vp.h * 0.9), 120);
+    s = await barState(p);
+    t(s.away && Math.abs(s.heads[0]) <= 3, `${n}: 棚を見るところ（帯は引っ込み、看板の列は上端 ${s.heads[0]}px）`);
+    const head1 = s.heads[0], yShelf = s.y;
+    let sp = await spineAt(p, 0, 'aya');
+    await trackBar(p);
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    s = await barState(p, 0);
+    const over = await p.evaluate(() => { const e = document.elementFromPoint(20, 20); return !!(e && e.closest('#focus')); });
+    t(s.open === 'focus' && s.away && over, `${n}: 本を手に取っているあいだも、帯は引っ込めたまま（層が帯の上にかぶる）`);
+    await touchTap(cdp, p, 12, 60);
+    s = await barState(p, 600);
+    const tops = await trackedTops(p);
+    t(!s.open && s.away && s.gone && s.y === yShelf && Math.abs(s.heads[0] - head1) <= 1,
+      `${n}: 棚にもどると、開く前のとおり帯は引っ込んだまま。看板の列にかぶらない（看板の列 ${s.heads[0]}px、帯の下の端 ${s.bottom}px）`);
+    t(tops.length > 20 && tops.every(v => Math.abs(v + s.bottom - s.top) <= 0.5),
+      `${n}: 層を開いても閉じても、帯は動かない（帯の上の端 ${[...new Set(tops)].join('・')}px）`);
+    await fingerScroll(cdp, p, x, y, -16);
+    s = await barState(p);
+    t(s.shown && !s.away, `${n}: そのあと少し上へ戻すと、帯が出る（手に取った本の層のあと）`);
+    /* 帯が出ているところで手に取ったときは、棚にもどっても出たまま */
+    sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    await touchTap(cdp, p, 12, 60);
+    s = await barState(p, 600);
+    t(!s.open && s.shown && !s.away, `${n}: 帯が出ているところで手に取ったときは、棚にもどっても帯は出たまま`);
+    await fingerScroll(cdp, p, x, y, 40);
+    s = await barState(p);
+    t(s.away, `${n}: そのあと下へ送ると、帯は引っ込む（手に取った本の層のあと）`);
+
+    /* 商品詳細と試し読み。開いているあいだは出たまま、閉じたあとも出ている */
+    const yItem = await p.evaluate(() => Math.round(window.scrollY));
+    sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    const bk = await p.evaluate(() => { const r = document.querySelector('.focus__book').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await touchTap(cdp, p, bk.x, bk.y); await p.waitForTimeout(900);
+    s = await barState(p, 0);
+    t(s.open === 'item' && !s.away, `${n}: 商品詳細を開いているあいだ、帯は出ている`);
+    await tap('.item__act--read'); await p.waitForTimeout(700);
+    s = await barState(p, 0);
+    t(s.open === 'item,peek' && !s.away, `${n}: 試し読みを開いているあいだ、帯は出ている`);
+    await tap('.peek__close'); await p.waitForTimeout(600);
+    await tap('.item__back');
+    s = await barState(p, 800);
+    t(!s.open && s.shown && !s.away, `${n}: 商品詳細を閉じて棚にもどったあとも、帯は出ている`);
+    /* 住所欄には「棚をのぞく」の印（#theme-1）が付いている。戻る操作でブラウザがその看板まで
+       跳ばず、開く前と同じ位置にもどる */
+    const hash = await p.evaluate(() => location.hash);
+    t(s.y === yItem && hash === '#theme-1',
+      `${n}: 住所欄に売り場の印（${hash}）があっても、商品詳細を閉じると開く前と同じ位置にもどる（${s.y}/${yItem}）`);
+    /* 商品詳細を開いたまま読み込み直しても（iOS の Safari が裏に回したタブを読み込み直すときも）、
+       「棚にもどる」でも戻る操作でも、開く前の位置にもどる */
+    for (const how of ['棚にもどる', '戻る操作']) {
+      sp = await spineAt(p, 0, 'aya');
+      await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+      const bk2 = await p.evaluate(() => { const r = document.querySelector('.focus__book').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+      await touchTap(cdp, p, bk2.x, bk2.y); await p.waitForTimeout(900);
+      const yRe = await p.evaluate(() => Math.round(window.scrollY));
+      await p.reload({ waitUntil: 'networkidle' }); await p.waitForTimeout(900);
+      const re = await barState(p, 0);
+      if (how === '棚にもどる') await tap('.item__back'); else await p.goBack();
+      s = await barState(p, 800);
+      t(re.open === 'item' && !s.open && s.y === yRe,
+        `${n}: 商品詳細を開いたまま読み込み直しても、${how}で開く前の位置にもどる（${s.y}/${yRe}）`);
+    }
+    await fingerScroll(cdp, p, x, y, 40);
+    s = await barState(p);
+    t(s.away, `${n}: そのあと下へ送ると、帯は引っ込む（商品詳細のあと）`);
+
+    t(errs.length === 0, `${n}: 帯の出し入れでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await ctx.close();
+  }
+
+  /* --- マウスの輪とキーボード（パソコン） --- */
+  {
+    const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    await p.mouse.move(720, 450);
+    const tr0 = await p.evaluate(() => { const c = getComputedStyle(document.querySelector('.topbar')); return [c.transitionProperty, c.transitionDuration]; });
+    for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, 400); await p.waitForTimeout(120); }
+    let s = await barState(p);
+    const tr1 = await p.evaluate(() => { const c = getComputedStyle(document.querySelector('.topbar')); return [c.transitionProperty, c.transitionDuration]; });
+    t(s.away && s.gone, `PC: 輪で下へ送ると、帯は引っ込む（帯の下の端 ${s.bottom}px）`);
+    /* 滑らせる長さは 0.25〜0.3 秒。動かすのは位置（transform）だけ */
+    const secs = v => parseFloat(v) * (/ms$/.test(v) ? 0.001 : 1);
+    t(tr0[0] === 'transform' && tr1[0] === 'transform' && [tr0[1], tr1[1]].every(v => secs(v) >= 0.25 && secs(v) <= 0.3),
+      `PC: 帯は位置だけを 0.25〜0.3 秒で滑らせる（出る ${tr0.join(' ')}・引っ込む ${tr1.join(' ')}）`);
+    const yDown = s.y;
+    await p.mouse.wheel(0, -60);
+    s = await barState(p);
+    t(s.shown && !s.away, `PC: 輪で少し上へ戻すと、帯が出る（${yDown}→${s.y}px、帯の上の端 ${s.top}px）`);
+    /* マウスで帯のボタンを押したあと、焦点がボタンに残っていても、下へ送れば引っ込む */
+    await p.click('.topbar__search'); await p.waitForTimeout(300);
+    const onBtn = await p.evaluate(() => document.activeElement.classList.contains('topbar__search'));
+    await p.mouse.move(720, 450);
+    await p.mouse.wheel(0, 200);
+    s = await barState(p);
+    t(s.away, `PC: マウスで帯のボタンを押したあとも、下へ送れば帯は引っ込む（焦点はボタンに${onBtn ? '残っている' : '無い'}）`);
+    /* キーボード。引っ込めたまま Shift+Tab で帯に戻ると、帯が出る。帯の中にいるあいだは引っ込めない */
+    await p.evaluate(() => document.querySelector('.hero__scroll').focus({ preventScroll: true }));
+    const y0 = await p.evaluate(() => Math.round(window.scrollY));
+    await p.keyboard.press('Shift+Tab');
+    s = await barState(p);
+    const act = await p.evaluate(() => document.activeElement.id);
+    t(s.shown && !s.away && act === 'cart-open' && s.y === y0,
+      `PC: キーボードで帯に焦点が来ると、その場で帯が出る（${act}、${s.y}/${y0}px）`);
+    await p.mouse.wheel(0, 300);
+    s = await barState(p);
+    t(s.shown && !s.away && s.y > y0, `PC: キーボードで帯を使っているあいだは、下へ送っても引っ込めない（${s.y - y0}px 送った）`);
+    t(errs.length === 0, `PC: 帯の出し入れでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await p.close();
+  }
+
+  /* --- 動きを減らす設定。滑らせず、その場で出し入れする --- */
+  {
+    const p = await b.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', hasTouch: true });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    const step = dy => p.evaluate(dy => new Promise(res => {
+      const b = document.querySelector('.topbar');
+      if (dy) window.scrollBy(0, dy); else window.scrollTo(0, window.innerHeight * 2);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const r = b.getBoundingClientRect();
+        res({ away: b.classList.contains('is-away'), top: r.top, bottom: r.bottom, anims: b.getAnimations().length,
+              tp: getComputedStyle(b).transitionProperty });
+      }));
+    }), dy);
+    const a = await step(0);
+    t(a.away && a.bottom <= 0.5 && a.anims === 0 && a.tp === 'none',
+      `動きを減らす設定では、帯は滑らせずにその場で引っ込む（下の端 ${a.bottom}px、動き ${a.anims}、${a.tp}）`);
+    const c = await step(-20);
+    t(!c.away && Math.abs(c.top) <= 0.5 && c.anims === 0 && c.tp === 'none',
+      `動きを減らす設定では、帯は滑らせずにその場で出る（上の端 ${c.top}px、動き ${c.anims}）`);
+    await p.close();
+  }
+
+  /* --- キーボードで棚を見る（パソコン）。帯を引っ込めているあいだは、帯の下に空ける間合い
+     （scroll-padding-top）も小さくする。タブ送りで画面が上へ戻って帯が出てきたり、
+     焦点の先に帯がかぶったりしない --- */
+  {
+    const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(() => { try { localStorage.setItem('shelf-hint', '1'); } catch (e) {} });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    const pad = () => p.evaluate(() => parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop));
+    const padShown = await pad();
+    await p.evaluate(() => document.querySelector('.hero__scroll').focus());
+    await p.keyboard.press('Enter');
+    let s = await barState(p, 2300);
+    const padAway = await pad();
+    t(s.away && s.gone && Math.abs(s.heads[0]) <= 1 && padAway < 40 && padShown > 90,
+      `PC キーボード: 「棚をのぞく」のあと帯は引っ込み、帯の下の間合いも小さくなる（${padShown}px → ${padAway}px）`);
+    await watchBar(p);
+    const y0 = s.y;
+    for (let i = 0; i < 6; i++) { await p.keyboard.press('Tab'); await p.waitForTimeout(200); }
+    s = await barState(p, 0);
+    let log = await p.evaluate(() => window.__bar);
+    const inShelf = await p.evaluate(() => !!document.activeElement.closest('.market'));
+    t(inShelf && s.away && s.y === y0 && log.every(v => v),
+      `PC キーボード: 棚の本へタブ送りしても、画面は動かず帯も出てこない（${s.y}/${y0}px、出し入れ ${log.join('→') || 'なし'}）`);
+    /* 下の売り場から Shift+Tab で上の売り場へ戻る。焦点の先を見せる送りは上向きだが、帯は出さない */
+    await p.evaluate(() => {
+      document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
+      const h = document.querySelectorAll('.market__head')[1];
+      window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 200);
+    });
+    await p.waitForTimeout(300);
+    await p.evaluate(() => window.scrollBy(0, 200));
+    await barState(p);
+    await p.evaluate(() => {
+      const mk = document.querySelectorAll('.market')[1];
+      const e = [...mk.querySelectorAll('.spine')].find(e => e.tabIndex >= 0 && getComputedStyle(e).display !== 'none');
+      e.focus({ preventScroll: true });
+    });
+    const under = [];
+    let reached = false;
+    for (let i = 0; i < 8; i++) {
+      await p.keyboard.press('Shift+Tab'); await p.waitForTimeout(250);
+      const a = await p.evaluate(() => {
+        const a = document.activeElement, r = a.getBoundingClientRect();
+        const bar = document.querySelector('.topbar').getBoundingClientRect();
+        return { top: Math.round(r.top), bar: Math.round(bar.bottom), k: a.dataset.book || a.className.toString().slice(0, 20),
+                 m: [...document.querySelectorAll('.market')].findIndex(m => m.contains(a)) };
+      });
+      if (a.m === 0) reached = true;
+      if (a.top < a.bar) under.push(`${a.k} ${a.top}/${a.bar}px`);
+    }
+    t(reached && under.length === 0,
+      `PC キーボード: 下の売り場から Shift+Tab で上の売り場へ戻っても、焦点の先に帯がかぶらない${under.length ? '（' + under.join('、') + '）' : ''}`);
+    t(errs.length === 0, `PC キーボード: JSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await p.close();
+  }
+
+  /* --- iOS の Safari。下へ送るとブラウザの帯が引っ込み、見える高さだけが変わる
+     （390x664 ↔ 390x750）。その出入りでは帯を出し入れせず、本文も動かさない。
+     ページの終わりでは、高さが変わると位置が端に丸められて上へ動く。それも上へ戻したと数えない。
+     この検査の画面（Chromium）では高さを変えると svh も変わり、森の高さが伸び縮みする
+     （実機の Safari では svh は変わらない）。森が画面に入らない2つめの売り場で見て、
+     本文が動かないことは同じ高さどうしで比べる --- */
+  {
+    const ctx = await b.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const p = await ctx.newPage();
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(() => { try { localStorage.setItem('shelf-hint', '1'); } catch (e) {} });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    const cdp = await ctx.newCDPSession(p);
+    const size = async hh => { await p.setViewportSize({ width: 390, height: hh }); await p.waitForTimeout(200); };
+    const head = () => p.evaluate(() => +document.querySelectorAll('.market__head')[1].getBoundingClientRect().top.toFixed(1));
+    await p.evaluate(() => {
+      document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
+      const h = document.querySelectorAll('.market__head')[1];
+      window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 120);
+    });
+    await barState(p);
+    await fingerScroll(cdp, p, 195, 598, 120);
+    let s = await barState(p);
+    t(s.away && s.gone, `iOS Safari: 2つめの売り場を見るところで、帯は引っ込んでいる（看板の列 ${s.heads[1]}px）`);
+    await watchBar(p);
+    await size(750);
+    const h0 = await head();
+    await size(664); await size(750);
+    const h1 = await head();
+    let log = await p.evaluate(() => window.__bar);
+    s = await barState(p, 100);
+    t(s.away && s.gone && log.every(v => v) && Math.abs(h1 - h0) <= 1,
+      `iOS Safari: ブラウザの帯が出入りしても（高さ 664↔750）、帯は引っ込んだまま、本文も動かない（看板の列 ${h0}→${h1}px、出し入れ ${log.join('→') || 'なし'}）`);
+    await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    s = await barState(p);
+    const yEnd = s.y;
+    await watchBar(p);
+    await size(664); await size(750); await size(664);
+    log = await p.evaluate(() => window.__bar);
+    s = await barState(p, 100);
+    t(s.away && s.gone && s.end && s.y < yEnd && log.every(v => v),
+      `iOS Safari: ページの終わりで高さが変わり、位置が端に丸められて上へ動いても、帯は出てこない（${yEnd}→${s.y}px、出し入れ ${log.join('→') || 'なし'}）`);
+    t(errs.length === 0, `iOS Safari: JSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await ctx.close();
   }
 }
 
@@ -1906,7 +2342,7 @@ async function fixes(b) {
     t(hc.lead === null || hc.lead >= 4.5,
       `${vp.n}: 森の上の一文が読める（${hc.lead}:1）`);
 
-    /* --- 上の帯は下りても残る --- */
+    /* --- 上の帯は、下へ読み進めると引っ込み、少し戻せば出る（9/29 から。詳しくは 4b） --- */
     let s = await p.evaluate(() => {
       const bar = document.querySelector('.topbar');
       return { pos: getComputedStyle(bar).position,
@@ -1923,11 +2359,19 @@ async function fixes(b) {
     await p.waitForTimeout(700);
     s = await p.evaluate(() => {
       const bar = document.querySelector('.topbar');
+      return { bottom: Math.round(bar.getBoundingClientRect().bottom), away: bar.classList.contains('is-away') };
+    });
+    t(s.away && s.bottom <= 0, `${vp.n}: 下へ読み進めると、帯は上へ引っ込む（帯の下の端 ${s.bottom}px）`);
+    /* 少し上へ戻すと出る。出たときには店内の地が敷かれている */
+    await p.evaluate(() => window.scrollBy(0, -24));
+    await p.waitForTimeout(700);
+    s = await p.evaluate(() => {
+      const bar = document.querySelector('.topbar');
       return { top: Math.round(bar.getBoundingClientRect().top),
                lit: bar.classList.contains('is-lit'),
                op: +getComputedStyle(bar, '::before').opacity };
     });
-    t(s.top === 0, `${vp.n}: 下りても上端に残る`);
+    t(s.top === 0, `${vp.n}: 少し上へ戻すと、帯が上端に出る`);
     t(s.lit && s.op > 0.9, `${vp.n}: 店内では地が敷かれる`);
 
     /* 帯の文字が、後ろの明るい面に負けていないか（WCAG 4.5:1）。
@@ -1974,12 +2418,12 @@ async function fixes(b) {
     }, { png, boxes, w: vp.w, h: barH });
     t(ratio >= 4.5, `${vp.n}: 帯の文字が読める（最小 ${ratio.toFixed(2)}:1）`);
 
-    /* --- 寄せ先が帯の下に隠れない --- */
+    /* --- タブ送りやページ内検索で上へ戻るときは、出てくる帯の下に隠れない --- */
     await p.evaluate(() => window.scrollTo(0, 0));
     await p.waitForTimeout(400);
     const pad = await p.evaluate(() =>
       parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop));
-    t(pad > 80, `${vp.n}: 寄せる前に帯のぶん空ける（${Math.round(pad)}px）`);
+    t(pad > 80, `${vp.n}: ブラウザが画面を送るときは、帯のぶん手前で止める（${Math.round(pad)}px）`);
 
     /* --- 画面の送りは、一瞬で飛ばない --- */
     const glide = await p.evaluate(() => new Promise(res => {
@@ -1998,10 +2442,12 @@ async function fixes(b) {
     t(glide.steps > 8, `${vp.n}: 節へ送るとき、間をかけて動く（${glide.steps}こま）`);
     s = await p.evaluate(() => {
       const r = document.getElementById('theme-1').getBoundingClientRect();
+      const head = document.querySelector('.market__head').getBoundingClientRect();
       const bar = document.querySelector('.topbar').getBoundingClientRect();
-      return { top: Math.round(r.top), bar: Math.round(bar.bottom) };
+      return { top: Math.round(r.top), head: +head.top.toFixed(1), bar: Math.round(bar.bottom) };
     });
-    t(s.top >= s.bar, `${vp.n}: 送った先の看板が帯に隠れない（看板${s.top} / 帯${s.bar}）`);
+    t(s.top >= s.bar && s.bar <= 0 && Math.abs(s.head) <= 1,
+      `${vp.n}: 送った先の看板が帯に隠れない。帯は引っ込み、看板の列が画面の上端に来る（看板の列 ${s.head} / 看板 ${s.top} / 帯 ${s.bar}）`);
 
     /* --- 試し読み。手を止めたら層から降りて描き直される --- */
     const sp = await p.$('.spine[data-book]');
@@ -2168,6 +2614,7 @@ async function widths(b) {
   await screens(b);
   await pages(b);
   await nav(b);
+  await topbarHide(b);
   await fixes(b);
   await widths(b);
   await b.close();

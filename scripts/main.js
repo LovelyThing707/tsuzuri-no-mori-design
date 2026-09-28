@@ -951,6 +951,19 @@
 
     function set(sel, txt) { root.querySelector(sel).textContent = txt; }
 
+    /* 棚にもどる位置は、こちらで戻す（開いたときの位置 y）。ブラウザにも戻させると、
+       住所欄に売り場の印（「棚をのぞく」で付く #theme-1 など）があるとき、戻る操作で
+       開く前の位置ではなく、その看板まで跳んでしまう。
+       ブラウザの位置の戻し方は履歴ごとに持つので、履歴を積む前に棚の履歴で止め、
+       積んだ商品詳細の履歴ではすぐ元に戻し（止めたのが引き継がれるため）、
+       棚の履歴へ戻ってきたら棚の履歴も元に戻す。止めたままだと、読み込み直したとき
+       （商品詳細を開いたままの読み込み直しも）に位置が先頭へ戻ってしまう */
+    function own(on) {
+      try {
+        if ('scrollRestoration' in window.history) window.history.scrollRestoration = on ? 'manual' : 'auto';
+      } catch (err) { /* 履歴を使えない環境 */ }
+    }
+
     function fill(b) {
       var img = root.querySelector('.item__img');
       img.src = b.cover; img.alt = b.title + ' の表紙';
@@ -985,7 +998,9 @@
       document.body.classList.add('peek-open');
       root.querySelector('.item__back').focus({ preventScroll: true, focusVisible: byKey });
       if (!again) {
+        own(true);
         try { window.history.pushState({ item: k }, ''); } catch (err) { /* 履歴を使えない環境 */ }
+        own(false);
       }
     }
 
@@ -1017,8 +1032,11 @@
     }
 
     window.addEventListener('popstate', function (e) {
-      if (popping) { popping = false; return; }
       var st = e.state;
+      /* 棚の履歴へ戻ってきた。ブラウザの位置の戻し方を元に戻すのは、戻す処理
+         （popstate のすぐあと）が済んでから */
+      if (!(st && st.item)) window.setTimeout(function () { own(false); }, 0);
+      if (popping) { popping = false; return; }
       /* 進む操作で商品詳細の履歴へ来たときは、開き直す */
       if (st && st.item && BOOKS[st.item]) {
         if (root.hidden || closing) open(st.item, null, true);
@@ -1304,17 +1322,36 @@
 
   /* いま走っている送りの番号。新しい送りが始まったら古いほうは降りる */
   var gliding = 0;
+  /* 上の帯の出し入れ。topbar() が作り、送りのあいだはこちらが決める */
+  var bar = null;
 
   function glide(target) {
     var root = document.documentElement;
-    /* 上に空ける量。帯の高さは html の scroll-padding-top が持ち、
-       個別に譲りたい要素があれば scroll-margin-top で上書きできる */
-    var gap = Math.max(
-      parseFloat(window.getComputedStyle(root).scrollPaddingTop) || 0,
-      parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0);
+    /* 売り場へ寄せるときは、看板の列（.market__head）を基準にする。
+       売り場の頭には帯のぶんの余白があり、看板の文字は列の中ほどにあるため */
+    var mark = target.classList.contains('market')
+      ? (target.querySelector('.market__head') || target)
+      : (target.closest('.market__head') || target);
+    var sign = mark.classList.contains('market__head');
+    /* 個別に譲りたい要素があれば scroll-margin-top で上に空けられる */
+    var margin = parseFloat(window.getComputedStyle(mark).scrollMarginTop) || 0;
     var max = Math.max(0, root.scrollHeight - window.innerHeight);
     var from = window.pageYOffset;
-    var to = Math.max(0, Math.min(max, layoutTop(target) - gap));
+    var top = layoutTop(mark);
+    /* 下へ送るときは、帯を引っ込めながら送る。看板の列は画面の上端に来る
+       （帯のぶん下で止めると、引っ込めて空けた高さを棚と平台が使えない）。
+       上へ送るときは帯が出てくるので、看板の列は帯のすぐ下に、ほかは
+       html の scroll-padding-top（帯の高さと少しの間）だけ手前で止める */
+    var to = Math.max(0, Math.min(max, top - margin));
+    var down = to >= from - 1;
+    /* 帯の出し入れを先に決める。帯を引っ込めているあいだは scroll-padding-top も
+       小さくしてあるので、上へ送るときは帯を出してから間合いを読む */
+    if (bar) bar.steer(down, to);
+    if (!down) {
+      var gap = sign && bar ? bar.height()
+        : parseFloat(window.getComputedStyle(root).scrollPaddingTop) || 0;
+      to = Math.max(0, Math.min(max, top - Math.max(gap, margin)));
+    }
     var dist = to - from;
     /* 毎コマこちらが動かすあいだ、様式側の滑らかな送りが入ると二重になる。
        動かしているあいだだけ外し、終わったら戻す */
@@ -1322,14 +1359,17 @@
     if (reduced.matches || Math.abs(dist) < 2) {
       window.scrollTo(0, to);
       root.style.scrollBehavior = '';
+      if (bar) bar.release();
       return;
     }
     /* 遠いほど長く。ただし待たされないところで頭を打つ */
     var ms = Math.min(1100, 400 + Math.abs(dist) * 0.3);
     var id = ++gliding;
+    /* 送り終わったら、帯の出し入れを読み手の送りに返す */
+    function end() { gliding++; root.style.scrollBehavior = ''; if (bar) bar.release(); }
     /* 送っているあいだに読み手が指や輪を動かしたら、そちらを優先する。
        途中で引き戻されるのは、動かないより気持ちが悪い */
-    function give() { if (id === gliding) { gliding++; root.style.scrollBehavior = ''; } }
+    function give() { if (id === gliding) end(); }
     window.addEventListener('wheel', give, { passive: true, once: true });
     window.addEventListener('touchstart', give, { passive: true, once: true });
     var t0 = 0;
@@ -1341,7 +1381,7 @@
       var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       window.scrollTo(0, from + dist * e);
       if (k < 1) window.requestAnimationFrame(step);
-      else { gliding++; root.style.scrollBehavior = ''; }
+      else end();
     })(0);
   }
 
@@ -1365,17 +1405,31 @@
   /* --- 上の帯 -----------------------------------------------
      帯は固定してあるので、森を抜けた先では木の壁や棚の上に重なる。
      明るい面に文字が乗ると読めないため、そこから地を敷く。
-     読めるかどうかの話なので、動きを減らす設定でも動かす。 */
+     読めるかどうかの話なので、動きを減らす設定でも動かす。
+
+     店内を下へ読み進めるあいだは、帯を上へ引っ込める。棚と平台を一画面に収めたいが、
+     帯の高さ（標準的な iPhone で 84px ほど）がちょうどその足りない分にあたるため（9/29 のご依頼）。
+     少しでも上へ戻せば、すぐに出す。
+     出したままにするのは、森が見えているあいだ（ページの先頭を含む）、
+     覆い（メニュー・カート・商品詳細・試し読み・固定ページ・手に取った本の層）を開いているあいだ、
+     キーボードで帯の中を操作しているあいだ。
+     覆いを閉じたあとも出したままにしておき、次に下へ送ったときに引っ込める。
+     ただし手に取った本の層だけは、棚にもどったら開く前の出し入れに戻す。本を見て棚に
+     もどっただけで、上へ戻してもいないのに帯が看板の列にかぶるのを防ぐ
+     （商品詳細へ進んだときは、商品詳細の決まりに従う）。
+     出し入れは画面の大きさによらない（スマートフォンもパソコンも同じ）。 */
   function topbar() {
-    var bar = document.querySelector('.topbar');
+    var el = document.querySelector('.topbar');
     var hero = document.querySelector('.hero');
-    if (!bar || !hero) return;
+    if (!el || !hero) return;
+    var layer = document.getElementById('focus');
 
     var h = 0;
     /* 寄せ先を帯の下から始めるため、実寸を CSS へ渡す。
-       切り欠きのある端末は余白が増えるので、決め打ちにできない */
+       切り欠きのある端末は余白が増えるので、決め打ちにできない。
+       引っ込めているあいだも高さは変わらない（ずらしているだけなので） */
     function measure() {
-      h = bar.getBoundingClientRect().height;
+      h = el.getBoundingClientRect().height;
       document.documentElement.style.setProperty('--bar', h.toFixed(1) + 'px');
       /* 縦棒の幅。覆いを開いたときに帯だけ広がるのを止める用。
          止めているあいだは縦棒が無いので、測り直さない */
@@ -1385,11 +1439,95 @@
       }
     }
 
+    /* 数 px の揺れ（指を離したあとの小さな戻り、URL バーの出入り）では動かさない。
+       同じ向きに続けて送った量を足していき、下へ DOWN を超えたら引っ込め、
+       上へ UP を超えたら出す。上へは小さく、戻したいと思った指にすぐ応える */
+    var DOWN = 12, UP = 8;
+    var away = false;       /* 引っ込めている */
+    var run = 0;            /* 同じ向きに続けて送った量（下が正） */
+    var lastY = 0;
+    var steering = false;   /* 画面の送り（glide）が出し入れを決めているあいだ */
+
+    /* いまの位置。iOS の端での跳ね返り（先頭より上・末尾より下）は、端に丸めて数えない。
+       末尾で跳ね返るたびに帯が出てくるのを防ぐ */
+    function where() {
+      var max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      return Math.max(0, Math.min(max, window.pageYOffset));
+    }
+    function put(off) {
+      if (away === off) return;
+      away = off;
+      el.classList.toggle('is-away', off);
+      /* 帯の下に空ける間合い（styles/layout.css の scroll-padding-top）も、引っ込めているあいだは
+         小さくする。帯の無いところで帯のぶんを空けようとして、タブ送りで画面が動かないように */
+      document.documentElement.classList.toggle('bar-away', off);
+    }
+    /* 滑らせずに、その場で出し入れする */
+    function snap(off) {
+      if (away === off) return;
+      el.classList.add('is-still');
+      put(off);
+      void el.offsetWidth;    /* 動かないまま位置を決めてから、滑らせる設定に戻す */
+      el.classList.remove('is-still');
+    }
+    /* 出したままにしておくとき */
+    function held() {
+      /* 覆い。どれも開くと body に peek-open を付ける（後ろの棚を止めるため） */
+      if (document.body.classList.contains('peek-open')) return true;
+      /* キーボードで帯の中を操作している。指やマウスで押したあとに焦点が残っていても
+         数えない（残ったままだと、下へ送っても引っ込まなくなる） */
+      var a = document.activeElement;
+      return byKey && !!a && a !== document.body && el.contains(a);
+    }
+
+    /* 手に取った本の層。peek-open を付けないので、層そのものを見る（棚へ戻る途中は数えない）。
+       層は帯ごとぼかして覆う（styles/shelf.css の .focus）ので、開いても帯の出し入れは変えない。
+       帯を出すと、ぼかしの向こうで帯が現れては消え、本を見ている目の端がちらつく。
+       棚にもどったときは、開く前の出し入れのまま */
+    var before = null;      /* 層を開く前に引っ込めていたか。層を開いていないときは null */
+    function layerUp() {
+      return !!layer && !layer.hidden && !layer.classList.contains('is-leaving');
+    }
+    function onLayer() {
+      if (layerUp()) {
+        if (before === null) before = away;
+        return;
+      }
+      if (before === null) return;
+      var was = before;
+      before = null;
+      run = 0; lastY = where();
+      /* 商品詳細へ進んだときは、そちらの決まり（開いているあいだも閉じたあとも出す）に従う */
+      if (held()) { put(false); return; }
+      snap(was && hero.getBoundingClientRect().bottom <= 0);
+    }
+
+    /* キーボードで焦点を移すと、焦点の先を見せるためにブラウザが画面を送ることがある。
+       その送りでは出し入れしない。上へ戻したと数えて帯を出すと、焦点の先に帯がかぶる */
+    var moved = 0;
+    document.addEventListener('focusin', function (e) {
+      if (byKey && !el.contains(e.target)) moved = Date.now();
+    }, true);
+
     var ticking = false;
     function apply() {
-      /* 森が帯の下から抜けたら、地を敷く */
-      bar.classList.toggle('is-lit', hero.getBoundingClientRect().bottom <= h);
       ticking = false;
+      var edge = hero.getBoundingClientRect().bottom;
+      /* 森が帯の下から抜けたら、地を敷く */
+      el.classList.toggle('is-lit', edge <= h);
+      var y = where(), dy = y - lastY;
+      lastY = y;
+      if (steering) return;
+      /* 森がまだ画面に見えているうち（ページの先頭を含む）は、出したまま */
+      if (edge > 0 || held()) { run = 0; put(false); return; }
+      /* 手に取った本の層を開いているあいだは、層のほう（onLayer）が決める */
+      if (layerUp()) { run = 0; return; }
+      /* キーボードで焦点を移した拍子の送りでは、出し入れしない */
+      if (Date.now() - moved < 120) { run = 0; return; }
+      if (!dy) return;
+      run = (dy > 0) === (run > 0) ? run + dy : dy;
+      if (run > DOWN) put(true);
+      else if (run < -UP) put(false);
     }
     function ask() {
       if (ticking) return;
@@ -1398,9 +1536,42 @@
     }
 
     measure();
+    lastY = where();
     apply();
     window.addEventListener('scroll', ask, { passive: true });
-    window.addEventListener('resize', function () { measure(); ask(); }, { passive: true });
+    window.addEventListener('resize', function () {
+      measure();
+      /* URL バーの出入りで画面の高さが変わると、末尾の近くでは丸めた位置が動く。
+         送った量には数えない */
+      lastY = where();
+      ask();
+    }, { passive: true });
+
+    /* 覆いが開いたら出す。開いても画面は動かない（後ろを止める）ので、開いたことを見て出す */
+    if ('MutationObserver' in window) {
+      var seen = new MutationObserver(function () {
+        onLayer();
+        if (!steering && held()) { run = 0; put(false); }
+      });
+      seen.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      if (layer) seen.observe(layer, { attributes: true, attributeFilter: ['hidden', 'class'] });
+    }
+    /* キーボードで帯に来たら出す。引っ込めたまま Shift+Tab で戻ってきても、
+       どこに焦点があるかが見えるように */
+    el.addEventListener('focusin', function () { run = 0; put(false); });
+
+    bar = {
+      height: function () { return h; },
+      /* 画面の送り（glide）の始めに呼ぶ。下へ送る先で森が画面から出ているなら先に引っ込め、
+         上へ送るなら出す。送り終わる（release）までは、向きで出し入れしない。
+         送りの途中の揺れや、止まる間際の小さな戻りで、帯が出入りしないように */
+      steer: function (down, to) {
+        steering = true; run = 0;
+        var edge = hero.getBoundingClientRect().bottom - (to - window.pageYOffset);
+        put(down && edge <= 0 && !held());
+      },
+      release: function () { steering = false; run = 0; lastY = where(); }
+    };
   }
 
   function boot() {

@@ -136,7 +136,7 @@
 }
 
 /* --- 上部の帯 -------------------------------------------------
-   どこまで下りても手の届くところに置く。
+   どこまで下りても、少し上へ戻せば手の届くところに置く。
    森の上では透かしたまま、店内に入ったところで地を敷く。 */
 .topbar{
   position:fixed; z-index:5;
@@ -149,7 +149,21 @@
   padding-top:calc(clamp(14px,3.4vh,26px) + env(safe-area-inset-top));
   background:linear-gradient(180deg, rgba(10,14,10,.42) 0%, transparent 100%);
   pointer-events:none;
+  /* 出てくるときの動き。退くときは下の .is-away の曲線を使う */
+  transition:transform .3s var(--ease-rise);
 }
+/* 店内を下へ読み進めるあいだは、上へ引っ込める（scripts/main.js が is-away を付ける）。
+   棚と平台を一画面に収めるには、帯の高さがちょうど足りない分にあたるため。
+   消すのではなく、上へずらすだけにする。帯の場所を本文から抜くと、そのぶん本文が跳ねる。
+   iOS の Safari も同じときに自分の帯を引っ込めるので、本文の寸法は変えず、
+   画面の送りも止めない。影を含めて帯の箱の中に収まっているので、箱の高さだけずらせば消える */
+.topbar.is-away{
+  transform:translateY(-100%);
+  transition:transform var(--t-leave) var(--ease-leave);
+}
+/* 手に取った本の層の向こうで出し入れするときは、滑らせない（scripts/main.js が一瞬だけ付ける）。
+   層は帯ごとぼかして覆うので、その向こうで帯が滑ると、ぼけた影が動いて見える */
+.topbar.is-still, .topbar.is-away.is-still{ transition:none; }
 .topbar > *{ pointer-events:auto; }
 /* 店内の地。木の壁や棚の明るい面に文字が重なると読めないため、
    森を抜けたところで敷く。下端は透かして、硬い境目を作らない。
@@ -167,10 +181,19 @@
 /* 覆いを開くと後ろの巻き取りを止めるため、縦棒が消えて画面が広がる。
    帯だけが右へ伸びると、開くたびに文字が跳ねて見える */
 body.peek-open .topbar{ right:var(--gutter,0px); }
-/* 帯の下は隠れる場所になった。看板へ寄せるときも、タブ送りや
-   ページ内検索で画面が動くときも、その分だけ手前で止める。
+/* 帯の下は隠れる場所になった。タブ送りやページ内検索で画面が動くときは、
+   帯の分だけ手前で止める。
+   帯を引っ込めているあいだ（scripts/main.js が html に bar-away を付ける）は、少しの間だけにする。
+   帯の無いところに帯の分を空けると、タブ送りのたびに画面が上へ戻り、帯まで出てきてしまう。
+   看板へ寄せる送り（scripts/main.js の glide）はこの値を使わない。下へ送るときは帯を
+   引っ込めて看板の列を画面の上端に、上へ送るときは帯のすぐ下にそろえる。
    --bar は帯の実寸（scripts/main.js が測って入れる）。 */
 html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
+html.bar-away{ scroll-padding-top:clamp(12px,3vh,28px); }
+/* 動きを減らす設定では、滑らせずにその場で出し入れする */
+@media (prefers-reduced-motion: reduce){
+  .topbar, .topbar.is-away{ transition:none; }
+}
 .topbar__logo{
   margin:0;
   font-size:clamp(14px,4vw,18px);
