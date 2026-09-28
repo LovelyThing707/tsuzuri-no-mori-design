@@ -63,18 +63,6 @@
   color:var(--paper);
   text-align:left;
 }
-.market__all{
-  flex:0 0 auto;
-  font-size:12px; letter-spacing:.14em;
-  color:var(--paper-dim); text-decoration:none;
-  padding:4px 2px;
-  border-bottom:1px solid transparent;
-  transition:color .3s var(--ease), border-color .3s var(--ease);
-}
-.market__all::after{ content:"\203A"; margin-left:.5em; }
-.market__all:hover,.market__all:focus-visible{
-  color:var(--paper); border-bottom-color:rgba(233,224,206,.4);
-}
 
 .scene{ position:relative; }
 
@@ -722,7 +710,7 @@
 }
 .pick-tag.is-on{ opacity:1; }
 
-/* なぞれることの知らせ。最初の棚が見えたときに一度だけ出す */
+/* 本をタップすると大きく見られることの知らせ。最初の棚が見えたときに一度だけ出す */
 .shelf-hint{
   position:absolute; z-index:3;
   left:50%; top:18%;
@@ -957,10 +945,15 @@
 }
 
 /* ============================================================
-   引き抜き
-   棚の本をタップすると、その本が手前に出て表紙を見せる。
-   要件定義書 2-6「タップした本が手前に出て表紙を表示。
-   書名・著者・価格を添え、試し読みと購入への導線を置く」
+   本を手に取る
+   棚の本を1回タップすると、その本が少し前に出てピントが合い、ほかの本はぼやける。
+   背表紙は、書名が読める大きさまで拡大する（縦と横に同じ倍率をかけ、実物どおりの比のまま）。
+   拡大した背表紙の横に、書名と著者名を文字で添える。画面の小さい端末では、
+   拡大しても背表紙の文字が小さいままの本があるため。
+   平置きの本は、表紙を起こして正面に向け、大きく見せる。書名は表紙の下に添える。
+   拡大した本か、添えた書名をもう一度タップすると、商品詳細へ進む。
+   それ以外のところをタップすると、棚にもどる（國分様のご依頼）。
+   倍率・置き場所・動きは scripts/main.js が決める。
    ============================================================ */
 
 /* 触れる本であることを示す */
@@ -971,166 +964,175 @@
   outline:2px solid var(--paper);
   outline-offset:2px;
 }
+/* 手に取っているあいだ、棚のその場所は空いて見える */
+.spine.is-taken,
+.flat.is-taken{ visibility:hidden; }
 
-.pull{
-  position:fixed; inset:0; z-index:60;
-  display:flex; align-items:center; justify-content:center;
-  padding:clamp(14px,4vw,40px);
+/* 上の帯（5）より上に重ね、帯ごとぼかす。メニュー（68）・商品詳細（70）はさらに上 */
+.focus{
+  position:fixed; inset:0; z-index:58;
+  /* 二度たたきで画面が拡大されないように。縦に送ったときは閉じる（scripts/main.js） */
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  /* 長押しで、端末の画像のメニューや文字の選択が出ないように */
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
 }
-.pull[hidden]{ display:none; }
+.focus[hidden]{ display:none; }
+/* 棚へ戻っているあいだは、次のタップを後ろの棚へ通す */
+.focus.is-leaving{ pointer-events:none; }
 
-.pull__scrim{
+/* 後ろの売り場。ぼかして暗くし、手に取った本だけにピントが合って見えるようにする */
+.focus__scrim{
   position:absolute; inset:0;
-  background:rgba(10,8,6,.78);
-  backdrop-filter:blur(2px);
+  background:rgba(10,8,6,.34);
+  -webkit-backdrop-filter:blur(var(--focus-blur)) brightness(.62) saturate(.85);
+          backdrop-filter:blur(var(--focus-blur)) brightness(.62) saturate(.85);
   opacity:0;
-  /* 閉じるとき。開くときより短く切り上げる */
-  transition:opacity var(--t-leave) var(--ease-leave);
+  transition:opacity .22s var(--ease-leave);
 }
-/* 開くとき。本が棚から抜けるあいだに、後ろの売り場を落としていく */
-.pull.is-open .pull__scrim{ opacity:1; transition:opacity .42s var(--ease-rise); }
-
-.pull__panel{
-  position:relative;
-  display:flex; gap:clamp(16px,3.5vw,40px);
-  width:min(100%,880px);
-  max-height:100%;
-  padding:clamp(18px,4vw,34px);
-  border-radius:3px;
-  background:
-    linear-gradient(180deg, rgba(18,13,9,.62), rgba(12,9,6,.76)),
-    url("../assets/images/wall-boards.webp") center / 620px auto;
-  box-shadow:0 40px 60px -30px rgba(0,0,0,.95);
-  overflow:auto;
-  opacity:0;
-  transform:translateY(14px);
-  transition:opacity var(--t-leave) var(--ease-leave),
-             transform var(--t-leave) var(--ease-leave);
+.focus.is-open .focus__scrim{ opacity:1; transition:opacity .38s var(--ease-rise); }
+/* ぼかしは画面全体を描き直すので、力の弱い端末では重い。
+   そのときは暗くするだけにする（scripts/main.js が is-plain を付ける）。
+   ぼかしの使えないブラウザも同じ見え方にする */
+.focus.is-plain .focus__scrim{
+  -webkit-backdrop-filter:none;
+          backdrop-filter:none;
+  background:rgba(10,8,6,.64);
 }
-/* 本が着く少し手前から立ち上げ、着いたときには読める状態にする */
-.pull.is-open .pull__panel{
-  opacity:1; transform:none;
-  transition:opacity .38s var(--ease-rise) .14s,
-             transform var(--t-enter) var(--ease-carry) .14s;
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .focus__scrim{ background:rgba(10,8,6,.64); }
 }
 
-/* --- 表紙 ---------------------------------------------------- */
-.pull__book{
-  flex:0 0 auto;
-  width:clamp(112px,30vw,240px);
-  align-self:flex-start;
-}
-.pull__cover{
+/* 拡大した本。棚の本の写しを、大きな --mm で描き直したもの。
+   写真を引き伸ばすのではなく、写真の細かさのまま描く。
+   足もと（棚板に立っていたところ）を軸に、起き上がって前に出る */
+.focus__book{
+  position:fixed; left:0; top:0;
   display:block;
-  width:100%; height:auto;
+  margin:0; padding:0; border:0; border-radius:0;
+  background:none; color:inherit; font:inherit;
+  cursor:pointer;
+  transform-origin:50% 100%;
+}
+.focus__book:focus{ outline:none; }
+/* 細い背表紙でも指で押せるよう、見えない押し幅を 48px 以上取る。上下にも少しゆとり */
+.focus__book::before{
+  content:"";
+  position:absolute; top:-12px; bottom:-12px;
+  left:min(0px, calc(50% - 24px)); right:min(0px, calc(50% - 24px));
+}
+.focus .focus__book .spine,
+.focus .focus__book .spine:hover{
+  transform:none; filter:none; transition:none;
+  box-shadow:
+    inset  2px 0 1px -1px rgba(240,232,214,.42),
+    inset -6px 0 7px -5px rgba(0,0,0,.6),
+     0 28px 36px -14px rgba(0,0,0,.85),
+    14px 10px 26px -10px rgba(0,0,0,.7);
+}
+/* 棚板との接地の影は、手に取った本には要らない */
+.focus__book .spine::after{ display:none; }
+/* 平置きの本は、表紙を起こして正面に向ける */
+.focus__cover{
+  display:block; width:100%; height:100%;
+  max-width:none;
+  object-fit:fill;
+  pointer-events:none;
+  -webkit-user-drag:none;
   border-radius:1px 2px 2px 1px;
-  /* 背が左、小口が右。棚から抜き出した本を手に持った見え方に近づける */
   box-shadow:
     -3px 0 0 rgba(0,0,0,.45),
     -5px 0 5px -2px rgba(0,0,0,.5),
-     0 18px 26px -14px rgba(0,0,0,.9);
+     0 28px 36px -14px rgba(0,0,0,.9);
 }
+/* キーボードで操作しているときだけ、焦点の枠を本のまわりに出す（by-key は scripts/main.js）。
+   指で手に取ったときも、焦点はこの本へ移す（読み上げで、手に取った本から読めるように）。
+   そのときは枠を出さない */
+.focus.by-key .focus__book:focus-visible .spine,
+.focus.by-key .focus__book:focus-visible .focus__cover{ outline:2px solid var(--paper); outline-offset:5px; }
 
-/* --- 書誌 ---------------------------------------------------- */
-.pull__meta{ flex:1 1 auto; min-width:0; color:var(--paper); }
-.pull__title{
-  margin:0 0 .5em;
-  font-size:clamp(16px,4.4vw,22px);
-  line-height:1.5; letter-spacing:.06em;
-}
-.pull__author{
-  margin:0 0 1.1em;
-  font-size:clamp(12px,3.2vw,13.5px);
-  color:var(--paper-dim);
-}
-.pull__lead{
-  margin:0 0 1.3em;
-  font-size:clamp(12.5px,3.4vw,14px);
-  line-height:1.9;
-  color:var(--paper-dim);
-}
-.pull__spec{
-  margin:0 0 1.2em; padding:0;
-  font-size:12.5px; color:var(--paper-dim);
-}
-.pull__spec > div{
-  display:flex; gap:1em;
-  padding:.45em 0;
-  border-top:1px solid rgba(210,198,174,.18);
-}
-.pull__spec > div:last-child{ border-bottom:1px solid rgba(210,198,174,.18); }
-.pull__spec dt{ flex:0 0 8.5em; margin:0; }
-.pull__spec dd{ margin:0; color:var(--paper); }
-.pull__price{
-  margin:0 0 1.1em;
-  font-size:clamp(15px,4vw,19px);
-  letter-spacing:.04em;
+/* 添える書名と著者名。拡大した背表紙の横（ゆとりのある側）、平置きの本は表紙の下。
+   文字の上をタップしても商品詳細へ進む。文字の横の空いたところは、ぼかした棚と同じく
+   棚にもどる（書名が短いと、枠の半分以上が空いている）。
+   本が着くころに遅れて出す（本と文字が同時に動くと、目がどちらも追えない） */
+.focus__cap{
+  position:fixed; left:0; top:0;
+  width:var(--capw, 200px);
+  margin:0;
   color:var(--paper);
-}
-.pull__price span{ font-size:.7em; margin-left:.4em; color:var(--paper-dim); }
-
-/* --- 導線 ---------------------------------------------------- */
-.pull__acts{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:1em; }
-.pull__act{
-  flex:1 1 10em;
-  padding:.85em 1.2em;
-  border:1px solid rgba(210,198,174,.45);
-  border-radius:2px;
-  background:transparent;
-  color:var(--paper);
-  font:inherit; font-size:13.5px; letter-spacing:.12em;
-  cursor:pointer;
-  transition:background .25s var(--ease), border-color .25s var(--ease);
-}
-.pull__act:hover,
-.pull__act:focus-visible{ background:rgba(210,198,174,.14); }
-.pull__act--buy{
-  border-color:rgba(210,198,174,.85);
-  background:rgba(210,198,174,.16);
-}
-.pull__more{
-  display:inline-block;
-  font-size:12.5px; letter-spacing:.1em;
-  color:var(--paper-dim); text-decoration:none;
-  border-bottom:1px solid rgba(210,198,174,.35);
-}
-.pull__more:hover,
-.pull__more:focus-visible{ color:var(--paper); }
-
-.pull__close{
-  position:absolute; top:6px; right:6px;
-  width:38px; height:38px;
-  display:grid; place-items:center;
-  background:none; border:none; cursor:pointer;
-  color:var(--paper-dim);
-}
-.pull__close svg{ width:16px; height:16px; }
-.pull__close path{ stroke:currentColor; stroke-width:1.5; fill:none; stroke-linecap:round; }
-.pull__close:hover,
-.pull__close:focus-visible{ color:var(--paper); }
-
-/* --- 抜き出す動き -------------------------------------------
-   棚の本の位置から、表紙の位置へ飛ばす。
-   本が棚から抜けて手前に来る、という一続きに見せる。 */
-.pull-fly{
-  position:fixed; z-index:70;
-  margin:0; padding:0;
-  transform-origin:50% 50%;
-  will-change:transform, opacity;
   pointer-events:none;
-  box-shadow:0 18px 30px -14px rgba(0,0,0,.9);
-  background-size:100% 100%;
-  background-repeat:no-repeat;
+  opacity:0; transform:translateY(6px);
+  transition:opacity .18s var(--ease-leave), transform .18s var(--ease-leave);
+}
+.focus.is-open .focus__cap{
+  opacity:1; transform:none;
+  transition:opacity .3s var(--ease-rise) .22s, transform .36s var(--ease-carry) .22s;
+}
+/* 押せるのは文字のところだけ。幅は文字の長さに合わせる。
+   棚へ戻っているあいだ（is-leaving）は、文字も後ろの棚へタップを通す */
+.focus:not(.is-leaving) .focus__title,
+.focus:not(.is-leaving) .focus__author,
+.focus:not(.is-leaving) .focus__go{ pointer-events:auto; cursor:pointer; }
+.focus__title,
+.focus__author{ width:fit-content; }
+/* 本の左に置くときは本の側へ寄せる。表紙の下に置くときは中央 */
+.focus__cap.is-left{ text-align:right; }
+.focus__cap.is-left .focus__title,
+.focus__cap.is-left .focus__author{ margin-left:auto; }
+.focus__cap.is-below{ text-align:center; }
+.focus__cap.is-below .focus__title,
+.focus__cap.is-below .focus__author{ margin-left:auto; margin-right:auto; }
+/* 行のあいだは余白ではなく内側の詰め物で空ける。書名から目印まで、押せるところが途切れない */
+.focus__title{
+  margin-top:0; margin-bottom:0; padding:0 0 .4em;
+  font-size:16px; line-height:1.6; letter-spacing:.06em;
+  text-shadow:0 1px 8px rgba(0,0,0,.85);
+}
+.focus__author{
+  margin-top:0; margin-bottom:0; padding:0 0 1em;
+  font-size:12px; line-height:1.7; letter-spacing:.04em;
+  color:var(--paper-dim);
+  text-shadow:0 1px 8px rgba(0,0,0,.85);
+}
+/* もう一度タップするところの目印。押せるものに見えるよう、枠と地を付ける */
+.focus__go{
+  display:inline-flex; align-items:center;
+  min-height:36px;
+  margin:0; padding:0 1em;
+  font-size:12px; line-height:1.5; letter-spacing:.08em;
+  color:var(--paper);
+  border:1px solid rgba(210,198,174,.55);
+  border-radius:999px;
+  background:rgba(22,15,10,.62);
+  box-shadow:0 6px 14px -8px rgba(0,0,0,.9);
+}
+.focus__go::after{ content:"\203A"; margin-left:.5em; font-size:1.25em; line-height:1; }
+@media (hover:hover){
+  .focus__cap:hover .focus__go{ background:rgba(60,44,30,.82); border-color:rgba(210,198,174,.85); }
 }
 
-@media (max-width:640px){
-  .pull__panel{ flex-direction:column; align-items:center; }
-  .pull__book{ width:min(56vw,220px); }
-  .pull__meta{ width:100%; }
+/* キーボードで焦点が来たときだけ見える「棚にもどる」。
+   指やマウスでは、拡大した本の外をタップすれば戻れる */
+.focus__close{
+  position:absolute;
+  top:calc(14px + env(safe-area-inset-top)); right:14px;
+  min-height:44px; padding:0 1.2em;
+  border:1px solid rgba(210,198,174,.55); border-radius:999px;
+  background:rgba(22,15,10,.82);
+  color:var(--paper);
+  font:inherit; font-size:13px; letter-spacing:.1em;
+  cursor:pointer;
+  opacity:0; pointer-events:none;
+}
+.focus__close:focus-visible{
+  opacity:1; pointer-events:auto;
+  outline:2px solid var(--paper-dim); outline-offset:3px;
 }
 
 @media (prefers-reduced-motion: reduce){
-  .pull__scrim,.pull__panel{ transition:none; }
+  .focus__scrim,.focus__cap{ transition:none; }
+  .focus__cap{ transform:none; }
 }
 
 /* ============================================================
@@ -1371,7 +1373,10 @@
   cursor:pointer;
   transition:background .25s var(--ease), border-color .25s var(--ease);
 }
-.item__act:hover,.item__act:focus-visible{ background:rgba(210,198,174,.14); }
+.item__act:focus-visible{ background:rgba(210,198,174,.14); }
+/* 指で触れる端末では、たたいたあとに hover の色が残り、押したように見える。
+   マウスのある端末だけ色を変える */
+@media (hover:hover){ .item__act:hover{ background:rgba(210,198,174,.14); } }
 .item__act--buy{ border-color:rgba(210,198,174,.85); background:rgba(210,198,174,.18); }
 .item__note{
   margin:0; font-size:11.5px; line-height:1.8; color:var(--paper-dim);

@@ -16,41 +16,47 @@ def market(idx, name, tiers, lying, note):
     scripts/main.js が見えている本に合わせて低くする。
     平台に並べる本の判横の合計（--sumw*）と、いちばん背の高い本（--flat-hmax*）は
     冊数ごとに本棚（.case）に書き、画面の幅に合う冊数のものを CSS が選ぶ。
-    段の数（--tiers）も本棚に書く。柱の木の絵と光を置く位置に使う（shelf.css）。"""
+    段の数（--tiers）も本棚に書く。柱の木の絵と光を置く位置に使う（shelf.css）。
+
+    読み上げでは、本（背表紙・平置き）だけを「書名のボタン」として読む。
+    段と平台は、本をまとめる「1段目」「平台」などのまとまりとして読む。
+    板・脚・床・光などの什器の部材は、読み上げない（aria-hidden）。
+    以前は本棚ごと aria-hidden にしていたため、キーボードで本に焦点が
+    当たるのに、読み上げでは本にたどり着けなかった。"""
     w = D.sumw(lying)
     hmax = D.flat_hmax(lying)
-    def tier(books):
+    def tier(i, books):
         return """        <div class="tier" style="--tier-h:calc(var(--mm) * %d)">
-          <ul class="row">
+          <ul class="row" role="group" aria-label="%d段目">
 %s
           </ul>
-        </div>""" % (D.tier_mm(books), D.tier(books))
-    upper = "\n        <div class=\"case__board\"></div>\n".join(tier(t) for t in tiers)
+        </div>""" % (D.tier_mm(books), i + 1, D.tier(books))
+    upper = "\n        <div class=\"case__board\" aria-hidden=\"true\"></div>\n".join(
+        tier(i, t) for i, t in enumerate(tiers))
     cubbies = "".join('<i class="cubby"></i>' for _ in range(8))
     return """
   <section class="market" aria-labelledby="theme-%d">
     <div class="wrap">
       <div class="market__head">
         <h2 class="market__sign" id="theme-%d">%s</h2>
-        <a class="market__all" href="#">すべて見る</a>
       </div>
     </div>
     <div class="scene">
       <p class="sr-only">%s</p>
-      <div class="case" style="%s" aria-hidden="true">
-        <div class="case__crown"></div>
+      <div class="case" style="%s">
+        <div class="case__crown" aria-hidden="true"></div>
 %s
-        <div class="case__board case__board--last"></div>
+        <div class="case__board case__board--last" aria-hidden="true"></div>
         <div class="deck">
-          <ul class="deck__row">
+          <ul class="deck__row" role="group" aria-label="平台">
 %s
           </ul>
         </div>
-        <div class="deck__lip"></div>
-        <div class="case__base">%s</div>
-        <div class="case__floor"></div>
-        <div class="case__light"></div>
-        <div class="case__leaves"></div>
+        <div class="deck__lip" aria-hidden="true"></div>
+        <div class="case__base" aria-hidden="true">%s</div>
+        <div class="case__floor" aria-hidden="true"></div>
+        <div class="case__light" aria-hidden="true"></div>
+        <div class="case__leaves" aria-hidden="true"></div>
       </div>
     </div>
   </section>""" % (idx, idx, name, note, case_vars(len(tiers), w, hmax), upper,
@@ -155,32 +161,19 @@ PAGE = """<!DOCTYPE html>
 
 </div>
 
-<!-- 引き抜き。棚の本をタップすると、その本が手前に出て表紙を見せる -->
-<div class="pull" id="pull" hidden>
-  <div class="pull__scrim" data-close></div>
-  <div class="pull__panel" role="dialog" aria-modal="true" aria-labelledby="pull-title">
-    <button class="pull__close" type="button" data-close aria-label="閉じる">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4 L16 16 M16 4 L4 16"/></svg>
-    </button>
-    <div class="pull__book">
-      <img class="pull__cover" src="" alt="">
-    </div>
-    <div class="pull__meta">
-      <h3 class="pull__title" id="pull-title"></h3>
-      <p class="pull__author"></p>
-      <p class="pull__lead"></p>
-      <dl class="pull__spec">
-        <div><dt>出版社</dt><dd class="pull__pub"></dd></div>
-        <div><dt>判型・ページ数</dt><dd class="pull__form"></dd></div>
-      </dl>
-      <p class="pull__price"></p>
-      <div class="pull__acts">
-        <button class="pull__act pull__act--read" type="button">試し読み</button>
-        <button class="pull__act pull__act--buy" type="button">カートに入れる</button>
-      </div>
-      <a class="pull__more" href="#">商品の詳細を見る</a>
-    </div>
+<!-- 本を手に取る。棚の本をタップすると、その本が少し前に出て大きく見える。
+     拡大した本か、横の書名をもう一度タップすると商品詳細へ。
+     ほかのところをタップすると棚にもどる。
+     「棚にもどる」のボタンは、キーボードで焦点が来たときだけ見える -->
+<div class="focus" id="focus" role="dialog" aria-modal="true" aria-labelledby="focus-title" hidden>
+  <div class="focus__scrim"></div>
+  <button class="focus__book" type="button"></button>
+  <div class="focus__cap">
+    <p class="focus__title" id="focus-title"></p>
+    <p class="focus__author"></p>
+    <p class="focus__go" aria-hidden="true">この本のページへ</p>
   </div>
+  <button class="focus__close" type="button">棚にもどる</button>
 </div>
 
 <!-- 上の帯のメニュー -->
@@ -253,7 +246,7 @@ PAGE = """<!DOCTYPE html>
   <header class="item__bar">
     <button class="item__back" type="button" data-item-close>
       <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
-      <span>表紙にもどる</span>
+      <span>棚にもどる</span>
     </button>
     <p class="item__crumb">綴りの森</p>
   </header>
@@ -294,7 +287,7 @@ PAGE = """<!DOCTYPE html>
     <div class="item__end">
       <button class="item__close" type="button" data-item-close>
         <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 L2 10 L10 18"/></svg>
-        <span>表紙にもどる</span>
+        <span>棚にもどる</span>
       </button>
     </div>
   </div>

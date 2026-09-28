@@ -165,95 +165,354 @@
     return false;
   }
 
-  /* --- 引き抜き ---------------------------------------------
-     棚の本をタップすると、その本が棚から抜けて手前に出る。
-     背表紙の位置から表紙の位置へ飛ばし、一続きの動きに見せる。 */
-  function pullOut() {
-    var root = document.getElementById('pull');
+  /* --- 手の動き ---------------------------------------------
+     いま使われているのが、キーボードか、指・マウスか。
+     画面を閉じたあと焦点を棚の本へ返すのは、キーボードで操作しているときだけ。
+     指やマウスで閉じたあとに本へ焦点を返すと、キーボード用の書名の札が出て、
+     本が少し引き出されたまま残り、次のタップで隣の本を選んでしまう。 */
+  var byKey = false;
+  function modality() {
+    document.addEventListener('keydown', function (e) {
+      /* 修飾キーだけのとき（Ctrl を押しながらのクリックなど）は数えない */
+      if (!/^(Shift|Control|Alt|Meta)$/.test(e.key)) byKey = true;
+    }, true);
+    document.addEventListener('pointerdown', function () { byKey = false; }, true);
+  }
+
+  /* 閉じた画面の中に、焦点を残さない。
+     キーボードのときは、入口だった棚の本へ返す */
+  function settleFocus(back, inside) {
+    if (byKey && back && back.isConnected && back.getClientRects().length) {
+      back.focus({ preventScroll: true, focusVisible: true });
+      return;
+    }
+    var a = document.activeElement;
+    if (a && a !== document.body && inside && inside.contains(a)) a.blur();
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  /* --- 本を手に取る ------------------------------------------
+     棚の本をタップすると、その本が少し前に出てピントが合い、ほかの本はぼやける。
+     背表紙は書名が読める大きさまで拡大し、横に書名と著者名を文字で添える（1回目）。
+     拡大した本か、添えた書名をもう一度タップすると、商品詳細が開く（2回目）。
+     それ以外のところをタップすると、棚にもどる。
+     以前は指を離しただけで本が開き、途中で指が離れただけでも先の画面へ
+     進んでしまっていた（國分様のご指摘）。先へ進むのは、拡大した本を
+     もう一度タップしたときだけにする。
+     平置きの本も同じ二段。表紙を起こして大きく見せ、書名は表紙の下に添える。
+     マウスでは、指している本が少し出て書名の札が出る（何も開かない）。クリックで手に取る。
+     キーボードでは Enter で手に取り、もう一度 Enter で商品詳細、Escape で棚にもどる。 */
+  function shelf(page) {
+    var root = document.getElementById('focus');
     var raw = document.getElementById('book-data');
-    if (!root || !raw) return;
+    if (!root || !raw || !page) return;
 
     var BOOKS = JSON.parse(raw.textContent);
-    var panel = root.querySelector('.pull__panel');
-    var cover = root.querySelector('.pull__cover');
-    var last = null;      /* どの本から抜いたか。閉じるときに戻す */
+    var box = root.querySelector('.focus__book');
+    var cap = root.querySelector('.focus__cap');
+    var shut = root.querySelector('.focus__close');
 
-    function fill(b) {
-      cover.src = b.cover;
-      cover.alt = b.title + ' の表紙';
-      root.querySelector('.pull__title').textContent = b.title;
-      root.querySelector('.pull__author').textContent = b.author;
-      root.querySelector('.pull__lead').textContent = b.lead;
-      root.querySelector('.pull__pub').textContent = b.pub;
-      root.querySelector('.pull__form').textContent = b.kata + '／' + b.pages + 'ページ';
-      root.querySelector('.pull__price').innerHTML =
-        b.price.toLocaleString('ja-JP') + '円<span>税込</span>';
+    /* 拡大の決まり。縦と横に同じ倍率 s をかけ、実物どおりの比のまま大きくする。
+       s = min(4, min(画面の高さ − 上下 24px, 680px) ÷ 棚の上での背表紙の高さ)
+       文庫は書名の字が小さいので 4倍まで、背の高い絵本は画面に収まるところまで。
+       写真を引き伸ばすのではなく、大きな --mm で描き直す（写真の細かさのまま描ける） */
+    var EDGE = 24;        /* 画面の端から空ける */
+    var TALL = 680;       /* 拡大した本の高さの上限 */
+    var SMAX = 4;         /* 倍率の上限。これより大きくすると写真の粗が出る */
+    var GAP = 16;         /* 本と、添える書名のあいだ */
+    var GUARD = 450;      /* 開いてすぐのタップは受けない。二度たたきで先へ進まないように */
+    var DRIFT = 12;       /* 手に取ったまま、これより画面を送ったら棚にもどる */
+    var T_OPEN = 460, T_CLOSE = 260, T_FADE = 160;
+
+    var src = null;       /* 手に取っている棚の本 */
+    var key = null;
+    var at = null;        /* 拡大した本の置き場所（閉じるときは、ここから棚へ戻す） */
+    var since = 0;        /* 手に取った時刻 */
+    var y0 = 0;           /* 手に取ったときの画面の位置 */
+    var w0 = 0;           /* 手に取ったときの画面の幅 */
+    var anim = null;
+    var later = 0;
+
+    /* ぼかしが重い端末（メモリの少ない端末）と、透け感を減らす設定では、暗くするだけにする */
+    if ((navigator.deviceMemory && navigator.deviceMemory <= 2) ||
+        window.matchMedia('(prefers-reduced-transparency: reduce)').matches) {
+      root.classList.add('is-plain');
     }
 
-    /* 棚の本から、表紙の位置へ飛ぶ影武者を作る */
-    function fly(from, toRect, img, done) {
-      var r = from.getBoundingClientRect();
-      var el = document.createElement('div');
-      el.className = 'pull-fly';
-      el.style.left = r.left + 'px';
-      el.style.top = r.top + 'px';
-      el.style.width = r.width + 'px';
-      el.style.height = r.height + 'px';
-      el.style.backgroundImage = 'url("' + img + '")';
-      document.body.appendChild(el);
-      var dx = (toRect.left + toRect.width / 2) - (r.left + r.width / 2);
-      var dy = (toRect.top + toRect.height / 2) - (r.top + r.height / 2);
-      var end = 'translate(' + dx + 'px,' + dy + 'px) scale(' +
-            (toRect.width / r.width) + ',' + (toRect.height / r.height) + ')';
-      /* 棚の本は手で引き出される。弾き出されないよう、静止から動き出す。
-         最後は表紙へ溶かす。差し替えが一瞬だと、そこで動きが切れて見える。 */
-      el.animate([
-        { transform: 'translate(0,0) scale(1,1)', opacity: 1, offset: 0 },
-        { transform: end, opacity: 1, offset: 0.82 },
-        { transform: end, opacity: 0, offset: 1 }
-      ], { duration: 560, easing: 'cubic-bezier(.30,.06,.18,1)' })
-        .addEventListener('finish', function () {
-          el.remove();
-          done();
-        });
+    function css(name, d) {
+      var v = parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue(name));
+      return isNaN(v) ? d : v;
     }
 
+    /* 棚の上での本の姿。平置きの本は寝かせてあるので、起こしたときの大きさ
+       （変形を含めない幅と高さ）と、足もと（手前の辺）の位置で表す */
+    function slot(el) {
+      var r = el.getBoundingClientRect();
+      var flat = el.classList.contains('flat');
+      var cs = window.getComputedStyle(el);
+      return { flat: flat, cx: r.left + r.width / 2, bottom: r.bottom,
+               w: flat ? parseFloat(cs.width) : r.width,
+               h: flat ? parseFloat(cs.height) : r.height };
+    }
+
+    /* 拡大した本を、棚の上の姿に重ねる変形。軸は本の足もと（.focus__book の transform-origin）。
+       平置きの本は、棚と同じ傾きと遠近で寝かせる。
+       lift のときは、棚の中で少し持ち上げ、わずかに大きくした姿にする */
+    function onShelf(sl, lift) {
+      var dx = sl.cx - (at.L + at.W / 2), dy = sl.bottom - (at.T + at.H);
+      var g = lift ? 1.06 : 1;
+      var kx = sl.w / at.W * g, ky = sl.h / at.H * g;
+      var t = 'translate(' + dx.toFixed(2) + 'px,' + (dy - (lift ? 10 : 0)).toFixed(2) + 'px) ' +
+              'scale(' + kx.toFixed(4) + ',' + ky.toFixed(4) + ')';
+      if (sl.flat) {
+        var tilt = css('--flat-tilt', 54), persp = css('--flat-persp', 700);
+        /* 縮めたぶん、遠近の強さも同じ比で縮める（棚の本と同じ見え方になる） */
+        t += ' perspective(' + (persp / (sl.w / at.W)).toFixed(1) + 'px)' +
+             ' rotateX(' + (lift ? tilt * 0.55 : tilt).toFixed(1) + 'deg)';
+      }
+      return t;
+    }
+
+    /* 置き場所を決める。本は棚の自分の列の近くに置き（画面の端から 24px より内側）、
+       書名はゆとりのある側に添える。横に 120px 取れないほど太い本と、平置きの本は、
+       書名を本の下に置く */
+    function layout(el, b, sl) {
+      var vw = root.clientWidth, vh = root.clientHeight;
+      var room = Math.min(vh - 2 * EDGE, TALL);
+      var node, W, H, s, capW, side;
+
+      function measure() {
+        var r = node.getBoundingClientRect();
+        W = r.width; H = r.height;
+      }
+      function below() {
+        capW = Math.min(300, vw - 2 * EDGE);
+        cap.className = 'focus__cap is-below';
+        cap.style.setProperty('--capw', capW + 'px');
+        return cap.offsetHeight;
+      }
+
+      if (!sl.flat) {
+        s = Math.min(SMAX, room / sl.h);
+        node = document.createElement('div');
+        node.className = 'spine';
+        node.setAttribute('style', el.getAttribute('style') || '');
+        node.style.setProperty('--mm', s + 'px');
+        var im = el.querySelector('img');
+        if (im) {
+          im = im.cloneNode(false);
+          im.loading = 'eager';
+          node.appendChild(im);
+        }
+        box.appendChild(node);
+        measure();
+        capW = Math.min(260, vw - W - 2 * EDGE - GAP);
+        side = capW >= 120;
+      } else {
+        node = document.createElement('img');
+        node.className = 'focus__cover';
+        node.alt = '';
+        node.src = b.cover;
+        box.appendChild(node);
+        side = false;
+      }
+
+      var L, T, CL, CT, ch;
+      if (side) {
+        /* 本の左右で、ゆとりのある側に書名を置く */
+        var right = (vw - (sl.cx + W / 2)) >= (sl.cx - W / 2);
+        cap.className = 'focus__cap' + (right ? '' : ' is-left');
+        cap.style.setProperty('--capw', capW + 'px');
+        ch = cap.offsetHeight;
+        L = right ? clamp(sl.cx - W / 2, EDGE, vw - EDGE - capW - GAP - W)
+                  : clamp(sl.cx - W / 2, EDGE + capW + GAP, vw - EDGE - W);
+        T = Math.max(EDGE, (vh - H) / 2);
+        CL = right ? L + W + GAP : L - GAP - capW;
+        CT = clamp(T + H / 2 - ch / 2, EDGE, vh - EDGE - ch);
+      } else {
+        ch = below();
+        var fit = room - GAP - ch;
+        if (!sl.flat) {
+          /* 太い本。書名を下に置くぶん、倍率を下げて画面に収める */
+          if (H > fit) {
+            s = s * fit / H;
+            node.style.setProperty('--mm', s + 'px');
+            measure();
+          }
+        } else {
+          /* 平置きの本。表紙を起こし、実物どおりの縦横比で、画面に収まる大きさにする */
+          var ratio = b.h / b.w;
+          W = Math.min(vw * 0.72, vw - 2 * EDGE, fit / ratio, SMAX * sl.w);
+          H = W * ratio;
+          s = W / sl.w;
+        }
+        /* 書名は本の真下、中心をそろえて置く。本が画面の端に近いときは、
+           書名が画面に収まるところまで本のほうを内側へ寄せる（書名だけを寄せると、中心がずれる） */
+        var half = Math.max(W, capW) / 2;
+        var c = clamp(sl.cx, EDGE + half, vw - EDGE - half);
+        L = c - W / 2;
+        T = Math.max(EDGE, (vh - H - GAP - ch) / 2);
+        CL = c - capW / 2;
+        CT = T + H + GAP;
+      }
+
+      box.style.left = L + 'px'; box.style.top = T + 'px';
+      box.style.width = W + 'px'; box.style.height = H + 'px';
+      cap.style.left = CL + 'px'; cap.style.top = CT + 'px';
+      /* かけた倍率を書いておく（tests/verify.js が拡大の決まりどおりかを読む） */
+      root.setAttribute('data-scale', s.toFixed(3));
+      return { L: L, T: T, W: W, H: H, s: s };
+    }
+
+    /* 1回目。本を手に取る */
     function open(el) {
-      var key = el.getAttribute('data-book');
-      var b = BOOKS[key];
-      if (!b) return;
-      last = el;
-      fill(b);
+      var k = el.getAttribute('data-book');
+      var b = BOOKS[k];
+      if (!b || page.shown()) return;
+      if (src) done(true);
+      hintDone();
+      pick(null);
 
+      src = el; key = k;
+      root.querySelector('.focus__title').textContent = b.title;
+      root.querySelector('.focus__author').textContent = b.author;
+      box.setAttribute('aria-label', '「' + b.title + '」の商品ページを開く');
+      box.innerHTML = '';
+      root.classList.remove('is-open', 'is-leaving');
+      root.classList.toggle('by-key', byKey);
       root.hidden = false;
-      /* 表紙の行き先を先に測る */
-      var to = cover.getBoundingClientRect();
-      if (!to.width) { root.classList.add('is-open'); return; }
 
-      if (reduced.matches) { root.classList.add('is-open'); return; }
-      root.classList.remove('is-open');
-      /* 棚の本は抜けたので、その場からは消しておく */
-      el.style.visibility = 'hidden';
-      fly(el, to, b.spine, function () {});
-      /* 幕と札は、本が動いているあいだに立ち上げる。
-         本が着いてから出すと、二つの動きが順番待ちに見える。 */
-      window.requestAnimationFrame(function () { root.classList.add('is-open'); });
+      var sl = slot(el);
+      at = layout(el, b, sl);
+      el.classList.add('is-taken');
+      since = Date.now();
+      y0 = window.pageYOffset;
+      w0 = root.clientWidth;
+
+      if (reduced.matches) {
+        /* 動きを減らす設定では、飛ばさずに短く浮かび上がらせるだけ */
+        anim = root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: T_FADE });
+      } else {
+        /* 棚の姿から始め、その場で少し持ち上がって大きくなり、手前の位置へ来る */
+        anim = box.animate([
+          { transform: onShelf(sl), offset: 0 },
+          { transform: onShelf(sl, true), offset: 0.22 },
+          { transform: 'none', offset: 1 }
+        ], { duration: T_OPEN, easing: 'cubic-bezier(.30,.06,.18,1)' });
+      }
+      var a = anim;
+      a.onfinish = function () { if (anim === a) anim = null; };
+      /* 幕と書名は、本が動いているあいだに立ち上げる */
+      window.requestAnimationFrame(function () {
+        if (src === el && !root.classList.contains('is-leaving')) root.classList.add('is-open');
+      });
+      /* 指で手に取ったときも焦点は移す（読み上げが、手に取った本から読めるように）。
+         そのときは焦点の枠を出さない（focusVisible）。枠が出ると、その先の商品詳細の
+         「棚にもどる」にも枠が引き継がれる */
+      box.focus({ preventScroll: true, focusVisible: byKey });
     }
 
+    /* 棚にもどる。手に取った本は、棚の空いたところへ戻っていく */
     function close() {
+      if (!src || root.classList.contains('is-leaving')) return;
+      var el = src;
       root.classList.remove('is-open');
-      var back = last;
-      window.setTimeout(function () {
-        root.hidden = true;
-        if (back) { back.style.visibility = ''; back.focus({ preventScroll: true }); }
-        last = null;
-      }, reduced.matches ? 0 : 320);
+      root.classList.add('is-leaving');
+      if (reduced.matches) {
+        if (anim) anim.cancel();
+        anim = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: T_FADE * 0.75, fill: 'forwards' });
+      } else {
+        /* 開く途中で閉じたときは、いまの姿から戻す */
+        var now = anim ? window.getComputedStyle(box).transform : 'none';
+        if (anim) anim.cancel();
+        /* 終わりで速さを落とし、棚の空いたところへ静かに収める（開くときと同じ曲線）。
+           速さを増したまま着くと、最後に棚の本へ跳んだように見える */
+        anim = box.animate([{ transform: now }, { transform: onShelf(slot(el)) }],
+          { duration: T_CLOSE, easing: 'cubic-bezier(.30,.06,.18,1)', fill: 'forwards' });
+      }
+      anim.onfinish = function () { if (src === el) done(false); };
     }
 
-    /* 狙いが外れたとき、いちばん近い本を拾う。
-       いちばん薄い本でも背は10px前後しかない。指の腹はそれより広く、
-       本と本のあいだや、背の低い本の上の空きに当たることがある。
-       段の中で当たったなら、横の距離がいちばん近い本を開く。
+    /* 片づける。keep のときは焦点を動かさない（商品詳細へ進んだとき、別の本を手に取るとき） */
+    function done(keep) {
+      var el = src;
+      if (!el) return;
+      window.clearTimeout(later);
+      if (anim) { anim.cancel(); anim = null; }
+      src = null; key = null; at = null;
+      el.classList.remove('is-taken');
+      if (!keep) settleFocus(el, root);
+      root.hidden = true;
+      root.classList.remove('is-open', 'is-leaving');
+      root.removeAttribute('data-scale');
+      box.innerHTML = '';
+      box.removeAttribute('style');
+    }
+
+    /* 2回目。商品詳細を開く。手に取った本は、商品詳細が出きってから棚へ戻す
+       （先に戻すと、商品詳細が現れるあいだ、後ろに元の棚が透けて見える） */
+    function go() {
+      if (!src || root.classList.contains('is-leaving')) return;
+      var el = src;
+      root.classList.add('is-leaving');
+      page.open(key, el);
+      later = window.setTimeout(function () { if (src === el) done(true); },
+        reduced.matches ? 0 : 480);
+    }
+
+    /* 指を離した位置。指で触れる端末のブラウザは、ボタンの近くをたたくと、
+       click をそのボタンに寄せて届ける。拡大した本のすぐ外（画面の隅の上の帯など）を
+       たたいても商品詳細に進んでしまうので、どこをたたいたかは指を離した位置で決める */
+    var lift = null;
+    root.addEventListener('pointerup', function (e) {
+      lift = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, t: Date.now() } : null;
+    });
+    root.addEventListener('click', function (e) {
+      if (!src || root.classList.contains('is-leaving')) return;
+      /* 開いてすぐのタップは受けない。二度たたきの2回目や、
+         指を離したあとに届く click が、そのまま商品詳細を開かないように */
+      if (Date.now() - since < GUARD) return;
+      var hit = e.target;
+      if (lift && Date.now() - lift.t < 700) hit = document.elementFromPoint(lift.x, lift.y) || hit;
+      lift = null;
+      if (hit.closest('.focus__close')) { close(); return; }
+      /* 先へ進むのは、拡大した本と、添えた文字（書名・著者名・「この本のページへ」）だけ。
+         文字の横の空いたところは、ぼかした棚と同じく棚にもどる */
+      if (hit.closest('.focus__book, .focus__title, .focus__author, .focus__go')) { go(); return; }
+      /* それ以外（ぼかした棚、ほかの本、上の帯のあたり）は、棚にもどる */
+      close();
+    });
+    document.addEventListener('keydown', function (e) {
+      /* 商品詳細へ進むところ（is-leaving）では、もう焦点は商品詳細にある。Tab を横取りしない */
+      if (!src || root.hidden || root.classList.contains('is-leaving')) return;
+      root.classList.add('by-key');
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key === 'Tab') {
+        /* 焦点は、手に取った本と「棚にもどる」のあいだだけを回る */
+        e.preventDefault();
+        (document.activeElement === box ? shut : box).focus({ preventScroll: true });
+      }
+    }, true);
+    /* 手に取ったまま画面を送ったら、棚にもどる。画面は止めない */
+    window.addEventListener('scroll', function () {
+      if (src && !root.classList.contains('is-leaving') &&
+          Math.abs(window.pageYOffset - y0) > DRIFT) close();
+    }, { passive: true });
+    /* 画面の向きが変わったら、置き場所が合わなくなるので片づける。
+       高さだけの変化（スマートフォンの URL バーの出入り）では閉じない */
+    window.addEventListener('resize', function () {
+      if (src && root.clientWidth !== w0) done(false);
+    });
+    /* 履歴をたどったとき（進む操作で商品詳細が開き直したときなど）は、手に取った本を片づける。
+       商品詳細の popstate が先に動くので、商品詳細が開いていれば焦点はそちらに残す */
+    window.addEventListener('popstate', function () {
+      if (src) done(page.shown());
+    });
+
+    /* 狙いが外れたとき、いちばん近い本を拾う（マウス）。
+       いちばん薄い本でも背は10px前後しかない。
+       段の中で当たったなら、横の距離がいちばん近い本を手に取る。
        見た目には何も足していない（本を太らせずに、狙いだけ広げる）。 */
     function nearest(e) {
       var row = e.target.closest && e.target.closest('.case .row');
@@ -276,9 +535,9 @@
        背表紙は実物どおりの比で描いているので、薄い絵本の背は数mm。
        指の腹より細く、書名の文字も小さい。
        書店で背表紙を指でなぞるように、棚の上を横になぞると、
-       指の下の本が少し手前に出て、書名が大きく出る。離すとその本を開く。
-       指を棚の上下へ外してから離せば、開かずにやめられる。
-       本の見た目は変えずに、どの本でも確実に選べるようにする。
+       指の下の本が少し手前に出て、書名が大きく出る。
+       指を離すと、その本を手に取る（1回目と同じ。商品詳細へは進まない）。
+       指を棚の上下へ外してから離せば、何もせずにやめられる。
        縦に動かしたときはページを送る（棚に touch-action:pan-y）。 */
     var tag = document.createElement('div');
     tag.className = 'pick-tag';
@@ -287,8 +546,8 @@
 
     var picked = null;          /* いま札を出している本 */
     var touch = null;           /* なぞっている指 */
-    var quietUntil = 0;         /* 指で開いた直後の click を無視する */
-    var OFF = 36;               /* 棚の上下にこれだけ外して離したら、開かない */
+    var quietUntil = 0;         /* 指を離した直後に届く click を無視する */
+    var OFF = 36;               /* 棚の上下にこれだけ外して離したら、手に取らない */
 
     function shelfBooks(row) {
       return Array.prototype.filter.call(
@@ -306,7 +565,7 @@
       return best;
     }
     /* 指が棚の上にあるか。上下に OFF 以上外れたら、選ぶのをやめたとみなす */
-    function onShelf(row, y) {
+    function onRow(row, y) {
       var r = row.getBoundingClientRect();
       return y >= r.top - OFF && y <= r.bottom + OFF;
     }
@@ -318,6 +577,9 @@
       b.classList.add('is-picked');
       var info = BOOKS[b.getAttribute('data-book')];
       tag.textContent = info ? info.title : '';
+      place(b);
+    }
+    function place(b) {
       /* 札は本の上に置く。幅は書名の長さで決まり、置く位置には左右されない
          （CSS の width:max-content）。書名を入れ替えた直後の幅で位置を決め、
          画面の端からはみ出さないよう左右を詰める。三角の先だけが本を指す */
@@ -352,7 +614,7 @@
 
     document.addEventListener('pointermove', function (e) {
       if (e.pointerType === 'mouse') {
-        /* マウスでは、指している本に書名を出す */
+        /* マウスでは、指している本に書名を出す（何も開かない） */
         var row = e.target.closest && e.target.closest('.case .row');
         pick(row ? bookAt(row, e.clientX) : null);
         return;
@@ -370,7 +632,7 @@
       }
       if (!touch.on) return;
       /* 棚の上下へ外したら札を下げる。戻れば、また出す */
-      pick(onShelf(touch.row, e.clientY) ? bookAt(touch.row, e.clientX) : null);
+      pick(onRow(touch.row, e.clientY) ? bookAt(touch.row, e.clientX) : null);
     }, { passive: true });
 
     function endTouch() {
@@ -381,11 +643,12 @@
     document.addEventListener('pointerup', function (e) {
       if (!touch || e.pointerId !== touch.id) return;
       var b = null;
-      if (onShelf(touch.row, e.clientY)) b = touch.on ? picked : bookAt(touch.row, e.clientX);
+      if (onRow(touch.row, e.clientY)) b = touch.on ? picked : bookAt(touch.row, e.clientX);
       endTouch();
-      if (b) { quietUntil = Date.now() + 600; open(b); }
-      /* 開かずにやめたときも、あとから届く click で本が開かないように */
-      else quietUntil = Date.now() + 600;
+      /* 指を離したあとに届く click で、二度手に取らないように。
+         手に取らずにやめたときも、あとから届く click で本を手に取らないように */
+      quietUntil = Date.now() + 600;
+      if (b) open(b);
     });
     /* 縦に送り始めると、指は棚から外れる */
     document.addEventListener('pointercancel', function (e) {
@@ -397,8 +660,8 @@
           (touch || (e.pointerType && e.pointerType !== 'mouse'))) e.preventDefault();
     });
     /* キーボードで本を選んだときも、書名を出す。
-       指やマウスで開いた本を閉じると、棚の本へフォーカスが戻る。
-       そのときは出さない（:focus-visible はキーボード操作のときだけ付く） */
+       指やマウスで閉じたときは、本へ焦点を返さない（settleFocus）。
+       :focus-visible はキーボード操作のときだけ付く */
     document.addEventListener('focusin', function (e) {
       var b = e.target.closest && e.target.closest('.case .spine[data-book]');
       if (b && b.matches(':focus-visible')) pick(b);
@@ -406,10 +669,15 @@
     document.addEventListener('focusout', function (e) {
       if (e.target.closest && e.target.closest('.case .spine')) pick(null);
     });
-    window.addEventListener('scroll', function () { if (!touch) pick(null); }, { passive: true });
+    window.addEventListener('scroll', function () {
+      if (touch) return;
+      /* キーボードで選んでいる本は、札を置き直す（Tab で本が画面の中へ送られたとき） */
+      if (picked && picked === document.activeElement) place(picked);
+      else pick(null);
+    }, { passive: true });
     window.addEventListener('resize', function () { if (!touch) pick(null); });
 
-    /* --- なぞれることを、一度だけ知らせる ------------------------
+    /* --- 手に取れることを、一度だけ知らせる ----------------------
        指で触れる端末で、最初の棚が見えてきたときに、短く出して消す。
        一度でも棚に触れたら、もう出さない。 */
     var hint = null;
@@ -428,7 +696,8 @@
         io.disconnect();
         hint = document.createElement('p');
         hint.className = 'shelf-hint';
-        hint.textContent = '棚を指でなぞると、書名が出ます';
+        hint.setAttribute('aria-hidden', 'true');
+        hint.textContent = '本をタップすると、大きく表示されます';
         first.parentNode.appendChild(hint);
         window.requestAnimationFrame(function () { if (hint) hint.classList.add('is-on'); });
         window.setTimeout(function () {
@@ -443,25 +712,26 @@
       io.observe(first);
     })();
 
+    /* マウスのクリック（と、指で平置きの本をタップしたとき）。本を手に取る */
     document.addEventListener('click', function (e) {
-      /* 指で開いた直後に届く click。二度開かないように */
       if (Date.now() < quietUntil) return;
-      var hit = e.target.closest('.spine[data-book], .flat[data-book]') || nearest(e);
-      if (hit) { open(hit); return; }
-      if (e.target.closest('[data-close]')) close();
+      if (root.contains(e.target)) return;
+      var hit = e.target.closest('.case .spine[data-book], .case .flat[data-book]') || nearest(e);
+      if (hit) open(hit);
     });
+    /* キーボード。Enter か Space で本を手に取る。
+       ここで既定の動きを止めておく。止めないと、手に取った本（ボタン）に焦点が移ったあと、
+       同じキーでそのまま商品詳細が開いてしまう */
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !root.hidden) { close(); return; }
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      var hit = e.target.closest && e.target.closest('.spine[data-book], .flat[data-book]');
+      var hit = e.target.closest && e.target.closest('.case .spine[data-book], .case .flat[data-book]');
       if (hit) { e.preventDefault(); open(hit); }
     });
   }
 
-
   /* --- 試し読み ---------------------------------------------
      見開きを左右にめくり、指でひろげて拡大する。
-     閉じると元の状態（引き抜きの画面）に戻る。
+     商品詳細の「試し読み」から開き、閉じると元の状態（商品詳細）に戻る。
 
      指の操作は自前で受ける。端末まかせの拡大だと、
      画面全体が拡大されて棚まで動いてしまうため。 */
@@ -622,23 +892,30 @@
       draw(false);
       window.requestAnimationFrame(function () { root.classList.add('is-open'); });
       document.body.classList.add('peek-open');
-      root.querySelector('.peek__close').focus({ preventScroll: true });
+      root.querySelector('.peek__close').focus({ preventScroll: true, focusVisible: byKey });
       window.setTimeout(function () { if (hint) hint.classList.add('is-gone'); }, 3200);
     }
-    function close() {
+    /* quiet … 焦点を動かさない（戻る操作で、下の商品詳細ごと閉じるとき） */
+    function close(quiet) {
+      if (root.hidden) return;
       root.classList.remove('is-open');
-      document.body.classList.remove('peek-open');
+      /* 下に商品詳細が開いているあいだは、後ろの棚は止めたまま */
+      if (quiet === true || !above(['item', 'doc', 'cart', 'menu'])) {
+        document.body.classList.remove('peek-open');
+      }
       window.setTimeout(function () {
         root.hidden = true;
         pages[page].style.transform = '';
-        /* 閉じたら引き抜きの画面へ戻す。棚まで戻してしまわない */
-        var act = document.querySelector('.pull__act--read');
-        if (act) act.focus({ preventScroll: true });
+        /* 閉じたら商品詳細の「試し読み」へ戻す。棚まで戻してしまわない */
+        if (quiet === true) return;
+        var act = document.querySelector('#item:not([hidden]) .item__act--read');
+        if (act) act.focus({ preventScroll: true, focusVisible: byKey });
       }, reduced.matches ? 0 : 300);
     }
 
+    /* 試し読みは、商品詳細の「試し読み」から開く */
     document.addEventListener('click', function (e) {
-      if (e.target.closest('.pull__act--read')) { open(); return; }
+      if (e.target.closest('.item__act--read')) { open(); return; }
       if (e.target.closest('[data-peek-close]')) close();
     });
     document.addEventListener('keydown', function (e) {
@@ -647,18 +924,30 @@
       else if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
     }, true);
+
+    return { close: close };
   }
 
   /* --- 商品詳細 ---------------------------------------------
-     Shopify では商品ごとに自動で作られる画面。
-     引き抜きの「商品の詳細を見る」から入り、閉じると表紙に戻る。 */
-  function item() {
+     Shopify では商品ごとに自動で作られる画面（別のページ）。
+     棚で本を手に取り、拡大した本をもう一度タップすると開く。
+     「棚にもどる」（上と下の二か所）で、開く前と同じ位置の棚にもどる。
+     開くたびに履歴を1つ積む。ブラウザの戻るや、スマートフォンの戻る操作でも
+     棚にもどる（本物の商品ページは別の URL なので、戻る操作で棚にもどる。それと同じ）。
+     本を手に取っただけ（1回目）では、履歴は積まない。 */
+  function item(reader) {
     var root = document.getElementById('item');
     var raw = document.getElementById('book-data');
-    if (!root || !raw) return;
+    if (!root || !raw) return null;
     var BOOKS = JSON.parse(raw.textContent);
     var body = root.querySelector('.item__body');
     var key = null;
+    var from = null;       /* 開いた棚の本。キーボードで閉じたら、焦点をここへ返す */
+    var y = 0;             /* 開いたときの画面の位置。閉じたらここにもどす */
+    var closing = false, hideTimer = 0;
+    var popping = false;   /* こちらで履歴を戻したときの popstate。もう閉じてあるので何もしない */
+    var openedAt = 0;      /* 開いた時刻 */
+    var GUARD = 450;       /* 開いてすぐのタップは受けない */
 
     function set(sel, txt) { root.querySelector(sel).textContent = txt; }
 
@@ -679,51 +968,93 @@
       set('.item__s-price', b.price.toLocaleString('ja-JP') + '円（税込）');
     }
 
-    function open(k) {
+    /* again … 履歴をたどって開き直すとき（進む操作、読み込み直したとき）。履歴は積まない */
+    function open(k, el, again) {
       var b = BOOKS[k];
       if (!b) return;
+      window.clearTimeout(hideTimer);
+      if (root.hidden || closing) y = window.pageYOffset;
+      closing = false; popping = false;
       key = k;
+      if (el) from = el;
       fill(b);
+      openedAt = Date.now();
       root.hidden = false;
       body.scrollTop = 0;
       window.requestAnimationFrame(function () { root.classList.add('is-open'); });
       document.body.classList.add('peek-open');
-      root.querySelector('.item__back').focus({ preventScroll: true });
-    }
-    function close() {
-      root.classList.remove('is-open');
-      document.body.classList.remove('peek-open');
-      /* 本文の終わりからも閉じられるので、焦点は入口だった
-         「商品の詳細を見る」に返す。閉じたあと宙に浮かせない */
-      var more = document.querySelector('.pull__more');
-      var pull = document.getElementById('pull');
-      window.setTimeout(function () {
-        root.hidden = true;
-        if (more && pull && !pull.hidden) more.focus({ preventScroll: true });
-      }, reduced.matches ? 0 : 300);
+      root.querySelector('.item__back').focus({ preventScroll: true, focusVisible: byKey });
+      if (!again) {
+        try { window.history.pushState({ item: k }, ''); } catch (err) { /* 履歴を使えない環境 */ }
+      }
     }
 
-    document.addEventListener('click', function (e) {
-      if (e.target.closest('.pull__more')) {
-        e.preventDefault();
-        var cover = document.querySelector('.pull__cover');
-        var src = cover ? cover.getAttribute('src') : '';
-        /* 引き抜きで開いている本をそのまま引き継ぐ */
-        for (var k in BOOKS) if (BOOKS[k].cover === src) { open(k); break; }
+    /* 見た目を閉じる。棚は開く前と同じ位置のまま */
+    function hide() {
+      if (root.hidden || closing) return false;
+      closing = true;
+      root.classList.remove('is-open');
+      document.body.classList.remove('peek-open');
+      if (Math.abs(window.pageYOffset - y) > 1) window.scrollTo(0, y);
+      var back = from;
+      hideTimer = window.setTimeout(function () {
+        root.hidden = true;
+        closing = false;
+        key = null;
+        settleFocus(back, root);
+      }, reduced.matches ? 0 : 300);
+      return true;
+    }
+
+    /* 「棚にもどる」。積んだ履歴も1つ戻しておく（戻る操作と同じ道を通す） */
+    function close() {
+      if (!hide()) return;
+      var st = window.history.state;
+      if (st && st.item) {
+        popping = true;
+        window.history.back();
+      }
+    }
+
+    window.addEventListener('popstate', function (e) {
+      if (popping) { popping = false; return; }
+      var st = e.state;
+      /* 進む操作で商品詳細の履歴へ来たときは、開き直す */
+      if (st && st.item && BOOKS[st.item]) {
+        if (root.hidden || closing) open(st.item, null, true);
         return;
       }
+      /* 戻る操作。上に試し読みが重なっていれば、それもいっしょに閉じる */
+      if (!root.hidden && !closing) {
+        if (reader) reader.close(true);
+        hide();
+      }
+    });
+
+    /* 開いてすぐのタップは受けない。拡大した本をすばやく二度たたいたとき、
+       2回目がそのまま「カートに入れる」「試し読み」「棚にもどる」に当たらないように。
+       カートや試し読みはページ全体で click を受けるので、それより先（捕まえる段階）で止める */
+    root.addEventListener('click', function (e) {
+      if (Date.now() - openedAt < GUARD) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    document.addEventListener('click', function (e) {
       if (e.target.closest('[data-item-close]')) close();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !root.hidden &&
+      if (e.key === 'Escape' && !root.hidden && !closing &&
           !above(['peek', 'cart', 'doc'])) { e.stopPropagation(); close(); }
     }, true);
 
-    /* 商品詳細からも試し読みへ */
-    root.querySelector('.item__act--read').addEventListener('click', function () {
-      var act = document.querySelector('.pull__act--read');
-      if (act) act.click();
-    });
+    /* 読み込み直したときに、商品詳細の履歴にいたら、商品詳細を開き直す */
+    var st0 = window.history.state;
+    if (st0 && st0.item && BOOKS[st0.item]) open(st0.item, null, true);
+
+    return {
+      open: open,
+      close: close,
+      shown: function () { return !root.hidden && !closing; },
+      key: function () { return root.hidden || closing ? null : key; }
+    };
   }
 
   /* --- 手応えの表示 ----------------------------------------- */
@@ -784,7 +1115,7 @@
   /* --- カート -----------------------------------------------
      決済と配送の入力は Shopify 標準（要件定義書 2-6）。
      ここは、そこへ渡るまでの見え方をつくる。 */
-  function cart() {
+  function cart(page) {
     var root = document.getElementById('cart');
     var raw = document.getElementById('book-data');
     if (!root || !raw) return;
@@ -853,23 +1184,10 @@
         reduced.matches ? 0 : 320);
     }
 
-    /* いま開いている本を、表紙の画像から割り出す */
-    function current() {
-      var src = null;
-      var it = document.getElementById('item');
-      if (it && !it.hidden) src = it.querySelector('.item__img').getAttribute('src');
-      else {
-        var pl = document.getElementById('pull');
-        if (pl && !pl.hidden) src = pl.querySelector('.pull__cover').getAttribute('src');
-      }
-      if (!src) return null;
-      for (var k in BOOKS) if (BOOKS[k].cover === src) return k;
-      return null;
-    }
-
+    /* 「カートに入れる」は商品詳細にある。入れるのは、商品詳細に開いている本 */
     document.addEventListener('click', function (e) {
-      if (e.target.closest('.pull__act--buy, .item__act--buy')) {
-        var k = current();
+      if (e.target.closest('.item__act--buy')) {
+        var k = page ? page.key() : null;
         if (k) add(k);
         return;
       }
@@ -1086,14 +1404,15 @@
   }
 
   function boot() {
+    modality();         /* ほかより先に。閉じたときの焦点の返し方がこれで決まる */
     anchors();          /* 動きの設定に関わらず必ず通す。設定次第で即座に移る */
     fitShelves();       /* 動きの設定に関わらず必ず行う */
     topbar();           /* 同上。読めるかどうかの話なので */
-    pullOut();          /* 同上。動きではなく機能なので */
-    peek();
-    item();
+    var reader = peek();
+    var page = item(reader);
+    shelf(page);        /* 動きの設定に関わらず必ず通す。動きではなく機能なので */
     docs();
-    cart();
+    cart(page);
     menu();
     start();
   }

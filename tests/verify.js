@@ -29,7 +29,7 @@ const VIEWS = [
   { n: 'desktop', w: 1440, h: 900 },
   { n: 'wide', w: 1920, h: 955 },
 ];
-/* 引き抜き・試し読みを見る画面。横長で縦の短いものを必ず含める
+/* 本を手に取る・商品詳細・試し読みを見る画面。横長で縦の短いものを必ず含める
    （見開きが下にはみ出したのはこの形だった） */
 const SCREEN_VIEWS = [
   { n: 'phone', w: 390, h: 844 },
@@ -787,7 +787,97 @@ async function light(b) {
   }
 }
 
-/* ---- 1b. 指でなぞって選ぶ -------------------------------------- */
+/* ---- 本を手に取る（1回目）と商品詳細（2回目）を確かめる手続き -------------
+   國分様のご依頼。棚の本をタップすると、その本が少し前に出て拡大される（1回目）。
+   拡大した本か、横に添えた書名をもう一度タップすると商品詳細（2回目）。
+   それ以外のところをタップすると棚にもどる。指を離しただけでは商品詳細へ進まない。 */
+
+/* 指の操作。ブラウザに本物のタッチを送る（縦に動かせばページが送られ、横なら送られない） */
+async function touchTap(cdp, p, x, y, hold = 40) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await p.waitForTimeout(hold);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+async function touchSlide(cdp, p, pts, step = 16) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pts[0][0], y: pts[0][1] }] });
+  await p.waitForTimeout(30);
+  for (const q of pts.slice(1)) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: q[0], y: q[1] }] });
+    await p.waitForTimeout(step);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+/* 売り場 m（0 から）の看板を、上の帯のすぐ下へ */
+async function toMarket(p, m) {
+  await p.evaluate(m => {
+    document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
+    const mk = document.querySelectorAll('.market')[m];
+    const bar = document.querySelector('.topbar').getBoundingClientRect().height;
+    window.scrollTo(0, mk.querySelector('.market__head').getBoundingClientRect().top + window.scrollY - bar);
+  }, m);
+  await p.waitForTimeout(500);
+}
+/* 売り場 m の上の段で、見えている本 k（指で押す点は、本の下の端から 40px 上） */
+const spineAt = (p, m, k) => p.evaluate(([m, k]) => {
+  const mk = document.querySelectorAll('.market')[m];
+  const e = [...mk.querySelectorAll('.case .row .spine')].find(e => (!k || e.dataset.book === k) && getComputedStyle(e).display !== 'none');
+  const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+  return { x: r.left + r.width / 2, y: r.bottom - 40, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height,
+           k: e.dataset.book, t_mm: Math.max(parseFloat(cs.getPropertyValue('--t')), 5) };
+}, [m, k]);
+/* 手に取る・棚へ戻す動きが終わるまで待つ。
+   決め打ちの待ち時間だと、機械が混んでいるときだけ落ちる（後ろをぼかす層は描くのが重い） */
+async function still(p, ms = 4000) {
+  await p.waitForFunction(() => {
+    const f = document.getElementById('focus');
+    const moving = document.getAnimations().some(a => {
+      const e = a.effect && a.effect.target;
+      return e && e.closest && e.closest('#focus') && a.playState === 'running';
+    });
+    return !moving && !f.classList.contains('is-leaving');
+  }, null, { timeout: ms }).catch(() => {});
+}
+/* 1回目の層（#focus）と商品詳細の様子。動きが止まってから読む */
+const tapState = async p => { await still(p); return p.evaluate(() => {
+  const f = document.getElementById('focus'), it = document.getElementById('item');
+  const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom }; };
+  const box = f.querySelector('.focus__book'), node = box.firstElementChild, cap = f.querySelector('.focus__cap');
+  const pad = getComputedStyle(box, '::before');
+  const a = document.activeElement;
+  return {
+    open: !f.hidden, leaving: f.classList.contains('is-leaving'), item: !it.hidden,
+    pull: !!document.querySelector('#pull, .pull, .pull-fly'),
+    scale: f.dataset.scale ? +f.dataset.scale : null,
+    box: f.hidden ? null : R(box), node: node ? R(node) : null,
+    nodeMm: node ? parseFloat(node.style.getPropertyValue('--mm')) : null,
+    cover: !!(node && node.classList.contains('focus__cover')),
+    tf: getComputedStyle(box).transform,
+    padW: f.hidden ? 0 : box.getBoundingClientRect().width - parseFloat(pad.left) - parseFloat(pad.right),
+    padH: f.hidden ? 0 : box.getBoundingClientRect().height - parseFloat(pad.top) - parseFloat(pad.bottom),
+    cap: f.hidden ? null : R(cap), capCls: cap.className,
+    titleBox: f.hidden ? null : R(f.querySelector('.focus__title')),
+    authorBox: f.hidden ? null : R(f.querySelector('.focus__author')),
+    title: f.querySelector('.focus__title').textContent, author: f.querySelector('.focus__author').textContent,
+    titlePx: parseFloat(getComputedStyle(f.querySelector('.focus__title')).fontSize),
+    authorPx: parseFloat(getComputedStyle(f.querySelector('.focus__author')).fontSize),
+    go: f.querySelector('.focus__go').textContent + (getComputedStyle(f.querySelector('.focus__go'), '::after').content || '').replace(/"/g, ''),
+    goBox: f.hidden ? null : R(f.querySelector('.focus__go')),
+    label: box.getAttribute('aria-label'),
+    scrim: getComputedStyle(f.querySelector('.focus__scrim')).opacity,
+    itemTitle: it.querySelector('.item__title').textContent, itemCover: it.querySelector('.item__img').getAttribute('src'),
+    taken: document.querySelectorAll('.is-taken').length,
+    tag: document.querySelector('.pick-tag').classList.contains('is-on'),
+    active: a === document.body ? 'body' : (a.getAttribute('aria-label') || a.className),
+    activeInFocus: f.contains(a), activeSpine: !!(a.closest && a.closest('.case .spine, .case .flat')),
+    ring: node ? getComputedStyle(node).outlineStyle : 'none',
+    y: Math.round(window.scrollY), hlen: history.length, hstate: history.state, href: location.href,
+    vw: document.documentElement.clientWidth, vh: window.innerHeight,
+  };
+}); };
+
+/* ---- 1b. 指でなぞって選ぶ --------------------------------------
+   なぞるのは残す（指の下の本が少し出て、書名の札が出る）。
+   指を離すと、その本を手に取る（1回目）だけ。商品詳細へは進まない。 */
 async function picking(b) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
   const errs = [];
@@ -808,6 +898,7 @@ async function picking(b) {
     const wait = ms => new Promise(res => setTimeout(res, ms));
     const tag = () => document.querySelector('.pick-tag');
     const BOOKS = JSON.parse(document.getElementById('book-data').textContent);
+    const h0 = history.length;
     ev('pointerdown', a.left + a.width / 2 - 4);
     ev('pointermove', a.left + a.width / 2 + 4);
     await wait(60);
@@ -820,20 +911,500 @@ async function picking(b) {
                      one: row.querySelectorAll('.is-picked').length };
     ev('pointerup', zx);
     await wait(900);
-    const pull = document.getElementById('pull');
-    return { first, second, opened: !pull.hidden,
-             title: document.querySelector('.pull__title').textContent, off: !tag().classList.contains('is-on') };
+    return { first, second, focus: !document.getElementById('focus').hidden,
+             item: !document.getElementById('item').hidden, hist: history.length - h0,
+             title: document.querySelector('.focus__title').textContent, off: !tag().classList.contains('is-on'),
+             taken: books[books.length - 2].classList.contains('is-taken') };
   });
   t(r.first.on && r.first.text === r.first.want, `なぞる: 指の下の本の書名が出る (${r.first.text})`);
   t(r.first.lifted, 'なぞる: 指の下の本が棚から少し出る');
   t(r.second.text === r.second.want && r.second.one === 1, `なぞる: 指を動かすと隣の本へ移る (${r.second.text})`);
-  t(r.opened && r.title === r.second.want, `なぞる: 指を離すと、その本が開く (${r.title})`);
-  t(r.off, 'なぞる: 開いたあと書名の札は消える');
+  t(r.focus && r.title === r.second.want && r.taken, `なぞる: 指を離すと、その本を手に取る（拡大） (${r.title})`);
+  t(!r.item && r.hist === 0, 'なぞる: 指を離しても商品詳細へは進まない（履歴も増えない）');
+  t(r.off, 'なぞる: 手に取ったあと書名の札は消える');
   t(errs.length === 0, `なぞる: スクリプトの誤りなし${errs.length ? ' — ' + errs[0] : ''}`);
   await p.close();
 }
 
-/* ---- 2. 引き抜きと試し読み --------------------------------------- */
+/* ---- 2. 本を手に取る（指） ------------------------------------------
+   スマートフォン2機種（390x844・375x667）で、本物のタッチを送って確かめる */
+async function tapFlow(b) {
+  for (const vp of [{ n: 'phone', w: 390, h: 844 }, { n: 'phone-short', w: 375, h: 667 }]) {
+    const ctx = await b.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const p = await ctx.newPage();
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(() => { try { localStorage.setItem('shelf-hint', '1'); } catch (e) {} });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    const cdp = await ctx.newCDPSession(p);
+    const BOOKS = await p.evaluate(() => JSON.parse(document.getElementById('book-data').textContent));
+    const n = vp.n;
+
+    /* 「すべて見る」と、表紙＋簡易情報の画面（.pull）は無い */
+    const gone = await p.evaluate(() => ({
+      all: document.body.innerText.includes('すべて見る') || document.documentElement.outerHTML.includes('すべて見る'),
+      link: document.querySelectorAll('.market__all').length,
+      pull: document.querySelectorAll('#pull, .pull, [class^="pull__"], .pull-fly').length,
+    }));
+    t(!gone.all && gone.link === 0, `${n}: 「すべて見る」が無い`);
+    t(gone.pull === 0, `${n}: 表紙＋簡易情報の画面（引き抜き）が無い`);
+
+    await toMarket(p, 0);
+    const y0 = await p.evaluate(() => Math.round(window.scrollY));
+
+    /* --- 1回目：背表紙をタップすると、その本が拡大される。商品詳細へは進まない --- */
+    for (const [m, k] of [[0, 'monte'], [0, 'aya'], [0, 'kagaku'], [1, 'suika']]) {
+      await toMarket(p, m);
+      const sp = await spineAt(p, m, k);
+      const before = await tapState(p);
+      await touchTap(cdp, p, sp.x, sp.y);
+      await p.waitForTimeout(750);
+      const s = await tapState(p);
+      const nm = `${n} ${k}`;
+      t(s.open && !s.item && !s.pull, `${nm}: タップすると本が拡大される（商品詳細へは進まない）`);
+      t(s.hlen === before.hlen && s.href === before.href, `${nm}: 1回目では履歴を積まない`);
+      /* 拡大の決まり：min(4, min(画面の高さ − 48, 680) ÷ 棚の上の背の高さ)。縦横は同じ倍率 */
+      const want = Math.min(4, Math.min(vp.h - 48, 680) / sp.h);
+      t(Math.abs(s.scale - want) <= 0.005 && Math.abs(s.nodeMm - s.scale) <= 0.001,
+        `${nm}: 拡大の倍率は min(4, min(画面の高さ−48, 680)÷背の高さ) (${s.scale} / ${want.toFixed(3)})`);
+      t(Math.abs(s.node.w / sp.w - s.scale) <= 0.02 && Math.abs(s.node.h / sp.h - s.scale) / s.scale <= 0.02,
+        `${nm}: 実物どおりの比のまま拡大（幅 ${(s.node.w / sp.w).toFixed(3)}倍・高さ ${(s.node.h / sp.h).toFixed(3)}倍）`);
+      t(s.node.h <= Math.min(vp.h - 48, 680) + 1 && s.box.t >= 23.5 && s.box.b <= vp.h - 23.5 && s.box.l >= 23.5 && s.box.r <= vp.w - 23.5,
+        `${nm}: 拡大した本が画面に収まる (${s.box.l.toFixed(0)},${s.box.t.toFixed(0)} ${s.box.w.toFixed(0)}x${s.box.h.toFixed(0)})`);
+      t(s.tf === 'none', `${nm}: 拡大した本は写真の細かさのまま描き直す（引き伸ばさない）`);
+      t(s.taken === 1, `${nm}: 棚のその場所は空いて見える`);
+      t(s.scrim === '1', `${nm}: 後ろの棚はぼかして暗くする`);
+      t(s.title === BOOKS[k].title && s.author === BOOKS[k].author && s.titlePx === 16 && s.authorPx === 12,
+        `${nm}: 横に書名（16px）と著者名（12px）を文字で添える (${s.title})`);
+      t(s.go === 'この本のページへ›' && s.goBox.h >= 32, `${nm}: 「この本のページへ ›」の目印 (${s.goBox.w.toFixed(0)}x${s.goBox.h.toFixed(0)}px)`);
+      t(s.cap.r <= vp.w - 23.5 && s.cap.l >= 23.5 && (s.cap.l >= s.box.r + 8 || s.cap.r <= s.box.l - 8),
+        `${nm}: 書名は拡大した本の横に、重ならずに置く`);
+      t(s.padW >= 47.9 && s.padH >= s.box.h, `${nm}: 拡大した本の押せる幅は 48px 以上 (${s.padW.toFixed(1)}px)`);
+      t(s.label === '「' + BOOKS[k].title + '」の商品ページを開く', `${nm}: 拡大した本はボタンとして読み上げる (${s.label})`);
+      console.log(`  INFO  ${nm}: 倍率 ${s.scale}、拡大した背表紙 ${s.node.w.toFixed(1)}x${s.node.h.toFixed(1)}px`);
+      /* ③ 拡大した本以外のところをタップすると、棚にもどる */
+      const ox = /is-left/.test(s.capCls) ? vp.w - 12 : 12;
+      await touchTap(cdp, p, ox, 60);
+      await p.waitForTimeout(500);
+      const c = await tapState(p);
+      t(!c.open && !c.item && c.taken === 0, `${nm}: ほかのところをタップすると棚にもどる`);
+      t(c.hlen === before.hlen, `${nm}: 棚にもどっても履歴は増えない`);
+      t(!c.activeInFocus && !c.activeSpine && !c.tag, `${nm}: 指で戻ったあと、棚の本に焦点も札も残らない (${c.active})`);
+    }
+
+    /* 添えた書名の横の空いたところは、拡大した本でも書名でもない。タップすると棚にもどる。
+       書名が本の右に出る本と、棚の右端の本（書名が本の左に出る）の両方で */
+    const rightmost = () => p.evaluate(() => {
+      const row = document.querySelectorAll('.market')[0].querySelector('.case .row');
+      const e = [...row.querySelectorAll('.spine[data-book]')].filter(e => getComputedStyle(e).display !== 'none').pop();
+      const r = e.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.bottom - 40, k: e.dataset.book };
+    });
+    for (const where of ['left', 'right']) {
+      await toMarket(p, 0);
+      const q = where === 'left' ? await spineAt(p, 0, 'aya') : await rightmost();
+      await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(750);
+      const s1 = await tapState(p);
+      const capRight = s1.cap.l >= s1.box.r;
+      const bx = capRight ? s1.cap.r - 6 : s1.cap.l + 6, by = s1.goBox.t + s1.goBox.h / 2;
+      const clear = bx > s1.goBox.r + 8 || bx < s1.goBox.l - 8;
+      await touchTap(cdp, p, bx, by); await p.waitForTimeout(600);
+      const c = await tapState(p);
+      t(s1.open && clear && !c.open && !c.item,
+        `${n} ${q.k}: 書名の横の空いたところをタップすると棚にもどる（書名は本の${capRight ? '右' : '左'}、${bx.toFixed(0)},${by.toFixed(0)}）`);
+      if (c.open) { await touchTap(cdp, p, 12, 60); await p.waitForTimeout(500); }
+      if (c.item) { await p.goBack(); await p.waitForTimeout(700); }
+    }
+
+    /* 棚へ戻っているあいだは、拡大した本と添えた文字の上でも、タップを後ろの棚へ通す
+       （戻りきるのを待たずに、次の本を手に取れる） */
+    {
+      await toMarket(p, 0);
+      const q = await spineAt(p, 0, 'aya');
+      await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(750);
+      const s1 = await tapState(p);
+      const mid = r => [r.l + r.w / 2, r.t + r.h / 2];
+      const pts = [mid(s1.titleBox), mid(s1.authorBox), mid(s1.goBox), mid(s1.box)];
+      await touchTap(cdp, p, 12, 60);
+      const through = await p.waitForFunction(pts => {
+        const f = document.getElementById('focus');
+        if (!f.classList.contains('is-leaving')) return null;
+        return { ok: pts.every(([x, y]) => !f.contains(document.elementFromPoint(x, y))) };
+      }, pts, { polling: 'raf', timeout: 2000 }).then(h => h.jsonValue()).catch(() => null);
+      t(through && through.ok, `${n}: 棚へ戻っているあいだは、本と書名の上でもタップを後ろの棚へ通す`);
+      await p.waitForTimeout(500);
+    }
+
+    /* --- 2回目：拡大した本をタップすると商品詳細。「棚にもどる」で同じ位置の棚へ --- */
+    await toMarket(p, 0);
+    const yA = await p.evaluate(() => Math.round(window.scrollY));
+    let sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    let s = await tapState(p);
+    const h1 = s.hlen;
+    await touchTap(cdp, p, s.box.l + s.box.w / 2, s.box.t + s.box.h * 0.3); await p.waitForTimeout(800);
+    s = await tapState(p);
+    t(s.item && s.itemTitle === BOOKS.aya.title && s.itemCover === BOOKS.aya.cover, `${n}: 拡大した本をもう一度タップすると商品詳細 (${s.itemTitle})`);
+    t(!s.open && s.taken === 0, `${n}: 商品詳細が開くと、拡大した本は棚へ戻っている`);
+    t(s.hlen === h1 + 1 && s.hstate && s.hstate.item === 'aya', `${n}: 商品詳細を開くと履歴を1つ積む`);
+    const backs = await p.evaluate(() => [...document.querySelectorAll('#item [data-item-close] span')].map(e => e.textContent));
+    t(backs.length === 2 && backs.every(v => v === '棚にもどる'), `${n}: 商品詳細の上と下の出口は「棚にもどる」 (${backs.join('・')})`);
+    const topBack = await p.evaluate(() => { const r = document.querySelector('.item__back').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await touchTap(cdp, p, topBack.x, topBack.y); await p.waitForTimeout(800);
+    s = await tapState(p);
+    t(!s.item && !s.open && s.y === yA, `${n}: 上の「棚にもどる」で、同じ位置の棚にもどる (${s.y}/${yA})`);
+    t(!(s.hstate && s.hstate.item), `${n}: 「棚にもどる」で、積んだ履歴も戻る`);
+
+    /* 添えた書名をタップしても商品詳細。戻る操作（ブラウザ・スマートフォンの戻る）で棚へ */
+    sp = await spineAt(p, 0, 'kagaku');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    s = await tapState(p);
+    await touchTap(cdp, p, s.titleBox.l + Math.min(24, s.titleBox.w / 2), s.titleBox.t + 10); await p.waitForTimeout(800);
+    s = await tapState(p);
+    t(s.item && s.itemTitle === BOOKS.kagaku.title, `${n}: 添えた書名をタップしても商品詳細 (${s.itemTitle})`);
+    await p.goBack(); await p.waitForTimeout(700);
+    s = await tapState(p);
+    t(!s.item && !s.open && s.y === yA, `${n}: 戻る操作で商品詳細が閉じ、同じ位置の棚にもどる (${s.y}/${yA})`);
+    /* 本を手に取ったまま進む操作をすると、商品詳細が開き直す。手に取った本は片づけ、
+       商品詳細を閉じたあとに拡大した本が残らない */
+    sp = await spineAt(p, 0, 'monte');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    await p.goForward(); await p.waitForTimeout(700);
+    s = await tapState(p);
+    t(s.item && s.itemTitle === BOOKS.kagaku.title && !s.open && s.taken === 0,
+      `${n}: 手に取ったまま進む操作をすると、商品詳細が開き、手に取った本は棚へ戻る`);
+    await p.goBack(); await p.waitForTimeout(700);
+    s = await tapState(p);
+    t(!s.item && !s.open && s.y === yA, `${n}: そのあと戻る操作で、拡大した本を残さず棚にもどる`);
+    if (s.open) { await touchTap(cdp, p, 12, 60); await p.waitForTimeout(500); }
+
+    /* 「この本のページへ ›」をタップしても商品詳細。下の「棚にもどる」で棚へ */
+    sp = await spineAt(p, 0, 'monte');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    s = await tapState(p);
+    await touchTap(cdp, p, s.goBox.l + s.goBox.w / 2, s.goBox.t + s.goBox.h / 2); await p.waitForTimeout(800);
+    s = await tapState(p);
+    t(s.item && s.itemTitle === BOOKS.monte.title, `${n}: 「この本のページへ ›」をタップしても商品詳細`);
+    /* 商品詳細の「カートに入れる」「試し読み」の位置（下の二度たたきで狙う） */
+    const acts = await p.evaluate(() => Object.fromEntries(['buy', 'read'].map(k => {
+      const r = document.querySelector('.item__act--' + k).getBoundingClientRect();
+      return [k, { l: r.left, t: r.top, r: r.right, b: r.bottom }];
+    })));
+    await p.evaluate(() => { const bd = document.querySelector('.item__body'); bd.scrollTop = bd.scrollHeight; });
+    await p.waitForTimeout(200);
+    const endBack = await p.evaluate(() => { const r = document.querySelector('.item__close').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await touchTap(cdp, p, endBack.x, endBack.y); await p.waitForTimeout(800);
+    s = await tapState(p);
+    t(!s.item && s.y === yA && !(s.hstate && s.hstate.item), `${n}: 下の「棚にもどる」でも、同じ位置の棚にもどる`);
+
+    /* 拡大した本をすばやく二度たたく。1回目で商品詳細が開き、2回目は、そこに出てきた
+       「カートに入れる」（本が左のとき）・「試し読み」（本が右のとき）の上に当たる。
+       2回目は受けない（カートに入らず、試し読みも開かない） */
+    for (const [where, act] of [['left', 'buy'], ['right', 'read']]) {
+      await toMarket(p, 0);
+      const q = where === 'left' ? await spineAt(p, 0, 'monte') : await rightmost();
+      await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(750);
+      const s1 = await tapState(p);
+      const a2 = acts[act];
+      const x = s1.box.l + s1.box.w / 2, y = (a2.t + a2.b) / 2;
+      const aimed = s1.open && x >= a2.l && x <= a2.r && y >= s1.box.t && y <= s1.box.b;
+      const cart0 = await p.evaluate(() => document.getElementById('cart-n').textContent);
+      await touchTap(cdp, p, x, y, 30); await p.waitForTimeout(140);
+      await touchTap(cdp, p, x, y, 30); await p.waitForTimeout(900);
+      const s2 = await tapState(p);
+      const after = await p.evaluate(() => ({ cart: document.getElementById('cart-n').textContent, peek: !document.getElementById('peek').hidden }));
+      t(aimed && s2.item && s2.itemTitle === BOOKS[q.k].title && after.cart === cart0 && !after.peek,
+        `${n} ${q.k}: 拡大した本をすばやく二度たたいても、2回目は「${act === 'buy' ? 'カートに入れる' : '試し読み'}」に当たらない（${x.toFixed(0)},${y.toFixed(0)}、カート ${after.cart}）`);
+      if (after.peek) { await p.keyboard.press('Escape'); await p.waitForTimeout(500); }
+      if (s2.item) { await p.goBack(); await p.waitForTimeout(800); }
+    }
+
+    /* 二度たたき。2回目は受けない（そのまま商品詳細へ進まない） */
+    sp = await spineAt(p, 0, 'monte');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(120);
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(700);
+    s = await tapState(p);
+    t(s.open && !s.item, `${n}: 本をすばやく二度たたいても、商品詳細へは進まない`);
+    await touchTap(cdp, p, 12, 60); await p.waitForTimeout(500);
+
+    /* 指でなぞって離す。指の下の本を手に取るだけ */
+    const a = await spineAt(p, 0, 'monte');
+    const pts = []; for (let x = a.x; x <= a.x + 120; x += 8) pts.push([x, a.y]);
+    await touchSlide(cdp, p, pts);
+    await p.waitForTimeout(750);
+    s = await tapState(p);
+    const under = await p.evaluate(([x, y]) => { const e = [...document.querySelectorAll('.case .row .spine')].find(e => { const r = e.getBoundingClientRect(); return getComputedStyle(e).display !== 'none' && x >= r.left - 1.5 && x <= r.right + 1.5 && y >= r.top - 40 && y <= r.bottom + 40; }); return e && e.dataset.book; }, [a.x + 120, a.y]);
+    t(s.open && !s.item && s.title === BOOKS[under].title && !s.tag, `${n}: なぞって離すと、指の下の本を手に取るだけ (${s.title})`);
+    await touchTap(cdp, p, 12, 60); await p.waitForTimeout(500);
+
+    /* 短く斜めにはじく。どの向きでも商品詳細へは進まない */
+    const flicks = [];
+    for (const [dx, dy] of [[20, 20], [20, -20], [-20, 14], [14, 20], [-18, -18]]) {
+      await toMarket(p, 0);
+      await touchSlide(cdp, p, [[a.x, a.y], [a.x + dx / 2, a.y + dy / 2], [a.x + dx, a.y + dy]], 10);
+      await p.waitForTimeout(700);
+      s = await tapState(p);
+      flicks.push(s.item);
+      if (s.item) { await p.goBack(); await p.waitForTimeout(500); }
+      if (s.open) { await touchTap(cdp, p, 12, 60); await p.waitForTimeout(500); }
+    }
+    t(flicks.every(v => !v), `${n}: 短く斜めにはじいても、商品詳細へは進まない (${flicks.length}方向)`);
+
+    /* 棚の外まで指を外して離す。何もしない */
+    await toMarket(p, 0);
+    await touchSlide(cdp, p, [[a.x, a.y], [a.x + 20, a.y], [a.x + 40, a.y], [a.x + 40, a.y + 420]]);
+    await p.waitForTimeout(600);
+    s = await tapState(p);
+    t(!s.open && !s.item, `${n}: 棚の外まで指を外して離すと、何もしない`);
+
+    /* 拡大しているあいだに別の本をタップすると、棚にもどる（③のとおり） */
+    await toMarket(p, 0);
+    sp = await spineAt(p, 0, 'monte');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    const other = await p.evaluate(() => { const tr = document.querySelectorAll('.market')[0].querySelectorAll('.tier')[1];
+      const e = [...tr.querySelectorAll('.spine')].filter(e => getComputedStyle(e).display !== 'none').pop(); const r = e.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: Math.min(r.bottom - 20, innerHeight - 20) }; });
+    await touchTap(cdp, p, other.x, other.y); await p.waitForTimeout(600);
+    s = await tapState(p);
+    t(!s.open && !s.item && s.taken === 0, `${n}: 拡大中に別の本をタップすると、棚にもどる`);
+
+    /* 拡大したまま画面を送ると、棚にもどる */
+    sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    const yS = await p.evaluate(() => Math.round(window.scrollY));
+    await touchSlide(cdp, p, [[vp.w - 30, 500], [vp.w - 30, 480], [vp.w - 30, 450], [vp.w - 30, 420], [vp.w - 30, 380]]);
+    await p.waitForTimeout(700);
+    s = await tapState(p);
+    t(!s.open && !s.item && Math.abs(s.y - yS) > 12, `${n}: 拡大したまま画面を送ると、棚にもどる（${s.y - yS}px 送った）`);
+    /* ごくわずかな送り（12px まで）では閉じない。それより送ると閉じる */
+    await toMarket(p, 0);
+    sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    await p.evaluate(() => window.scrollBy(0, 8)); await p.waitForTimeout(200);
+    const small = (await tapState(p)).open;
+    await p.evaluate(() => window.scrollBy(0, 12)); await p.waitForTimeout(200);
+    s = await tapState(p);
+    t(small && !s.open, `${n}: 8px の送りでは閉じず、20px 送ると棚にもどる`);
+
+    /* --- 平置きの本も同じ二段。表紙を起こして大きく、書名は表紙の下 --- */
+    await toMarket(p, 0);
+    for (const i of [0, 1]) {
+      const f = await p.evaluate(i => {
+        const e = [...document.querySelectorAll('.market')[0].querySelectorAll('.deck__row .flat')].filter(e => getComputedStyle(e).display !== 'none')[i];
+        e.scrollIntoView({ block: 'center' });
+        const r = e.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, k: e.dataset.book, fw: parseFloat(getComputedStyle(e).width) };
+      }, i);
+      await p.waitForTimeout(300);
+      const h0 = (await tapState(p)).hlen;
+      await touchTap(cdp, p, f.x, f.y); await p.waitForTimeout(750);
+      s = await tapState(p);
+      const nm = `${n} 平置き ${f.k}`;
+      t(s.open && !s.item && s.cover && s.hlen === h0, `${nm}: タップすると表紙が大きく表示される（商品詳細へは進まない）`);
+      t(s.tf === 'none' && Math.abs(s.box.h / s.box.w - BOOKS[f.k].h / BOOKS[f.k].w) <= 0.01 && s.box.w >= f.fw * 1.8,
+        `${nm}: 表紙は起こして正面に向け、実物どおりの比で大きく (${s.box.w.toFixed(0)}x${s.box.h.toFixed(0)}px)`);
+      t(/is-below/.test(s.capCls) && s.cap.t >= s.box.b + 8 && s.cap.b <= vp.h - 23.5 && s.title === BOOKS[f.k].title,
+        `${nm}: 書名は表紙の下に添える`);
+      const cc = s.box.l + s.box.w / 2;
+      t(Math.abs(s.cap.l + s.cap.w / 2 - cc) <= 1 && Math.abs(s.titleBox.l + s.titleBox.w / 2 - cc) <= 1 && Math.abs(s.goBox.l + s.goBox.w / 2 - cc) <= 1,
+        `${nm}: 書名と「この本のページへ ›」は、表紙の中心にそろえる (表紙 ${cc.toFixed(1)}・書名 ${(s.titleBox.l + s.titleBox.w / 2).toFixed(1)})`);
+      if (i === 0) {
+        await touchTap(cdp, p, s.box.l + s.box.w / 2, s.box.t + s.box.h / 2); await p.waitForTimeout(800);
+        s = await tapState(p);
+        t(s.item && s.itemTitle === BOOKS[f.k].title, `${nm}: もう一度タップすると商品詳細`);
+        await p.goBack(); await p.waitForTimeout(700);
+      } else {
+        /* 表紙の下の書名の、横の空いたところ */
+        const bx = s.cap.l + 6, by = s.goBox.t + s.goBox.h / 2;
+        const clear = bx < s.goBox.l - 8 && bx < s.titleBox.l - 8;
+        await touchTap(cdp, p, bx, by); await p.waitForTimeout(500);
+        s = await tapState(p);
+        t(clear && !s.open && !s.item && s.taken === 0, `${nm}: 書名の横の空いたところをタップすると棚にもどる`);
+      }
+    }
+
+    /* --- 試し読みとカートは、商品詳細から --- */
+    await toMarket(p, 0);
+    sp = await spineAt(p, 0, 'monte');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    s = await tapState(p);
+    await touchTap(cdp, p, s.box.l + s.box.w / 2, s.box.t + s.box.h / 2); await p.waitForTimeout(800);
+    const at = sel => p.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
+    let q = await at('.item__act--read');
+    await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(700);
+    const pk = await p.evaluate(() => ({ open: !document.getElementById('peek').hidden, lock: document.body.classList.contains('peek-open') }));
+    t(pk.open && pk.lock, `${n}: 商品詳細の「試し読み」で試し読みが開く`);
+    q = await at('.peek__close');
+    await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(600);
+    const pk2 = await p.evaluate(() => ({ peek: !document.getElementById('peek').hidden, item: !document.getElementById('item').hidden,
+      focus: document.activeElement.className, lock: document.body.classList.contains('peek-open') }));
+    t(!pk2.peek && pk2.item && /item__act--read/.test(pk2.focus) && pk2.lock,
+      `${n}: 試し読みを閉じると商品詳細の「試し読み」にもどる（後ろの棚は止めたまま）`);
+    q = await at('.item__act--buy');
+    await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(400);
+    const ct = await p.evaluate(() => ({ toast: document.getElementById('toast').textContent, n: document.getElementById('cart-n').textContent }));
+    t(ct.n === '1' && ct.toast.includes(BOOKS.monte.title), `${n}: 商品詳細の「カートに入れる」で、その本がカートに入る (${ct.toast})`);
+    /* 試し読みを開いたまま戻る操作をしたときは、商品詳細ごと閉じて棚へ */
+    q = await at('.item__act--read');
+    await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(700);
+    await p.goBack(); await p.waitForTimeout(800);
+    const bk = await p.evaluate(() => ({ peek: !document.getElementById('peek').hidden, item: !document.getElementById('item').hidden,
+      lock: document.body.classList.contains('peek-open') }));
+    t(!bk.peek && !bk.item && !bk.lock, `${n}: 試し読みの上で戻る操作をすると、棚まで戻り、棚が動くように戻る`);
+
+    t(errs.length === 0, `${n}: 本を手に取る操作でJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+    await ctx.close();
+  }
+}
+
+/* ---- 2b. 本を手に取る（マウスとキーボード） ------------------------------
+   マウス：指している本が少し出て書名の札が出る（何も開かない）。クリックで手に取る。
+   キーボード：Enter で手に取り、焦点は「「書名」の商品ページを開く」へ。
+   もう一度 Enter で商品詳細。Escape で棚にもどり、焦点は元の本へ返る。 */
+async function pcFlow(b) {
+  const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto(URL, { waitUntil: 'networkidle' });
+  const BOOKS = await p.evaluate(() => JSON.parse(document.getElementById('book-data').textContent));
+  await toMarket(p, 1);
+  let sp = await spineAt(p, 1, 'suika');
+  await p.mouse.move(sp.x, sp.y); await p.waitForTimeout(400);
+  let s = await tapState(p);
+  const lifted = await p.evaluate(([x, y]) => document.elementFromPoint(x, y).closest('.spine').classList.contains('is-picked'), [sp.x, sp.y]);
+  t(s.tag && lifted && !s.open, 'PC: マウスを乗せると本が少し出て書名の札が出る（何も開かない）');
+  await p.mouse.click(sp.x, sp.y); await p.waitForTimeout(700);
+  s = await tapState(p);
+  const want = Math.min(4, Math.min(900 - 48, 680) / sp.h);
+  t(s.open && !s.item && Math.abs(s.scale - want) <= 0.005, `PC: クリックで本を手に取る (倍率 ${s.scale})`);
+  t(!s.tag, 'PC: 手に取ると書名の札は消える');
+  await p.mouse.click(1400, 450); await p.waitForTimeout(500);
+  s = await tapState(p);
+  t(!s.open && !s.item && !s.activeSpine, 'PC: ほかのところをクリックすると棚にもどる');
+  await p.mouse.click(sp.x, sp.y); await p.waitForTimeout(700);
+  s = await tapState(p);
+  await p.mouse.click(s.box.l + s.box.w / 2, s.box.t + s.box.h / 2); await p.waitForTimeout(800);
+  s = await tapState(p);
+  t(s.item && s.itemTitle === BOOKS.suika.title, 'PC: 拡大した本をクリックすると商品詳細');
+  await p.click('.item__back'); await p.waitForTimeout(700);
+  s = await tapState(p);
+  t(!s.item && !s.open && !s.activeSpine, 'PC: 「棚にもどる」で棚へ（マウスのときは本に焦点を返さない）');
+  await p.mouse.click(sp.x, sp.y); await p.waitForTimeout(700);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+  s = await tapState(p);
+  t(!s.open, 'PC: Escape で棚にもどる');
+
+  /* --- キーボードだけで --- */
+  await p.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 0); document.querySelector('.hero__scroll').focus(); });
+  await p.keyboard.press('Tab'); await p.waitForTimeout(500);
+  const first = await p.evaluate(() => { const a = document.activeElement; return { spine: a.classList.contains('spine'), label: a.getAttribute('aria-label'), key: a.dataset.book }; });
+  s = await tapState(p);
+  t(first.spine && s.tag, `キーボード: Tab で背表紙に焦点が来て、書名の札が出る (${first.label})`);
+  const h0 = s.hlen;
+  await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+  s = await tapState(p);
+  t(s.open && !s.item && s.hlen === h0, 'キーボード: Enter で本を手に取る（商品詳細へは進まない）');
+  t(s.active === '「' + BOOKS[first.key].title + '」の商品ページを開く' && s.ring === 'solid',
+    `キーボード: 焦点は「「書名」の商品ページを開く」に移り、枠が見える (${s.active})`);
+  await p.keyboard.press('Tab'); await p.waitForTimeout(120);
+  const t1 = await p.evaluate(() => ({ cls: document.activeElement.className, text: document.activeElement.textContent, op: getComputedStyle(document.activeElement).opacity }));
+  await p.keyboard.press('Tab'); await p.waitForTimeout(120);
+  const t2 = await p.evaluate(() => document.activeElement.className);
+  t(t1.cls === 'focus__close' && t1.text === '棚にもどる' && t1.op === '1' && t2 === 'focus__book',
+    'キーボード: 手に取っているあいだ、Tab は本と「棚にもどる」のあいだだけを回る');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+  s = await tapState(p);
+  const back1 = await p.evaluate(() => document.activeElement.dataset.book);
+  t(!s.open && s.activeSpine && back1 === first.key && s.tag, 'キーボード: Escape で棚にもどり、焦点は元の本へ返る');
+  await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(800);
+  s = await tapState(p);
+  t(s.item && s.itemTitle === BOOKS[first.key].title && s.active === 'item__back' && s.hstate && s.hstate.item === first.key,
+    `キーボード: Enter、Enter で商品詳細 (${s.itemTitle})`);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(700);
+  s = await tapState(p);
+  const back2 = await p.evaluate(() => document.activeElement.dataset.book);
+  t(!s.item && !s.open && back2 === first.key && !(s.hstate && s.hstate.item),
+    'キーボード: 商品詳細で Escape を押すと棚にもどり、焦点は元の本へ返る');
+  /* 商品詳細が開いてすぐ（手に取った本が棚へ戻りきる前）に Tab を押しても、焦点は商品詳細の中を進む */
+  await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(100);
+  await p.keyboard.press('Tab'); await p.waitForTimeout(800);
+  const kt = await p.evaluate(() => ({ item: !document.getElementById('item').hidden,
+    inItem: document.getElementById('item').contains(document.activeElement),
+    cls: document.activeElement.className || document.activeElement.tagName }));
+  t(kt.item && kt.inItem, `キーボード: 商品詳細が開いてすぐ Tab を押しても、焦点は商品詳細の中 (${kt.cls})`);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(700);
+  const back3 = await p.evaluate(() => document.activeElement.dataset.book);
+  t(back3 === first.key, 'キーボード: そのあと Escape で、焦点は元の本へ返る');
+  await p.keyboard.press(' '); await p.waitForTimeout(700);
+  s = await tapState(p);
+  t(s.open && !s.item, 'キーボード: Space でも本を手に取る');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+  /* 平置きの本も、Enter で手に取る */
+  await p.evaluate(() => [...document.querySelectorAll('.deck__row .flat')].find(e => getComputedStyle(e).display !== 'none').focus());
+  await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+  s = await tapState(p);
+  t(s.open && s.cover && !s.item, 'キーボード: 平置きの本も Enter で手に取る');
+  await p.keyboard.press('Enter'); await p.waitForTimeout(800);
+  s = await tapState(p);
+  t(s.item, 'キーボード: 平置きの本も、もう一度 Enter で商品詳細');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(700);
+
+  /* ぼかしが重い端末では、暗くするだけにする（ぼかさない）。見え方の指定を読む */
+  const dim = await p.evaluate(async () => {
+    const f = document.getElementById('focus'), sc = f.querySelector('.focus__scrim');
+    const blur = getComputedStyle(sc).backdropFilter;
+    f.classList.add('is-plain');
+    const plain = { bf: getComputedStyle(sc).backdropFilter, bg: getComputedStyle(sc).backgroundColor };
+    f.classList.remove('is-plain');
+    return { blur, plain };
+  });
+  t(/blur/.test(dim.blur) && dim.plain.bf === 'none' && /0\.6\d?\)$/.test(dim.plain.bg),
+    `PC: 後ろはぼかして暗くする。重い端末向けに、ぼかさず暗くするだけの見え方もある (${dim.blur} / ${dim.plain.bg})`);
+
+  /* --- 読み上げ。本は隠さず、書名のボタンとして読む。什器の部材は読まない --- */
+  const a11y = await p.evaluate(() => {
+    const focusables = [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
+      .filter(e => e.tabIndex >= 0 && !e.disabled && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden');
+    const hiddenFocus = focusables.filter(e => e.closest('[aria-hidden="true"]')).map(e => e.className);
+    const books = [...document.querySelectorAll('.case .spine[data-book], .case .flat[data-book]')].filter(e => e.getClientRects().length);
+    const deco = ['.case__crown', '.case__board', '.deck__lip', '.case__base', '.case__floor', '.case__light', '.case__leaves'];
+    const f = document.getElementById('focus');
+    return {
+      hiddenFocus, caseHidden: [...document.querySelectorAll('.case')].some(c => c.closest('[aria-hidden="true"]')),
+      named: books.every(e => e.getAttribute('role') === 'button' && (e.getAttribute('aria-label') || '').length > 0),
+      n: books.length,
+      rows: [...document.querySelectorAll('.case .row, .case .deck__row')].every(r => r.getAttribute('role') === 'group' && r.getAttribute('aria-label')),
+      deco: deco.every(s => [...document.querySelectorAll(s)].every(e => e.getAttribute('aria-hidden') === 'true')),
+      dialog: f.getAttribute('role') === 'dialog' && f.getAttribute('aria-modal') === 'true' && f.getAttribute('aria-labelledby') === 'focus-title',
+    };
+  });
+  t(a11y.hiddenFocus.length === 0 && !a11y.caseHidden,
+    `読み上げ: 焦点の来る要素を aria-hidden の中に置かない${a11y.hiddenFocus.length ? ' — ' + a11y.hiddenFocus.slice(0, 3).join(',') : ''}`);
+  t(a11y.named && a11y.n > 20, `読み上げ: 本は書名のボタンとして読む (${a11y.n}冊)`);
+  t(a11y.rows, '読み上げ: 段と平台は「1段目」「平台」などのまとまりとして読む');
+  t(a11y.deco, '読み上げ: 什器の部材（板・脚・床・光）は読まない');
+  t(a11y.dialog, '読み上げ: 手に取った本の層は、書名を名前にした画面として読む');
+  const snap = await p.locator('.market').first().ariaSnapshot();
+  t(snap.includes(`button "${BOOKS.aya.title}"`) && /group "1段目"/.test(snap) && /group "平台"/.test(snap),
+    '読み上げ: 読み上げの木に、段・平台と本のボタンが出る');
+
+  t(errs.length === 0, `PC・キーボード: JSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+  await p.close();
+}
+
+/* ---- 2c. 商品詳細と試し読み ---------------------------------------
+   本を手に取り、拡大した本を押して商品詳細へ。試し読みは商品詳細から */
+async function openItem(p, el) {
+  await el.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
+  await el.click();
+  /* 手に取った直後（二度たたきを受けない間）を待ってから */
+  await p.waitForTimeout(650);
+  await p.click('.focus__book');
+  await p.waitForTimeout(750);
+}
+
 async function screens(b) {
   for (const vp of SCREEN_VIEWS) {
     const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, hasTouch: true });
@@ -842,38 +1413,42 @@ async function screens(b) {
     await p.goto(URL, { waitUntil: 'networkidle' });
     await settle(p);
 
-    t(await p.evaluate(() => document.getElementById('pull').hidden), `${vp.n}: 引き抜きは最初は閉じている`);
+    t(await p.evaluate(() => document.getElementById('focus').hidden && document.getElementById('item').hidden),
+      `${vp.n}: 手に取った本の層と商品詳細は、最初は閉じている`);
 
     const sp = await p.$('.spine[data-book]');
     await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     const key = await sp.getAttribute('data-book');
-    /* 影武者の動きは 560ms。固定の待ち時間で見ていると、
-       機械が混んでいるときだけ落ちる。消えるまで待つ。 */
-    await sp.click();
-    await p.waitForFunction(() => !document.querySelector('.pull-fly'), null, { timeout: 5000 })
-      .catch(() => {});
-    await p.waitForTimeout(250);
+    await sp.click(); await p.waitForTimeout(700);
+    let s = await tapState(p);
+    t(s.open && !s.item, `${vp.n}: 背表紙をクリックすると拡大される`);
+    t(s.box.t >= 23.5 && s.box.b <= vp.h - 23.5 && s.cap.r <= s.vw && s.cap.l >= 0, `${vp.n}: 拡大した本と書名が画面に収まる`);
 
-    let s = await p.evaluate(() => {
-      const r = document.getElementById('pull');
+    await p.click('.focus__book'); await p.waitForTimeout(750);
+    s = await p.evaluate(() => {
+      const it = document.getElementById('item');
       return {
-        open: !r.hidden && r.classList.contains('is-open'),
-        title: r.querySelector('.pull__title').textContent,
-        price: r.querySelector('.pull__price').textContent,
-        cover: r.querySelector('.pull__cover').getAttribute('src'),
-        acts: r.querySelectorAll('.pull__act').length,
-        fly: document.querySelectorAll('.pull-fly').length,
+        open: !it.hidden && it.classList.contains('is-open'),
+        title: it.querySelector('.item__title').textContent,
+        price: it.querySelector('.item__price').textContent,
+        specs: it.querySelectorAll('.item__spec > div').length,
+        paras: it.querySelectorAll('.item__desc p').length,
+        acts: it.querySelectorAll('.item__act').length,
+        cover: it.querySelector('.item__img').getAttribute('src'),
+        docW: document.documentElement.scrollWidth, winW: window.innerWidth,
       };
     });
-    t(s.open, `${vp.n}: 背表紙をタップで開く`);
-    t(s.title.length > 0, `${vp.n}: 書名が入る（${s.title}）`);
-    t(/円/.test(s.price), `${vp.n}: 価格が入る（${s.price}）`);
-    t(s.cover.includes(key), `${vp.n}: タップした本の表紙`);
-    t(s.acts === 2, `${vp.n}: 導線が2つ`);
-    t(s.fly === 0, `${vp.n}: 飛ばした影武者が残っていない`);
+    t(s.open, `${vp.n}: 拡大した本をクリックすると商品詳細が開く`);
+    t(s.title.length > 0, `${vp.n}: 商品詳細に書名（${s.title}）`);
+    t(/円/.test(s.price), `${vp.n}: 商品詳細に価格`);
+    t(s.specs === 6, `${vp.n}: 書誌が6項目（書名・著者訳者・出版社・判型・ページ数・価格）`);
+    t(s.paras >= 2, `${vp.n}: 紹介文が入る（${s.paras}段落）`);
+    t(s.acts === 2, `${vp.n}: カートに入れる／試し読み`);
+    t(s.cover.includes(key), `${vp.n}: 手に取った本の商品詳細`);
+    t(s.docW <= s.winW + 1, `${vp.n}: 商品詳細で横にはみ出さない`);
 
-    /* 試し読み */
-    await p.click('.pull__act--read'); await p.waitForTimeout(700);
+    /* 試し読み（商品詳細から） */
+    await p.click('.item__act--read'); await p.waitForTimeout(700);
     s = await p.evaluate(() => {
       const r = document.getElementById('peek');
       return {
@@ -884,7 +1459,6 @@ async function screens(b) {
         imgW: document.querySelector('.peek__page img').naturalWidth,
         locked: document.body.classList.contains('peek-open'),
         /* 横長の画面で下にはみ出していたことがある。場に収まっているか */
-        fits: true,
         over: (function () {
           var st = document.getElementById('peek-stage').getBoundingClientRect();
           var im = document.querySelector('.peek__page img').getBoundingClientRect();
@@ -892,7 +1466,7 @@ async function screens(b) {
         })(),
       };
     });
-    t(s.open, `${vp.n}: 試し読みが開く`);
+    t(s.open, `${vp.n}: 商品詳細の「試し読み」で試し読みが開く`);
     t(s.now === '1' && s.all === '2', `${vp.n}: 1 / 2 と出る`);
     t(s.prevOff, `${vp.n}: 最初は「前へ」が使えない`);
     t(s.imgW === 2400, `${vp.n}: 見開きが長辺2400px (${s.imgW})`);
@@ -919,57 +1493,32 @@ async function screens(b) {
     await p.keyboard.press('Escape'); await p.waitForTimeout(600);
     s = await p.evaluate(() => ({
       peek: document.getElementById('peek').hidden,
-      pull: document.getElementById('pull').hidden,
+      item: document.getElementById('item').hidden,
+      focus: document.activeElement.className,
       locked: document.body.classList.contains('peek-open'),
     }));
     t(s.peek, `${vp.n}: 試し読みを閉じられる`);
-    t(!s.pull, `${vp.n}: 閉じると引き抜きの画面に戻る`);
-    t(!s.locked, `${vp.n}: 後ろのスクロールが戻る`);
+    t(!s.item && /item__act--read/.test(s.focus), `${vp.n}: 閉じると商品詳細の「試し読み」に戻る`);
+    t(s.locked, `${vp.n}: 商品詳細のあいだは、後ろの棚は止めたまま`);
 
-    await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(700);
     s = await p.evaluate(() => ({
-      hidden: document.getElementById('pull').hidden,
-      gone: [...document.querySelectorAll('.spine,.flat')].filter(e => e.style.visibility === 'hidden').length,
+      item: document.getElementById('item').hidden,
+      focusL: document.getElementById('focus').hidden,
+      gone: [...document.querySelectorAll('.spine,.flat')].filter(e => getComputedStyle(e).visibility === 'hidden').length,
+      locked: document.body.classList.contains('peek-open'),
     }));
-    t(s.hidden, `${vp.n}: 引き抜きも閉じられる`);
-    t(s.gone === 0, `${vp.n}: 抜いた本が棚に戻る`);
-
-    /* 商品詳細 */
-    await p.$eval('.spine[data-book]', e => e.click());
-    await p.waitForTimeout(700);
-    await p.click('.pull__more'); await p.waitForTimeout(700);
-    s = await p.evaluate(() => {
-      const it = document.getElementById('item');
-      return {
-        open: !it.hidden && it.classList.contains('is-open'),
-        title: it.querySelector('.item__title').textContent,
-        price: it.querySelector('.item__price').textContent,
-        specs: it.querySelectorAll('.item__spec > div').length,
-        paras: it.querySelectorAll('.item__desc p').length,
-        acts: it.querySelectorAll('.item__act').length,
-        cover: it.querySelector('.item__img').getAttribute('src'),
-        docW: document.documentElement.scrollWidth, winW: window.innerWidth,
-      };
-    });
-    t(s.open, `${vp.n}: 商品詳細が開く`);
-    t(s.title.length > 0, `${vp.n}: 商品詳細に書名（${s.title}）`);
-    t(/円/.test(s.price), `${vp.n}: 商品詳細に価格`);
-    t(s.specs === 6, `${vp.n}: 書誌が6項目（書名・著者訳者・出版社・判型・ページ数・価格）`);
-    t(s.paras >= 2, `${vp.n}: 紹介文が入る（${s.paras}段落）`);
-    t(s.acts === 2, `${vp.n}: カートに入れる／試し読み`);
-    t(s.cover.includes(key), `${vp.n}: 引き抜きで開いた本を引き継ぐ`);
-    t(s.docW <= s.winW + 1, `${vp.n}: 商品詳細で横にはみ出さない`);
-
-    await p.click('[data-item-close]'); await p.waitForTimeout(600);
-    t(await p.evaluate(() => document.getElementById('item').hidden), `${vp.n}: 商品詳細を閉じられる`);
-    await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+    t(s.item && s.focusL, `${vp.n}: 商品詳細も閉じて棚にもどる`);
+    t(s.gone === 0, `${vp.n}: 手に取った本が棚に戻る`);
+    t(!s.locked, `${vp.n}: 後ろのスクロールが戻る`);
 
     const fl = await p.$('.flat[data-book]');
     await fl.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     await fl.click(); await p.waitForTimeout(700);
-    t(await p.evaluate(() => !document.getElementById('pull').hidden), `${vp.n}: 平置きをタップでも開く`);
-    await p.mouse.click(8, 8); await p.waitForTimeout(600);
-    t(await p.evaluate(() => document.getElementById('pull').hidden), `${vp.n}: 覆いの端で閉じる`);
+    s = await tapState(p);
+    t(s.open && s.cover && !s.item, `${vp.n}: 平置きをクリックすると表紙が大きく表示される`);
+    await p.mouse.click(8, 8); await p.waitForTimeout(600); await still(p);
+    t(await p.evaluate(() => document.getElementById('focus').hidden), `${vp.n}: 覆いの端で棚にもどる`);
 
     t(errs.length === 0, `${vp.n}: JSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
     await p.close();
@@ -1066,9 +1615,9 @@ async function pages(b) {
       return Object.keys(d).sort((a, b) => d[b].title.length - d[a].title.length)[0];
     });
     const lb = await p.$(`.spine[data-book="${longest}"]`);
-    await lb.scrollIntoViewIfNeeded(); await p.waitForTimeout(200);
-    await lb.click(); await p.waitForTimeout(800);
-    await p.click('.pull__act--buy'); await p.waitForTimeout(350);
+    /* カートに入れるのは商品詳細から（本を手に取り、拡大した本を押す） */
+    await openItem(p, lb);
+    await p.click('.item__act--buy'); await p.waitForTimeout(350);
     s = await p.evaluate(() => {
       const r = document.getElementById('toast').getBoundingClientRect();
       return { l: Math.round(r.left), rt: Math.round(r.right), w: window.innerWidth };
@@ -1085,13 +1634,8 @@ async function pages(b) {
     const sp = await p.$('.spine[data-book]');
     await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(250);
     const key = await sp.getAttribute('data-book');
-    /* 影武者の動きは 560ms。固定の待ち時間で見ていると、
-       機械が混んでいるときだけ落ちる。消えるまで待つ。 */
-    await sp.click();
-    await p.waitForFunction(() => !document.querySelector('.pull-fly'), null, { timeout: 5000 })
-      .catch(() => {});
-    await p.waitForTimeout(250);
-    await p.click('.pull__act--buy'); await p.waitForTimeout(400);
+    await openItem(p, sp);
+    await p.click('.item__act--buy'); await p.waitForTimeout(400);
 
     s = await p.evaluate(() => {
       const to = document.getElementById('toast');
@@ -1174,10 +1718,9 @@ async function pages(b) {
       if ((await e.getAttribute('data-book')) !== key) { other = e; break; }
     }
     for (const e of [sp, other]) {
-      await e.scrollIntoViewIfNeeded(); await p.waitForTimeout(200);
-      await e.click(); await p.waitForTimeout(700);
-      await p.click('.pull__act--buy'); await p.waitForTimeout(300);
-      await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+      await openItem(p, e);
+      await p.click('.item__act--buy'); await p.waitForTimeout(300);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(700);
     }
     await p.click('#cart-open'); await p.waitForTimeout(500);
     s = await p.evaluate(() => ({
@@ -1462,9 +2005,9 @@ async function fixes(b) {
 
     /* --- 試し読み。手を止めたら層から降りて描き直される --- */
     const sp = await p.$('.spine[data-book]');
-    await sp.scrollIntoViewIfNeeded(); await p.waitForTimeout(300);
-    await sp.click(); await p.waitForTimeout(1000);
-    await p.click('.pull__act--read'); await p.waitForTimeout(900);
+    await openItem(p, sp);
+    const yOpen = await p.evaluate(() => Math.round(window.scrollY));
+    await p.click('.item__act--read'); await p.waitForTimeout(900);
     await p.evaluate(() => {
       const st = document.getElementById('peek-stage');
       const r = st.getBoundingClientRect();
@@ -1490,8 +2033,7 @@ async function fixes(b) {
     t(s.shadow !== 'none', `${vp.n}: 見開きの影は残す（動かしている間の描き直しに要る）`);
     await p.keyboard.press('Escape'); await p.waitForTimeout(600);
 
-    /* --- 商品詳細の出口は二か所、言葉は同じ --- */
-    await p.click('.pull__more'); await p.waitForTimeout(800);
+    /* --- 商品詳細の出口は二か所、言葉は同じ（試し読みを閉じると、商品詳細にもどっている） --- */
     s = await p.evaluate(() => {
       const bd = document.querySelector('.item__body');
       bd.scrollTop = bd.scrollHeight;
@@ -1506,7 +2048,7 @@ async function fixes(b) {
         barTop: Math.round(document.querySelector('.item__bar').getBoundingClientRect().top),
       };
     });
-    t(s.top === '表紙にもどる', `${vp.n}: 上の出口が行き先どおりの言葉（${s.top}）`);
+    t(s.top === '棚にもどる', `${vp.n}: 上の出口が行き先どおりの言葉（${s.top}）`);
     t(s.bottom === s.top, `${vp.n}: 本文の終わりにも同じ出口`);
     t(s.last, `${vp.n}: その出口が本文のいちばん最後にある`);
     t(s.h >= 44, `${vp.n}: 出口が指で押せる大きさ（${s.h}px）`);
@@ -1515,11 +2057,13 @@ async function fixes(b) {
     await p.click('.item__close'); await p.waitForTimeout(700);
     s = await p.evaluate(() => ({
       item: document.getElementById('item').hidden,
-      pull: !document.getElementById('pull').hidden,
-      focus: document.activeElement.className,
+      focusL: document.getElementById('focus').hidden,
+      y: Math.round(window.scrollY),
+      inside: document.getElementById('item').contains(document.activeElement),
+      focus: document.activeElement.className || document.activeElement.tagName,
     }));
-    t(s.item && s.pull, `${vp.n}: 閉じると表紙にもどる`);
-    t(/pull__more/.test(s.focus), `${vp.n}: 焦点が入口に返る（${s.focus}）`);
+    t(s.item && s.focusL && s.y === yOpen, `${vp.n}: 閉じると、開く前と同じ位置の棚にもどる（${s.y}/${yOpen}）`);
+    t(!s.inside, `${vp.n}: 閉じた商品詳細の中に焦点を残さない（${s.focus}）`);
 
     t(errs.length === 0, `${vp.n}: 今回の修正でJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
     await p.close();
@@ -1536,13 +2080,45 @@ async function fixes(b) {
     document.querySelector('.hero__scroll').click();
     setTimeout(() => {
       window.removeEventListener('scroll', on);
-      const d = getComputedStyle(document.querySelector('.pull__panel'));
-      res({ steps: new Set(seen).size, delay: d.transitionDelay,
+      /* 手に取った本の書名は、開いた状態では遅れて出る。その遅れが残らないか */
+      const f = document.getElementById('focus');
+      f.classList.add('is-open');
+      const d = getComputedStyle(document.querySelector('.focus__cap')).transitionDelay;
+      f.classList.remove('is-open');
+      res({ steps: new Set(seen).size, delay: d,
             moved: Math.round(window.pageYOffset) > 100 });
     }, 900);
   }));
   t(r.moved && r.steps <= 3, `動きを減らす設定では、送らずに移る（${r.steps}こま）`);
   t(!/0\.1[0-9]s|0\.[2-9]/.test(r.delay), `動きを減らす設定では、遅れも残さない（${r.delay}）`);
+
+  /* 本を手に取るときも、飛ばさない。短く浮かび上がらせるだけ */
+  await p.goto(URL, { waitUntil: 'networkidle' });
+  await p.evaluate(() => {
+    window.__anims = [];
+    const orig = Element.prototype.animate;
+    Element.prototype.animate = function (k, o) {
+      window.__anims.push({ id: this.id || this.className, keys: Object.keys(Object.assign({}, ...k)), d: o && o.duration });
+      return orig.call(this, k, o);
+    };
+  });
+  await toMarket(p, 0);
+  const rs = await p.$('.case .row .spine[data-book]');
+  await rs.click();
+  await p.waitForTimeout(250);
+  const rm = await p.evaluate(() => ({
+    open: !document.getElementById('focus').hidden, anims: window.__anims,
+    tf: getComputedStyle(document.querySelector('.focus__book')).transform,
+    op: getComputedStyle(document.getElementById('focus')).opacity,
+    cap: getComputedStyle(document.querySelector('.focus__cap')).opacity,
+  }));
+  t(rm.open && rm.anims.every(a => !a.keys.includes('transform')) && rm.anims.some(a => a.id === 'focus' && a.keys.includes('opacity') && a.d <= 200),
+    `動きを減らす設定では、本を飛ばさず、短く浮かび上がらせるだけ（${rm.anims.map(a => a.id + ':' + a.keys.join('/') + ' ' + a.d + 'ms').join('・')}）`);
+  t(rm.tf === 'none' && rm.op === '1' && rm.cap === '1', '動きを減らす設定でも、250ms 後には拡大した本と書名が出ている');
+  /* 開いてすぐ（450ms）のクリックは受けないので、待ってから */
+  await p.waitForTimeout(300);
+  await p.mouse.click(8, 8); await p.waitForTimeout(300); await still(p);
+  t(await p.evaluate(() => document.getElementById('focus').hidden), '動きを減らす設定でも、ほかのところで棚にもどる');
   await p.close();
 }
 
@@ -1587,6 +2163,8 @@ async function widths(b) {
   await tierFollow(b);
   await light(b);
   await picking(b);
+  await tapFlow(b);
+  await pcFlow(b);
   await screens(b);
   await pages(b);
   await nav(b);

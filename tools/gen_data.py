@@ -200,14 +200,14 @@ LYING_B = flat_books(8)
 
 
 def book_json():
-    """引き抜きの画面で使う書誌情報。1冊ずつ探し直さずに済むよう、まとめて置く。"""
+    """本を手に取ったとき（書名・著者・判型）と、商品詳細・カートで使う書誌情報。
+    1冊ずつ探し直さずに済むよう、まとめて置く。"""
     import json
     out = {}
     for b in REAL:
         out[b['key']] = dict(
             title=b['title'], author=b['author'], pub=b['pub'],
             kata=b['kata'], pages=b['pages'], price=b['price'],
-            lead=b['lead'], desc=b['desc'],
-            cover=IMG + b['cv'], spine=IMG + b['sp'],
+            desc=b['desc'], cover=IMG + b['cv'],
             h=b['h'], w=b['w'], t=b['t'])
     return json.dumps(out, ensure_ascii=False, separators=(',', ':'))
