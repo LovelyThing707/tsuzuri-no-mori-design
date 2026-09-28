@@ -10,14 +10,21 @@ def market(idx, name, tiers, lying, note):
     左右の柱は最後の棚板の下も続き、平台の天面の上に立つ。
     平台の下は脚で支えて、本棚は床に立つ。
     最後の棚板は目の高さより下にあり、見え方が中の棚板と違う（上の面が見える）。
-    そのため印（case__board--last）を付けて分ける。"""
+    そのため印（case__board--last）を付けて分ける。
+    段の高さは段ごと。ここでは、その段に並べる本のうちいちばん背の高い本に合わせた値を
+    書いておく（読み込んだ直後から正しい高さで出るように）。画面の幅で見える本が決まると、
+    scripts/main.js が見えている本に合わせて低くする。
+    平台に並べる本の判横の合計（--sumw*）と、いちばん背の高い本（--flat-hmax*）は
+    冊数ごとに本棚（.case）に書き、画面の幅に合う冊数のものを CSS が選ぶ。
+    段の数（--tiers）も本棚に書く。柱の木の絵と光を置く位置に使う（shelf.css）。"""
     w = D.sumw(lying)
+    hmax = D.flat_hmax(lying)
     def tier(books):
-        return """        <div class="tier">
+        return """        <div class="tier" style="--tier-h:calc(var(--mm) * %d)">
           <ul class="row">
 %s
           </ul>
-        </div>""" % D.tier(books)
+        </div>""" % (D.tier_mm(books), D.tier(books))
     upper = "\n        <div class=\"case__board\"></div>\n".join(tier(t) for t in tiers)
     cubbies = "".join('<i class="cubby"></i>' for _ in range(8))
     return """
@@ -30,12 +37,12 @@ def market(idx, name, tiers, lying, note):
     </div>
     <div class="scene">
       <p class="sr-only">%s</p>
-      <div class="case" style="--tiers:%d" aria-hidden="true">
+      <div class="case" style="%s" aria-hidden="true">
         <div class="case__crown"></div>
 %s
         <div class="case__board case__board--last"></div>
         <div class="deck">
-          <ul class="deck__row" style="--sumw3:%d;--sumw4:%d;--sumw6:%d;--sumw8:%d">
+          <ul class="deck__row">
 %s
           </ul>
         </div>
@@ -46,8 +53,14 @@ def market(idx, name, tiers, lying, note):
         <div class="case__leaves"></div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, len(tiers), upper,
-                   w[3], w[4], w[6], w[8], D.platform(lying), cubbies)
+  </section>""" % (idx, idx, name, note, case_vars(len(tiers), w, hmax), upper,
+                   D.platform(lying), cubbies)
+
+
+def case_vars(tiers, w, hmax):
+    return ';'.join(['--tiers:%d' % tiers] +
+                    ['--sumw%d:%d' % (n, w[n]) for n in D.FLAT_COUNTS] +
+                    ['--flat-hmax%d:%d' % (n, hmax[n]) for n in D.FLAT_COUNTS])
 
 PAGE = """<!DOCTYPE html>
 <html lang="ja">

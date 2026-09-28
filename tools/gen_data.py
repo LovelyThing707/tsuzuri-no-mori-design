@@ -84,14 +84,18 @@ def _shuffled(n, seed):
 # 以前は順不同に散らし、1冊ずつ傾けていた。本を大きくすると、
 # 背の高さの違う本が不規則に並んで、棚が散らかって見えた。
 UNIT = ['monte', 'suika', 'aya', 'kagaku']
+# 背の高い本（すいかのプール、A4判）を段に置かない並び。
+# 段の高さは段ごとにいちばん背の高い本に合わせるので、A5判までの本だけの段は低くなる。
+# 大きな本は1つの段にまとめ、ほかの段を低く保つ、というご提案（9/28）の見本。
+UNIT_LOW = ['monte', 'aya', 'kagaku']
 BY_KEY = dict((b['key'], b) for b in REAL)
 
 
-def row_books(n, start=0):
-    """背表紙の並び。4冊ひと組を、まっすぐに繰り返す。"""
+def row_books(n, start=0, unit=UNIT):
+    """背表紙の並び。ひと組（4冊、または背の高い本を除いた3冊）を、まっすぐに繰り返す。"""
     out = []
     for i in range(n):
-        b = dict(BY_KEY[UNIT[(start + i) % len(UNIT)]])
+        b = dict(BY_KEY[unit[(start + i) % len(unit)]])
         b['lean'] = 0.0
         out.append(b)
     return out
@@ -136,17 +140,40 @@ def tier(books):
     return '\n'.join(spine_li(b) for b in books)
 
 
+# 段の高さ（mm）。その段でいちばん背の高い本の上に、手を差し入れる空きを取る。
+# 空きは本の高さの 7.3%、少なくとも 16mm（base.css の --air-k・--air-min、
+# scripts/main.js の fitShelves と同じ決まり）。本の高さは 120〜300mm に収める（--h-min・--h-max）。
+H_MIN, H_MAX = 120, 300
+AIR_MIN, AIR_K = 16, 0.073
+
+
+def tier_mm(books):
+    """段の高さ。ここで出すのは、段に並べる本すべてのうちいちばん背の高い本に合わせた値。
+    画面の幅で見える本が決まったら、scripts/main.js が見えている本に合わせて下げる。"""
+    tall = max(min(max(b['h'], H_MIN), H_MAX) for b in books)
+    return tall + max(AIR_MIN, int(tall * AIR_K + 0.5))
+
+
 def platform(books):
     return '\n'.join(flat_li(b) for b in books)
+
+
+FLAT_COUNTS = (3, 4, 6, 8)
 
 
 def sumw(books):
     """平台に並べる本の判横（mm）の合計。冊数ごと。
 
-    平台の本の大きさは「並べた本が平台の幅に収まる」ところで決める。
-    何冊並べるかは画面幅で変わる（スマートフォン・タブレット4冊、
+    平台の本は、並べた本が平台の幅に収まらない画面では、収まるところまで小さくする。
+    何冊並べるかは画面幅で変わる（スマートフォン3冊、タブレット4冊、
     パソコン6〜8冊）ので、それぞれの合計を渡しておき、CSS が選ぶ。"""
-    return {n: sum(b['w'] for b in books[:n]) for n in (3, 4, 6, 8)}
+    return {n: sum(b['w'] for b in books[:n]) for n in FLAT_COUNTS}
+
+
+def flat_hmax(books):
+    """平台に並べる本のうち、いちばん背の高い本の判型（mm）。冊数ごと。
+    平台の天面の奥行きは、この本を寝かせた大きさに合わせる（shelf.css の .case）。"""
+    return {n: max(b['h'] for b in books[:n]) for n in FLAT_COUNTS}
 
 
 # 本棚の段。1段は画面の幅いっぱいに1続き。
@@ -154,17 +181,20 @@ def sumw(books):
 PER_TIER = 110
 
 
-def shelf(tiers):
+def shelf(tiers, unit=UNIT):
     """段の数ぶんの背表紙。どの段も、参考画像と同じく低い本から始める。"""
-    return [row_books(PER_TIER) for _ in range(tiers)]
+    return [row_books(PER_TIER, unit=unit) for _ in range(tiers)]
 
 
-# 1つめの売り場は2段、2つめは1段（以前の構成のとおり）
-SHELF_A = shelf(2)
+# 1つめの売り場は2段、2つめは1段（以前の構成のとおり）。
+# 1つめの売り場の段には、背の高い本（すいかのプール）を置かない。段が A5判の高さまで下がり、
+# スマートフォンで2段の背表紙と平台が一画面に収まるかをご覧いただく見本。
+# 2つめの売り場はそのまま残し、背の高い本がある段（A4判の高さ）と見比べられるようにする。
+SHELF_A = shelf(2, UNIT_LOW)
 SHELF_B = shelf(1)
 
-# 平台。スマートフォン・タブレットは4冊（要件定義書 2-3／3-2「平台 3〜4冊」）、
-# 広い画面は6〜8冊（区画が増えるぶん）。
+# 平台。スマートフォンは3冊、タブレットは4冊（要件定義書 2-3／3-2「平台 3〜4冊」）、
+# 広い画面は6〜8冊（区画が増えるぶん）。平台の本はどちらの売り場もこれまでどおり。
 LYING_A = flat_books(8)
 LYING_B = flat_books(8)
 

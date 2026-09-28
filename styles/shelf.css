@@ -80,7 +80,8 @@
 
 /* --- 本棚1台 -------------------------------------------------
    上から 天板／段／棚板（段の数だけ）／平台／平台の縁／台輪／床。
-   段の数は売り場ごと（--tiers。gen_page.py が書き込む）。
+   段の数は売り場ごと（gen_page.py が段を書き出す）。段の高さは段ごとに、
+   その段でいちばん背の高い本に合わせる（base.css の --tier-h）。
    棚は画面の幅いっぱいに1続き。
    --pl・--pr は左右の柱の内側の端。切り欠きのある端末では、柱が
    画面の端から内側に入るので、柱にそろえるものはすべてこれを使う。 */
@@ -88,12 +89,39 @@
   position:relative; z-index:1;
   width:100vw; margin-inline:calc(50% - 50vw);
   display:flex; flex-direction:column;
-  --tiers: 2;
+  --tiers: 2;   /* 段の数（gen_page.py が書き込む）。柱の木の絵と光を置く位置に使う（--post-std） */
   --pl: calc(var(--post-w) + env(safe-area-inset-left, 0px));
   --pr: calc(var(--post-w) + env(safe-area-inset-right, 0px));
+  /* 平台に寝かせる本。並べる冊数（--flat-n）は画面の幅で決まる
+     （スマートフォン3冊、タブレット4冊、パソコン6〜8冊。下の @media）。
+     --sumw はその冊数ぶんの判横（mm）の合計、--flat-hmax はそのうち
+     いちばん背の高い本の判型（mm）。どちらも gen_page.py が冊数ごとに書き込む。
+     1mm あたりの長さ（--pmm）は、どの画面も背表紙の --flat-k 倍。
+     柱のあいだに、並べた本と、本と本のあいだ（--flat-gap 以上）と、
+     両端の柱とのあいだ（--flat-end 以上）が収まらない画面では、収まるところまで小さくする。
+     平台の本はどれもこの一つの倍率で描くので、本同士は実物どおりの比のまま */
+  --flat-n: 3;
+  --sumw: var(--sumw3, 506);
+  --flat-hmax: var(--flat-hmax3, 297);
+  --flat-gap: 8px;   /* 本と本のあいだ。これより詰めると、右へ落ちる影が隣の本にかかる */
+  --flat-end: 4px;   /* 柱と本のあいだ。本の角を柱の足もとにかけない */
+  --pmm: min(calc(var(--mm) * var(--flat-k)),
+             calc((100vw - var(--pl) - var(--pr) - 2 * var(--flat-end) - (var(--flat-n) - 1) * var(--flat-gap)) / var(--sumw)));
+  /* 平台の天面の奥行き。画面の高さではなく、いちばん背の高い本を寝かせた大きさで決める。
+     どの画面でも同じ大きさの本が、同じ奥行きの天面に載る */
+  --deck-h: calc(var(--flat-hmax) * var(--pmm) * var(--flat-depth) + 4px);
   /* 平台の天面に窓の日が届く幅（「光」の .case__light と、その先の日陰 .deck::before）。
      スマートフォンでは幅の6割ほど、広い画面では左の3分の1ほど */
   --sun-reach: max(calc(var(--deck-h) * 2.05), min(34%, 720px));
+}
+@media (min-width:600px){
+  .case{ --flat-n:4; --sumw:var(--sumw4, 611); --flat-hmax:var(--flat-hmax4, 297); }
+}
+@media (min-width:1100px){
+  .case{ --flat-n:6; --sumw:var(--sumw6, 969); --flat-hmax:var(--flat-hmax6, 297); }
+}
+@media (min-width:1500px){
+  .case{ --flat-n:8; --sumw:var(--sumw8, 1222); --flat-hmax:var(--flat-hmax8, 297); }
 }
 .case__crown{ flex:0 0 var(--crown); }
 .tier       { flex:0 0 var(--tier-h); }
@@ -117,13 +145,19 @@
    浮いた板に見える原因だった）。
    柱の絵は内側の角に細く光る線がある。そのままでは描いた線に見えるので、
    その数列は柱の外に出して使わず、角は光の向きに合わせて描く。
-   窓に背を向けた左の柱は陰に回り込む溝、窓に向いた右の柱は丸い角のやわらかな光。 */
+   窓に背を向けた左の柱は陰に回り込む溝、窓に向いた右の柱は丸い角のやわらかな光。
+   柱の下の端は、平台の天面の手前の端（縁・台輪・床の上）にそろえる。
+   段の高さは段ごとに違うので、部材の高さを足し合わせて柱の長さを出さない。
+   段が低くなると、柱は上から短くなる。柱の木の絵と光は、段がどれも 322mm（--tier-tex）
+   だったときの柱の長さ（--post-std）で貼り、下の端にそろえる。
+   平台に近い足もとの木目と日は、段の高さで変わらない（絵を柱の長さに縮めない） */
 .case::before,
 .case::after{
   content:"";
   position:absolute; z-index:4;
   top:0;
-  height:calc(var(--crown) + var(--tiers) * (var(--tier-h) + var(--board)) + var(--deck-wall) + var(--deck-h));
+  bottom:calc(var(--lip) + var(--base-h) + var(--floor-h));
+  --post-std: calc(var(--crown) + var(--tiers) * (var(--tier-tex) + var(--board)) + var(--deck-wall) + var(--deck-h));
   width:var(--post-w);
   background-repeat:no-repeat;
   background-size:100% 100%;
@@ -139,14 +173,19 @@
     /* 内側の角。窓に背を向けて、陰に回り込む溝 */
     linear-gradient(270deg, rgba(10,5,2,.5) 0, rgba(10,5,2,.3) 5%, rgba(10,5,2,.1) 10%, rgba(10,5,2,0) 14%),
     /* 足もとの日。平台に落ちる日が柱の下のほうにも当たり、平台に近いほど明るい。
-       上半分には当てない（黒の色覆い焼きは木の色を変えない） */
-    linear-gradient(180deg, rgb(0,0,0) 45%, var(--sun-post) calc(100% - var(--deck-h) + var(--post-foot))),
+       上半分には当てない（黒の色覆い焼きは木の色を変えない）。
+       明るくなりはじめるのは、段がどれも 322mm のときの柱の上から 45% のところ */
+    linear-gradient(180deg, rgb(0,0,0) calc(100% - var(--post-std) * .55), var(--sun-post) calc(100% - var(--deck-h) + var(--post-foot))),
     /* 窓の日を受ける柱。葉ごしの日が、縦にゆるく明暗の帯になる（光の地図。1000mm で繰り返す） */
     url("../assets/images/sunlight-post.webp"),
     url("../assets/images/post-left.webp");
   /* 絵の右の端（内側の角の光る線）の5列は、柱の外に出す */
-  background-size:100% 100%, 100% 100%, 100% 100%, 100% calc(var(--mm) * 1000), calc(100% * 58 / 53) 100%;
+  background-size:100% 100%, 100% 100%, 100% 100%, 100% calc(var(--mm) * 1000), calc(100% * 58 / 53) var(--post-std);
   background-repeat:no-repeat, no-repeat, no-repeat, repeat-y, no-repeat;
+  /* 光の地図も柱の下の端を基準に置く。平台に近い足もとには、段がどれも 322mm だったときと
+     同じ地図のところが来る（段の数で決まる。2段なら天面の高さに地図の上から 739mm、
+     1段なら 393mm）。地図は 1000mm で繰り返すので、下の端の位置はどこでもよい */
+  background-position:0 0, 0 0, 0 0, left 0 bottom calc(var(--post-std) - var(--mm) * 1000), left 0 bottom 0;
   background-blend-mode:normal, normal, color-dodge, color-dodge, normal;
   /* 木の絵が届く前でも、光の地図が灰色のまま出ないように、下に暗い木の色を敷く */
   background-color:var(--wood-dark);
@@ -161,8 +200,8 @@
     linear-gradient(90deg, rgba(255,226,180,.2) 0, rgba(255,226,180,.1) 1.5px, rgba(255,226,180,0) 4px),
     url("../assets/images/post-right.webp");
   /* 絵の左の端（内側の角の光る線）の3列は、柱の外に出す */
-  background-size:100% 100%, 100% 100%, calc(100% * 58 / 55) 100%;
-  background-position:0 0, 0 0, right top;
+  background-size:100% 100%, 100% 100%, calc(100% * 58 / 55) var(--post-std);
+  background-position:0 0, 0 0, right bottom;
   filter:brightness(1.36) saturate(1.05);   /* 窓から遠い右の柱は少し控えめ */
 }
 
@@ -196,7 +235,8 @@
   overflow:hidden;
   --roof-h: var(--board-under);
   --roof-dim: .18;
-  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto 100%, #5a4e50;
+  /* 背板の木目は、段の高さによらず同じ縮尺（--tier-tex）。低い段では絵の上のほうが見える */
+  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto var(--tier-tex), #5a4e50;
   background-blend-mode:multiply;
 }
 .case__crown + .tier{ --roof-h: var(--ceil); --roof-dim: 0; }
@@ -215,17 +255,17 @@
     linear-gradient(180deg, rgba(8,4,2,0) 8%, rgba(8,4,2,.4) 30%, rgba(8,4,2,.5) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
     /* 左の側板の内側の面。窓に背を向けて陰になる。背板との入隅がいちばん暗い */
     linear-gradient(90deg, rgba(14,8,4,.2), rgba(14,8,4,.86)) var(--pl) 0 / var(--side) 100% no-repeat,
-    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) 100% no-repeat,
+    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) var(--tier-tex) no-repeat,
     /* 右の側板の内側の面。窓のほうを向き、手前の角ほど光を受ける */
     linear-gradient(90deg, rgba(14,8,4,.62) 0%, rgba(14,8,4,.34) 40%, rgba(255,204,146,0) 62%, rgba(255,204,146,.3) 92%, rgba(255,214,160,.46) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
-    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) 100% no-repeat,
+    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) var(--tier-tex) no-repeat,
     /* 上の板の裏の下に落ちる短い影。奥まで黒く塗ると、段の上の空きが穴に見える。
        入隅のすぐ下は、板の裏より明るい（光は背板に当たり、板の裏は奥ほど暗い） */
     linear-gradient(180deg,
       rgba(10,5,2,.16) var(--roof-h), rgba(10,5,2,.1) calc(var(--roof-h) + var(--mm) * 8),
       rgba(10,5,2,.05) calc(var(--roof-h) + var(--mm) * 30), rgba(10,5,2,0) calc(var(--roof-h) + var(--mm) * 60)),
-    /* 棚板との入隅 */
-    linear-gradient(0deg, rgba(10,5,2,.4) 0%, rgba(10,5,2,0) 5%),
+    /* 棚板との入隅。隅の陰の幅は段の高さによらない */
+    linear-gradient(0deg, rgba(10,5,2,.4) 0%, rgba(10,5,2,0) calc(var(--mm) * 16)),
     /* 側板との入隅。窓に遠い左の隅ほど暗い */
     linear-gradient(90deg, rgba(10,5,2,.5) calc(var(--pl) + var(--side)), rgba(10,5,2,.2) calc(var(--pl) + var(--side) + 24px), rgba(10,5,2,0) calc(var(--pl) + var(--side) + 60px)),
     linear-gradient(270deg, rgba(10,5,2,.3) calc(var(--pr) + var(--side)), rgba(10,5,2,0) calc(var(--pr) + var(--side) + 26px)),
@@ -323,7 +363,7 @@
 .deck{
   position:relative;
   /* 背板。段の背板と同じ板を、同じ大きさで続ける */
-  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto var(--tier-h), #5a4e50;
+  background:url("../assets/images/case-back-panel.webp") repeat-x left top / auto var(--tier-tex), #5a4e50;
   background-blend-mode:multiply;
   /* 背板も柱の外の面で止める（上の段と同じ）。天面・奥の陰・本の並びは
      余白を含めた枠を基準に置くので、位置は変わらない */
@@ -344,10 +384,10 @@
   background:
     /* 左の側板の内側の面（陰） */
     linear-gradient(90deg, rgba(14,8,4,.45), rgba(14,8,4,.86)) var(--pl) 0 / var(--side) 100% no-repeat,
-    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) var(--tier-h) no-repeat,
+    url("../assets/images/post-right.webp") calc(var(--pl) - var(--side) * .055) 0 / calc(var(--side) * 1.055 - 1px) var(--tier-tex) no-repeat,
     /* 右の側板の内側の面（光） */
     linear-gradient(90deg, rgba(14,8,4,.66) 0%, rgba(14,8,4,.4) 40%, rgba(255,204,146,0) 62%, rgba(255,204,146,.26) 92%, rgba(255,214,160,.4) 100%) right var(--pr) top 0 / var(--side) 100% no-repeat,
-    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) var(--tier-h) no-repeat,
+    url("../assets/images/post-left.webp") right calc(var(--pr) - var(--side) * .095) top 0 / calc(var(--side) * 1.095 - 1px) var(--tier-tex) no-repeat,
     /* 側板との入隅 */
     linear-gradient(90deg, rgba(12,7,3,.4) calc(var(--pl) + var(--side)), rgba(12,7,3,0) calc(var(--pl) + var(--side) + 30px)) left top / 100% var(--deck-wall) no-repeat,
     linear-gradient(270deg, rgba(12,7,3,.25) calc(var(--pr) + var(--side)), rgba(12,7,3,0) calc(var(--pr) + var(--side) + 20px)) left top / 100% var(--deck-wall) no-repeat,
@@ -398,36 +438,29 @@
   filter:brightness(1.02);
 }
 /* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
-   大きさ（--pmm＝1mm あたりの長さ）は、並べる冊数が平台の幅に収まること、
-   いちばん背の高い本（A4判）が天板の奥行きに収まること、の小さいほう。
-   --sumw は並べる本の判横（mm）の合計。gen_data.py が冊数ごとに書き込む。 */
+   大きさ（--pmm＝1mm あたりの長さ）と並べる冊数は .case で決める。
+   天面の奥行きはいちばん背の高い本に合わせてあるので、奥に 4%、手前に 14% だけ残し、
+   残りの奥行きを本が使う。手前の 14% には本の地（紙の束の小口）と影が落ちる。
+   本は左右の柱のあいだに並べる。柱のあいだの余り（--flat-free）で、本と本のあいだと
+   両端の柱とのあいだを --flat-gap ずつ取れるなら、どこも同じ間。
+   取れない狭い画面では、本と本のあいだを --flat-gap に保ち、柱とのあいだを
+   --flat-end まで詰める（--pmm はそこまでで収まる大きさにしてある） */
 .deck__row{
-  --n: 4;
-  --sumw: var(--sumw4, 600);
-  --pmm-w: calc((100vw - 24px - (var(--n) + 1) * 12px) / var(--sumw));
-  --pmm-h: calc(var(--deck-h) / 240);
-  --pmm: min(var(--pmm-w), var(--pmm-h));
+  --flat-free: calc(100vw - var(--pl) - var(--pr) - var(--sumw) * var(--pmm));
+  --flat-pad: clamp(var(--flat-end), (var(--flat-free) - (var(--flat-n) - 1) * var(--flat-gap)) / 2, var(--flat-gap));
   position:absolute; z-index:6;
   left:0; right:0;
-  top:calc(var(--deck-wall) + var(--deck-h) * .12); bottom:calc(var(--deck-h) * .18);
+  top:calc(var(--deck-wall) + var(--deck-h) * .04); bottom:calc(var(--deck-h) * .14);
   display:flex; align-items:flex-end; justify-content:space-evenly;
-  padding:0 12px; margin:0; list-style:none;
+  column-gap:var(--flat-gap);
+  padding:0 calc(var(--pr) + var(--flat-pad)) 0 calc(var(--pl) + var(--flat-pad));
+  margin:0; list-style:none;
 }
-.deck__row .flat:nth-child(n+5){ display:none; }
-@media (max-width:359px){
-  .deck__row{ --n:3; --sumw:var(--sumw3, 500); }
-  .deck__row .flat:nth-child(n+4){ display:none; }
-}
-@media (min-width:1100px){
-  .deck__row{ --n:6; --sumw:var(--sumw6, 900); }
-  .deck__row .flat:nth-child(n+5){ display:block; }
-  .deck__row .flat:nth-child(n+7){ display:none; }
-}
-@media (min-width:1500px){
-  .deck__row{ --n:8; --sumw:var(--sumw8, 1200); }
-  .deck__row .flat:nth-child(n+7){ display:block; }
-  .deck__row .flat:nth-child(n+9){ display:none; }
-}
+/* 見せる冊数（.case の --flat-n と同じ区切り）。平台の下の区画（.cubby）とも同じ */
+.deck__row .flat:nth-child(n+4){ display:none; }
+@media (min-width:600px) { .deck__row .flat:nth-child(-n+4){ display:block; } }
+@media (min-width:1100px){ .deck__row .flat:nth-child(-n+6){ display:block; } }
+@media (min-width:1500px){ .deck__row .flat:nth-child(-n+8){ display:block; } }
 
 /* 平台の手前の縁。厚い板の丸い角と前の面。柱より手前にせり出しているので、
    柱の上にかぶる。丸い角は光を受け、前の面は天面より暗く、下ほど落ちる。
@@ -783,12 +816,16 @@
   background:linear-gradient(90deg,#a4977e 0%,#ddd3bb 32%,#f2ebdc 70%,#e3dac3 100%);
   box-shadow:inset 2px 0 4px -2px rgba(0,0,0,.45);
 }
-/* 天板に落ちる影。本の足もと（接地線）から手前へ広げる。日は左から来るので右へ寄せる */
+/* 天板に落ちる影。本の足もと（接地線）から手前へ広げる。日は左から来るので右へ寄せる。
+   長さは本の幅に合わせるが、平台の手前の縁までで止める（縁の丸い角の日を消さない）。
+   影の濃さは箱のおよそ 84% で消えるので、見える影が手前に残した天面（奥行きの 14%）に
+   収まる箱の長さは、寝かせた面の長さで奥行きのおよそ 0.26 倍。
+   傾きや遠近、手前に残す割合を変えたら、この値も測り直す */
 .flat::before{
   content:"";
   position:absolute; z-index:-1;
   left:-4%; right:-24%; top:100%;
-  height:calc(var(--fw) * .34);
+  height:min(calc(var(--fw) * .34), calc(var(--deck-h) * .26));
   pointer-events:none;
   background:
     linear-gradient(180deg, rgba(0,0,0,.50) 0%, rgba(0,0,0,.20) 26%, rgba(0,0,0,0) 62%),

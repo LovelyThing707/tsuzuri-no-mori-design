@@ -71,7 +71,7 @@ async function shelf(b) {
         mm: 0, mmFloor: 1.12,
         markets: [],
       };
-      document.querySelectorAll('.market').forEach(mk => {
+      document.querySelectorAll('.market').forEach((mk, mi) => {
         const c = mk.querySelector('.case'), cr = c.getBoundingClientRect();
         const tiers = [...c.querySelectorAll('.tier')];
         const tier = tiers[0], tr = tier.getBoundingClientRect();
@@ -116,13 +116,42 @@ async function shelf(b) {
           return (r.left < rr.left - .5 && r.right > rr.left + .5) ||
                  (r.left < rr.right - .5 && r.right > rr.right + .5);
         }).length;
-        /* 参考画像と同じ並び（4冊ひと組）か、まっすぐ立っているか */
-        const UNIT = ['monte', 'suika', 'aya', 'kagaku'];
+        /* 参考画像と同じ並び（ひと組の繰り返し）か、まっすぐ立っているか。
+           1つめの売り場は背の高い本（すいかのプール）を段に置かない見本なので3冊ひと組 */
+        const UNIT = mi === 0 ? ['monte', 'aya', 'kagaku'] : ['monte', 'suika', 'aya', 'kagaku'];
         const inOrder = rows.every(r => {
           const l = [...r.querySelectorAll('.spine')].filter(vis).map(e => e.dataset.book);
           const s0 = UNIT.indexOf(l[0]);
-          return l.every((k, i) => k === UNIT[(s0 + i) % 4]);
+          return l.every((k, i) => k === UNIT[(s0 + i) % UNIT.length]);
         });
+        /* 段の高さ。その段で見えている本のうちいちばん背の高い本（120〜300mm に収める）の上に、
+           本の高さの 7.3%（少なくとも 16mm）の空き */
+        const tierFit = tiers.map(tr => {
+          const s2 = [...tr.querySelectorAll('.spine')].filter(vis);
+          const tall = Math.max(...s2.map(e => Math.min(300, Math.max(120, px(e.style.getPropertyValue('--h'))))));
+          const r = tr.getBoundingClientRect();
+          return { tall, h: +r.height.toFixed(2), want: tall + Math.max(16, Math.round(tall * 0.073)),
+                   /* 本の天と段の上の端のあいだ（引き出す 3.5mm と天の見える余地） */
+                   head: +Math.min(...s2.map(e => e.getBoundingClientRect().top - r.top)).toFixed(1) };
+        });
+        /* 平置きの倍率。表紙の幅 ÷ 判横(mm)。同じ平台の本はどれも同じ倍率 */
+        const cs = getComputedStyle(c);
+        const flatK = fl.map(e => px(getComputedStyle(e).width) / px(e.style.getPropertyValue('--w')));
+        const flatN = +cs.getPropertyValue('--flat-n'), sumw = +cs.getPropertyValue('--sumw');
+        const hmax = +cs.getPropertyValue('--flat-hmax');
+        const flatRects = fl.map(e => e.getBoundingClientRect());
+        /* 寝かせた本の下に、同じ形の箱を一時的に置いて測る（地の帯、影） */
+        const probe = (f, h) => {
+          const q = document.createElement('span');
+          q.style.cssText = 'position:absolute;left:0;right:0;top:100%;height:' + h;
+          f.appendChild(q); const r = q.getBoundingClientRect(); q.remove(); return r;
+        };
+        /* 本の左右の端は、手前の地の帯の下の角（遠近でいちばん広く写るところ）まで含める */
+        const flatBand = fl.map(f => probe(f, 'calc(var(--fe) * .74)'));
+        const postW = px(post.width);
+        /* 影は箱の 84% ほどで消える（影の段階の終わり）。見える影の手前の端 */
+        const lipTop = c.querySelector('.deck__lip').getBoundingClientRect().top;
+        const shadowEnd = fl.map(f => probe(f, 'calc(' + getComputedStyle(f, '::before').height + ' * .84)').bottom - lipTop);
         const upright = sp.every(e => { const t = getComputedStyle(e).transform; return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)'; });
         /* 板の厚みと、箱の内側の面。背景の重ねを1枚ずつに分けて読む */
         const layers = v => {
@@ -144,6 +173,16 @@ async function shelf(b) {
           crownH: +c.querySelector('.case__crown').getBoundingClientRect().height.toFixed(2),
           ceilOn: ceil.content !== 'none' && /case-ceiling/.test(ceil.backgroundImage) && /polygon/.test(ceil.clipPath),
           ceilH: px(ceil.height),
+          tierFit, suikaInTiers: sp.some(e => e.dataset.book === 'suika'),
+          flatK, flatNcss: flatN, sumw, hmax, winW: window.innerWidth,
+          flatVisH: Math.max(...flatRects.map(r => r.height)),
+          flatGaps: flatRects.slice(1).map((r, j) => r.left - flatRects[j].right),
+          /* 左右の柱の内側の端と、端の本のあいだ（表紙の端／地の帯の下の角の、柱に近いほう） */
+          flatEnds: fl.length ? [
+            Math.min(flatRects[0].left, flatBand[0].left) - postW,
+            window.innerWidth - postW - Math.max(flatRects[fl.length - 1].right, flatBand[fl.length - 1].right),
+            flatRects[0].left - postW, window.innerWidth - postW - flatRects[fl.length - 1].right] : [],
+          postW, shadowEnd,
           faces: faceImg([tiers[0], '::before']) && faceImg([deck, '::after']),
           legFaces: ['::before', '::after'].every(ps => {
             const s = getComputedStyle(baseEl, ps); return s.content !== 'none' && px(s.width) >= 8 && /polygon/.test(s.clipPath);
@@ -161,6 +200,8 @@ async function shelf(b) {
           postBottom: +(cr.top + px(post.top) + px(post.height)).toFixed(1),
           boardBottom: +[...c.querySelectorAll('.case__board')].pop().getBoundingClientRect().bottom.toFixed(1),
           deckRectTop: +dr.top.toFixed(1), deckRectBottom: +dr.bottom.toFixed(1),
+          /* 平台の天面の奥行き（背板のぶんを除く） */
+          deckH: dr.height - px(getComputedStyle(deck, '::before').top),
           /* 最後の棚板と平台の天面のあいだに見える背板の高さ */
           wallH: /case-back/.test(getComputedStyle(deck).backgroundImage) ? px(getComputedStyle(deck, '::before').top) : 0,
           surfaceZ: +getComputedStyle(deck, '::before').zIndex, postZ: +post.zIndex,
@@ -213,6 +254,17 @@ async function shelf(b) {
          その手前に平台の天面がせり出す。平台の下は脚で支え、台輪が床に接する */
       t(Math.abs(k.deckRectTop - k.boardBottom) <= 1 && Math.abs(k.postBottom - k.deckRectBottom) <= 1,
         `${n}: 柱は最後の棚板の下も続き、平台まで下りる (柱${k.postBottom}/平台${k.deckRectBottom})`);
+      /* 段の高さは段ごと。見えている本のうちいちばん背の高い本＋空き（A4判 319mm、A5判 226mm） */
+      t(k.tierFit.every(f => Math.abs(f.h - f.want * m.mm) <= 1),
+        `${n}: 段の高さは、見えている本のうちいちばん背の高い本に空きを足した高さ (${k.tierFit.map(f => f.h + '/' + (f.want * m.mm).toFixed(1)).join('・')}px)`);
+      t(k.tierFit.every(f => f.head >= 3.5 * m.mm + 1),
+        `${n}: 本の上に、引き出しても段に収まる空きがある (${k.tierFit.map(f => f.head).join('・')}px)`);
+      /* 1つめの売り場は、背の高い本を段に置かない見本（2段とも A5判の高さ）。
+         2つめの売り場は、背の高い本がある段（A4判の高さ）として残す */
+      if (i === 0) t(!k.suikaInTiers && k.tierFit.every(f => f.want === 226),
+        `${n}: 段に背の高い本を置かず、2段とも A5判の高さ (${k.tierFit.map(f => f.want).join('・')}mm)`);
+      else t(k.suikaInTiers && k.tierFit.every(f => f.want === 319),
+        `${n}: 背の高い本（すいかのプール）がある段は A4判の高さ (${k.tierFit.map(f => f.want).join('・')}mm)`);
       t(k.wallH >= 17, `${n}: 最後の棚板と平台の天面のあいだに、本棚の背板が見える (${k.wallH}px)`);
       t(k.surfaceZ > k.postZ, `${n}: 平台の天面は柱より手前にせり出す`);
       t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
@@ -236,10 +288,15 @@ async function shelf(b) {
       t(k.tiers === (i === 0 ? 2 : 1), `${n}: 段は${i === 0 ? 2 : 1}つ (${k.tiers})`);
       t(k.dividers === 0, `${n}: 棚は仕切らず、画面の幅いっぱいに1続き`);
       t(k.gapPx >= 2, `${n}: 本と本のあいだに、すき間がある (${k.gapPx}px)`);
-      /* 390px 幅のスマートフォンで1段およそ20冊 */
-      if (vp.w === 390) t(k.perRow.every(x => x >= 16 && x <= 20),
-        `${n}: 1段およそ18冊（すき間のぶん少し減る） (${k.perRow.join('・')}冊)`);
-      t(k.inOrder, `${n}: 参考画像と同じ並び（4冊ひと組の繰り返し）`);
+      /* 390px 幅のスマートフォンで1段およそ17冊。いちばん薄い本（すいかのプール）を
+         段に置かない1つめの売り場は、1冊あたりが厚くなるぶん、およそ15冊 */
+      if (vp.w === 390) {
+        if (i === 0) t(k.perRow.every(x => x >= 14 && x <= 16),
+          `${n}: 1段およそ15冊（薄い本を置かないぶん少ない） (${k.perRow.join('・')}冊)`);
+        else t(k.perRow.every(x => x >= 16 && x <= 20),
+          `${n}: 1段およそ17冊（すき間のぶん少し減る） (${k.perRow.join('・')}冊)`);
+      }
+      t(k.inOrder, `${n}: 参考画像と同じ並び（ひと組の繰り返し）`);
       t(k.upright, `${n}: 本はまっすぐ立っている`);
       t(k.bottomGap <= 1.5, `${n}: 本が棚板に立っている (ずれ ${k.bottomGap}px)`);
       t(!k.overTop, `${n}: 本が段からはみ出していない`);
@@ -251,9 +308,32 @@ async function shelf(b) {
       /* いちばん薄いデモの本（11mm）でも 12px 以上。選ぶのは指でなぞって確かめる。
          横向きのスマートフォンは段を見える高さに合わせるので、ここは見ない */
       if (!land) t(k.minW >= 10.5, `${n}: いちばん薄い本も見える幅 (${k.minW.toFixed(1)}px)`);
-      /* 平台の冊数。要件定義書 2-3「3〜4冊」。天板の広いパソコンだけ8冊 */
-      const want = vp.w >= 1500 ? 8 : vp.w >= 1100 ? 6 : vp.w >= 360 ? 4 : 3;
-      t(k.flatN === want, `${n}: 平台に${want}冊 (${k.flatN}冊)`);
+      /* 平台の冊数。要件定義書 2-3「3〜4冊」。スマートフォンは3冊（表紙を大きくするため）、
+         タブレットは4冊、天板の広いパソコンは6〜8冊 */
+      const want = vp.w >= 1500 ? 8 : vp.w >= 1100 ? 6 : vp.w >= 600 ? 4 : 3;
+      t(k.flatN === want && k.flatNcss === want, `${n}: 平台に${want}冊 (${k.flatK.length}冊)`);
+      /* 平置きの倍率はどの画面も背表紙の 0.65 倍。柱のあいだに、並べた本と
+         本と本のあいだ（8px）と柱とのあいだ（4px）が収まらない画面だけ、収まるところまで小さくする。
+         同じ平台の本は、どれも同じ倍率（本同士は実物どおりの比） */
+      const kMin = Math.min(...k.flatK), kMax = Math.max(...k.flatK);
+      const kWant = Math.min(0.65 * m.mm, (k.winW - 2 * k.postW - 2 * 4 - (want - 1) * 8) / k.sumw);
+      t(kMax - kMin <= 0.003 && Math.abs(kMin - kWant) <= 0.005,
+        `${n}: 平置きはどの本も同じ倍率 (${kMin.toFixed(3)}〜${kMax.toFixed(3)} / ${kWant.toFixed(3)}px/mm)`);
+      if (vp.w >= 360) t(kMin >= 0.6 * m.mm, `${n}: 平置きの倍率が 0.6px/mm 以上 (${kMin.toFixed(3)})`);
+      /* 平台の奥行きは、いちばん背の高い寝かせた本に合わせる（画面の高さによらない）。
+         奥行きの大半を本が使う */
+      t(Math.abs(k.deckH - (k.hmax * kMin * 0.63 + 4)) <= 1 && k.flatVisH / k.deckH >= 0.7,
+        `${n}: 平台の奥行きはいちばん背の高い本に合う (奥行き ${k.deckH.toFixed(1)}px、本 ${k.flatVisH.toFixed(1)}px)`);
+      t(k.flatGaps.every(g => g >= 7.5), `${n}: 平置きの本と本のあいだが空いている (${k.flatGaps.map(g => g.toFixed(1)).join('・')}px)`);
+      /* 端の本は柱にかからない（柱とのあいだ 4px 以上。地の帯の角は遠近で 1px ほど広がる）。
+         本と本のあいだに余裕のある画面では、柱とのあいだも同じ間（天板に間をそろえて置く） */
+      t(k.flatEnds[0] >= 2.5 && k.flatEnds[1] >= 2.5,
+        `${n}: 平置きの端の本は柱にかからない (左 ${k.flatEnds[0].toFixed(1)}・右 ${k.flatEnds[1].toFixed(1)}px)`);
+      if (Math.min(...k.flatGaps) > 8.5) t(k.flatGaps.concat(k.flatEnds.slice(2)).every(g => Math.abs(g - k.flatGaps[0]) <= 1),
+        `${n}: 平置きは柱のあいだに同じ間で並ぶ (柱とのあいだ ${k.flatEnds.slice(2).map(g => g.toFixed(1)).join('・')}px、本のあいだ ${k.flatGaps[0].toFixed(1)}px)`);
+      /* 寝かせた本の影は、平台の手前の縁にかからない（縁の丸い角の日を消さない） */
+      t(k.shadowEnd.every(y => y <= 1),
+        `${n}: 平置きの影は平台の手前の縁までで止まる (縁との差 ${k.shadowEnd.map(y => y.toFixed(1)).join('・')}px)`);
       t(k.flatIn, `${n}: 平置きが平台の天板の内側に載っている`);
       t(k.flatTilted, `${n}: 平置きが寝ている`);
       t(k.flatEdge > 1, `${n}: 平置きに厚みがある (小口 ${k.flatEdge}px)`);
@@ -265,6 +345,139 @@ async function shelf(b) {
     });
     await p.close();
   }
+}
+
+/* ---- 1d. 一画面に収まるか ---------------------------------------
+   9/28 のご依頼：すいかのプールを除いた2段で、背表紙の棚と平置きまで、スクロールせずに
+   一画面で見られるか。
+   見方は、標準的な iPhone の画面（390x844）で、売り場の看板の列が上の帯のすぐ下に
+   来たとき（「棚をのぞく」やメニューで寄せると、看板はこれより 13px ほど下に来る）。
+   平台に寝かせた本と、平台の手前の縁が画面に入っていれば可。
+   ほかの大きさのスマートフォンも同じ見方で見る。「棚をのぞく」で寄せたときも確かめる。
+   背の低い画面（375x667、Safari で帯が出ているときの 390x664 など）は、まだ収まらない。
+   収まらない量を毎回書き出しておく（失敗にはしない）。
+   平置きの倍率（幅 360px 以上で 0.6px/mm 以上）と、端の本が柱にかからないことは、
+   ここで見るどの画面でも確かめる。 */
+async function oneScreen(b) {
+  const FIT = [
+    { n: 'iPhone', w: 390, h: 844 }, { n: 'iPhone Pro', w: 393, h: 852 },
+    { n: 'Android', w: 412, h: 915 }, { n: 'iPhone Pro Max', w: 430, h: 932 },
+  ];
+  const INFO = [
+    { n: '360x800', w: 360, h: 800 }, { n: '375x667', w: 375, h: 667 },
+    { n: 'Safari 390x750', w: 390, h: 750 }, { n: 'Safari 390x664', w: 390, h: 664 },
+  ];
+  for (const vp of FIT.concat(INFO)) {
+    const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    await p.evaluate(() => {
+      const head = document.querySelector('.market__head');
+      const bar = document.querySelector('.topbar').getBoundingClientRect().height;
+      window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - bar);
+    });
+    await p.waitForTimeout(150);
+    const fit = () => {
+      const mk = document.querySelector('.market');
+      const bar = document.querySelector('.topbar').getBoundingClientRect();
+      const head = mk.querySelector('.market__head').getBoundingClientRect();
+      const lip = mk.querySelector('.deck__lip').getBoundingClientRect();
+      const post = parseFloat(getComputedStyle(mk.querySelector('.case'), '::before').width);
+      /* 寝かせた本の下の端は、表紙の手前に帯で描いた地（紙の束の小口）の下の端 */
+      const vis = [...mk.querySelectorAll('.deck__row .flat')].filter(e => getComputedStyle(e).display !== 'none');
+      const bands = vis.map(f => {
+        const q = document.createElement('span');
+        q.style.cssText = 'position:absolute;left:0;right:0;top:100%;height:calc(var(--fe) * .74)';
+        f.appendChild(q); const r = q.getBoundingClientRect(); q.remove();
+        return r;
+      });
+      const first = vis[0].getBoundingClientRect(), last = vis[vis.length - 1].getBoundingClientRect();
+      return { head: Math.round(head.top), bar: Math.round(bar.bottom), h: window.innerHeight,
+               books: +Math.max(...bands.map(r => r.bottom)).toFixed(1), lip: +lip.bottom.toFixed(1),
+               /* 平置きの倍率（表紙の幅 ÷ 判横 mm）のうち小さいほう */
+               k: Math.min(...vis.map(f => parseFloat(getComputedStyle(f).width) / parseFloat(f.style.getPropertyValue('--w')))),
+               /* 柱と端の本のあいだ（地の帯の角まで含める） */
+               ends: [Math.min(first.left, bands[0].left) - post,
+                      window.innerWidth - post - Math.max(last.right, bands[bands.length - 1].right)] };
+    };
+    const r = await p.evaluate(fit);
+    const msg = `${vp.n} ${vp.w}x${vp.h}: 看板を帯の下に寄せたとき、平台の本と手前の縁が一画面に入る` +
+      `（余り 本 ${(r.h - r.books).toFixed(1)}px・縁 ${(r.h - r.lip).toFixed(1)}px）`;
+    if (FIT.includes(vp)) t(Math.abs(r.head - r.bar) <= 1 && r.books <= r.h && r.lip <= r.h, msg);
+    else console.log('  INFO  ' + msg.replace('入る', '入るか'));
+    if (vp.w >= 360) t(r.k >= 0.6, `${vp.n} ${vp.w}x${vp.h}: 平置きの倍率が 0.6px/mm 以上 (${r.k.toFixed(3)})`);
+    t(r.ends.every(e => e >= 2.5),
+      `${vp.n} ${vp.w}x${vp.h}: 平置きの端の本は柱にかからない (左 ${r.ends[0].toFixed(1)}・右 ${r.ends[1].toFixed(1)}px)`);
+    await p.close();
+
+    /* 「棚をのぞく」で寄せたとき（読み手が実際にたどる道）。看板は上の帯から少し下に来る */
+    const q = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
+    await q.goto(URL, { waitUntil: 'networkidle' });
+    await q.click('.hero__scroll'); await q.waitForTimeout(400);
+    const j = await q.evaluate(fit);
+    const jmsg = `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で寄せたとき、平台の本と手前の縁が一画面に入る` +
+      `（看板は帯の ${j.head - j.bar}px 下、余り 本 ${(j.h - j.books).toFixed(1)}px・縁 ${(j.h - j.lip).toFixed(1)}px）`;
+    if (FIT.includes(vp)) t(j.head >= j.bar && j.books <= j.h && j.lip <= j.h, jmsg);
+    else console.log('  INFO  ' + jmsg.replace('入る', '入るか'));
+    await q.close();
+  }
+}
+
+/* ---- 1e. 段の高さは、画面の幅で見えている本に合わせて変わる -----------
+   読み込んだ直後の値は、段に並べる本すべてのうちいちばん背の高い本に合わせたもの
+   （tools/gen_page.py が書き込む）。見える本は画面の幅で決まり、scripts/main.js が
+   見えている本に合わせて下げる。高さだけが変わるとき（URL バーの出し入れ）は変えない。 */
+async function tierFollow(b) {
+  const fs = require('fs');
+  /* 読み込んだ直後の値（HTML に書いた値）。段に並べる本すべてのうちいちばん背の高い本＋空き */
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const tiers = html.split('<div class="tier"').slice(1).map(s => {
+    const own = s.split('</ul>')[0];
+    const v = +(own.match(/--tier-h:calc\(var\(--mm\) \* (\d+)\)/) || [])[1];
+    const hs = [...own.matchAll(/--h:(\d+);/g)].map(x => Math.min(300, Math.max(120, +x[1])));
+    const tall = Math.max(...hs);
+    return { v, want: tall + Math.max(16, Math.round(tall * 0.073)) };
+  });
+  t(tiers.length === 3 && tiers.every(x => x.v === x.want),
+    `読み込んだ直後から段の高さが本に合う（HTML の値 ${tiers.map(x => x.v + '/' + x.want).join('・')}mm）`);
+
+  const p = await b.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto(URL, { waitUntil: 'networkidle' });
+  /* 読み込み完了（load）でも段を測り直す。それより前に本を差し替えると、
+     load の測り直しで段が高くなり、確かめたいこととは別の理由で落ちる */
+  await p.waitForFunction(() => document.readyState === 'complete');
+  await p.waitForTimeout(300);
+  const hOf = () => p.evaluate(() => [...document.querySelectorAll('.tier')].map(e => +e.getBoundingClientRect().height.toFixed(1)));
+  const h0 = await hOf();
+  /* 高さだけ変わる（URL バーの出し入れ）。段は測り直さない。
+     測り直せば段が高くなるように、見えている本を1冊だけ背の高い本にしてから確かめ、あとで戻す */
+  const orig = await p.evaluate(() => {
+    const s = document.querySelector('.market .tier .spine:not(.is-over)');
+    const v = s.style.getPropertyValue('--h'); s.style.setProperty('--h', '297'); return v;
+  });
+  await p.setViewportSize({ width: 390, height: 664 }); await p.waitForTimeout(400);
+  const h1 = await hOf();
+  t(h1.join() === h0.join(), `画面の高さだけが変わっても、段は測り直さない (${h0.join('・')} → ${h1.join('・')}px)`);
+  await p.evaluate(v => document.querySelector('.market .tier .spine:not(.is-over)').style.setProperty('--h', v), orig);
+  /* 1つめの売り場の上の段。隠れている（入りきらない）本を背の高い本にしても、段は低いまま。
+     見えている本を背の高い本にすると、幅が変わったときに段が高くなる */
+  await p.evaluate(() => {
+    const tier = document.querySelector('.market .tier');
+    tier.querySelector('.spine.is-over').style.setProperty('--h', '297');
+  });
+  await p.setViewportSize({ width: 391, height: 664 }); await p.waitForTimeout(400);
+  const h2 = await hOf();
+  await p.evaluate(() => {
+    const tier = document.querySelector('.market .tier');
+    tier.querySelector('.spine:not(.is-over)').style.setProperty('--h', '297');
+  });
+  await p.setViewportSize({ width: 390, height: 664 }); await p.waitForTimeout(400);
+  const h3 = await hOf();
+  t(Math.abs(h2[0] - 226) <= 1 && Math.abs(h3[0] - 319) <= 1 && Math.abs(h3[1] - 226) <= 1,
+    `段の高さは見えている本だけに合わせる（隠れた本が高くても ${h2[0]}px、見えている本が高いと ${h3[0]}px、ほかの段は ${h3[1]}px）`);
+  t(errs.length === 0, `段の高さの合わせ直しでJSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
+  await p.close();
 }
 
 /* ---- 1c. 光（窓の左上から差す日差し） -----------------------------
@@ -1370,6 +1583,8 @@ async function widths(b) {
 (async () => {
   const b = await chromium.launch();
   await shelf(b);
+  await oneScreen(b);
+  await tierFollow(b);
   await light(b);
   await picking(b);
   await screens(b);

@@ -201,7 +201,8 @@ html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
 .foot::before,   .foot::after{
   content:"";
   position:absolute; z-index:0;
-  width:clamp(76px,16vw,200px);
+  --moss-w: clamp(76px,16vw,200px);
+  width:var(--moss-w);
   background-image:url("../assets/images/wall-moss-edge.webp");
   background-repeat:no-repeat;
   background-size:100% auto;
@@ -224,7 +225,10 @@ html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
 
 /* 縦の切り出しをずらす。同じ絵でも見えている部分が違う */
 .market::before{ background-position:left 0%; }
-.market::after { background-position:left 100%; }
+/* 右の苔（奇数番目の売り場）は、絵の下の端を高さ 760px の箱の下の端にそろえた位置。
+   上から測って置くので、本棚の段が低くなって売り場が短くなっても、
+   苔が看板の右まで上がってこない（絵は 340x1347） */
+.market::after { background-position:left 0 top calc(760px - var(--moss-w) * 1347 / 340); }
 .market:nth-of-type(even)::before{ background-position:left 62%; }
 .market:nth-of-type(even)::after { background-position:left 28%; }
 .aisle::before { background-position:left 34%; }

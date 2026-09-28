@@ -60,12 +60,26 @@
     });
   }
 
+  /* --- 段の高さ ---------------------------------------------
+     その段でいちばん背の高い本（見えている本）の上に、手を差し入れる空きを取る。
+     空きは本の高さの 7.3%、少なくとも 16mm。値は base.css の --air-k・--air-min、
+     本の高さの範囲は --h-min・--h-max（tools/gen_data.py の tier_mm と同じ決まり）。 */
+  function tierMM(tall) {
+    var root = window.getComputedStyle(document.documentElement);
+    var num = function (k, d) { var v = parseFloat(root.getPropertyValue(k)); return isNaN(v) ? d : v; };
+    var lo = num('--h-min', 120), hi = num('--h-max', 300);
+    var t = Math.min(Math.max(tall, lo), hi);
+    return t + Math.max(num('--air-min', 16), Math.round(t * num('--air-k', 0.073)));
+  }
+
   /* --- 棚に入りきらない本を下げる ----------------------------
      棚は柱で幅が決まっている。入りきらない本をそのままにすると、
      柱のきわで本が縦に切れてしまう。入る冊数だけを残す。
+     残した本のうちいちばん背の高い本に、段の高さを合わせる。
      見た目の正しさなので、動きを減らす設定でも必ず動かす。 */
   function fitShelves() {
     var rows = document.querySelectorAll('.case .row');
+    fitW = window.innerWidth;
     Array.prototype.forEach.call(rows, function (row) {
       var books = row.querySelectorAll('.spine');
       if (!books.length) return;
@@ -84,7 +98,7 @@
          70冊も積むと30px近くずれ、柱ぎわで本が切れる。 */
       var i, b, cs, w, h;
       var cut = books.length;
-      var used = 0, tall = 0;
+      var used = 0, tall = 0;   /* tall は入る本のうち、いちばん背の高い本の判型（mm） */
       /* 本と本のあいだのすき間（CSS の gap）。2冊目から1冊ごとに足す */
       var gap = parseFloat(window.getComputedStyle(row).columnGap) || 0;
       for (i = 0; i < books.length; i++) {
@@ -97,11 +111,20 @@
           + (parseFloat(cs.marginRight) || 0);
         /* 本はまっすぐ立てている（傾けていない）ので、端の余白は要らない。
            以前は傾きのぶん両端を空けていて、12冊目が入らなかった */
-        h = Math.max(tall, parseFloat(cs.height) || 0);
+        h = Math.max(tall, parseFloat(cs.getPropertyValue('--h')) || 0);
         if (i > 0) w += gap;
         if (used + w > avail) { cut = i; break; }
         used += w;
         tall = h;
+      }
+
+      /* 段の高さ。読み込んだときは、段に並べる本すべてのうちいちばん背の高い本に
+         合わせてある（tools/gen_page.py）。見えている本だけに合わせて下げる。
+         見える本は幅だけで決まるので、高さだけが変わるとき（URL バーの出し入れ）は動かない */
+      var tier = row.closest('.tier');
+      if (tier && tall > 0) {
+        var th = 'calc(var(--mm) * ' + tierMM(tall) + ')';
+        if (tier.style.getPropertyValue('--tier-h').trim() !== th) tier.style.setProperty('--tier-h', th);
       }
 
       for (i = 0; i < books.length; i++) {
@@ -116,8 +139,12 @@
   }
 
 
-  var fitTimer;
+  /* 入る冊数と段の高さは、画面の幅だけで決まる。スマートフォンでは下へ送るたびに
+     URL バーが出入りして resize が来るが、幅は変わらないので測り直さない
+     （測り直しても同じ結果だが、そのたびに1段百冊を読み直すことになる） */
+  var fitTimer, fitW = 0;
   function onResize() {
+    if (window.innerWidth === fitW) return;
     clearTimeout(fitTimer);
     fitTimer = setTimeout(fitShelves, 120);
   }
