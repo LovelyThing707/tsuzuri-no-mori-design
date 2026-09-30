@@ -102,8 +102,10 @@
      どの画面でも同じ大きさの本が、同じ奥行きの天面に載る */
   --deck-h: calc(var(--flat-hmax) * var(--pmm) * var(--flat-depth) + 4px);
   /* 平台の天面に窓の日が届く幅（「光」の .case__light と、その先の日陰 .deck::before）。
-     スマートフォンでは幅の6割ほど、広い画面では左の3分の1ほど */
-  --sun-reach: max(calc(var(--deck-h) * 2.05), min(34%, 720px));
+     スマートフォンでは幅の6割ほど、広い画面では左の3分の1ほど。
+     平置きの本を起こして天面が深くなったので（以前は 2.05 倍）、届く幅が変わらないよう
+     奥行きに対する割合を下げてある */
+  --sun-reach: max(calc(var(--deck-h) * 1.78), min(34%, 720px));
 }
 @media (min-width:600px){
   .case{ --flat-n:4; --sumw:var(--sumw4, 611); --flat-hmax:var(--flat-hmax4, 297); }
@@ -430,8 +432,10 @@
 }
 /* 平台の本の並び。参考画像のとおり、天板の幅いっぱいに間をそろえて置く。
    大きさ（--pmm＝1mm あたりの長さ）と並べる冊数は .case で決める。
-   天面の奥行きはいちばん背の高い本に合わせてあるので、奥に 4%、手前に 14% だけ残し、
-   残りの奥行きを本が使う。手前の 14% には本の地（紙の束の小口）と影が落ちる。
+   天面の奥行きはいちばん背の高い本に合わせてあるので、奥に 3%、手前に 12% だけ残し、
+   残りの奥行きを本が使う。手前の 12% には本の地（紙の束の小口）と影が落ちる。
+   本は手前の辺（下の端）でそろえて置く。表紙はほぼ長方形に写るので、手前の辺も左右の辺も
+   本どうしで平行にそろう（9/30 のご依頼「まっすぐに」）。
    本は左右の柱のあいだに並べる。柱のあいだの余り（--flat-free）で、本と本のあいだと
    両端の柱とのあいだを --flat-gap ずつ取れるなら、どこも同じ間。
    取れない狭い画面では、本と本のあいだを --flat-gap に保ち、柱とのあいだを
@@ -441,7 +445,7 @@
   --flat-pad: clamp(var(--flat-end), (var(--flat-free) - (var(--flat-n) - 1) * var(--flat-gap)) / 2, var(--flat-gap));
   position:absolute; z-index:6;
   left:0; right:0;
-  top:calc(var(--deck-wall) + var(--deck-h) * .04); bottom:calc(var(--deck-h) * .14);
+  top:calc(var(--deck-wall) + var(--deck-h) * .03); bottom:calc(var(--deck-h) * .12);
   display:flex; align-items:flex-end; justify-content:space-evenly;
   column-gap:var(--flat-gap);
   padding:0 calc(var(--pr) + var(--flat-pad)) 0 calc(var(--pl) + var(--flat-pad));
@@ -713,7 +717,7 @@
 }
 .pick-tag.is-on{ opacity:1; }
 
-/* 本をタップすると大きく見られることの知らせ。最初の棚が見えたときに一度だけ出す */
+/* 本をタップすると棚から引き出せることの知らせ。最初の棚が見えたときに一度だけ出す */
 .shelf-hint{
   position:absolute; z-index:3;
   left:50%; top:18%;
@@ -809,25 +813,25 @@
 }
 /* 天板に落ちる影。本の足もと（接地線）から手前へ広げる。日は左から来るので右へ寄せる。
    長さは本の幅に合わせるが、平台の手前の縁までで止める（縁の丸い角の日を消さない）。
-   影の濃さは箱のおよそ 84% で消えるので、見える影が手前に残した天面（奥行きの 14%）に
-   収まる箱の長さは、寝かせた面の長さで奥行きのおよそ 0.26 倍。
+   影の濃さは箱のおよそ 84% で消えるので、見える影が手前に残した天面（奥行きの 12%）に
+   収まる箱の長さは、寝かせた面の長さで奥行きのおよそ 0.22 倍（50deg のとき）。
    傾きや遠近、手前に残す割合を変えたら、この値も測り直す */
 .flat::before{
   content:"";
   position:absolute; z-index:-1;
   left:-4%; right:-24%; top:100%;
-  height:min(calc(var(--fw) * .34), calc(var(--deck-h) * .26));
+  height:min(calc(var(--fw) * .34), calc(var(--deck-h) * .22));
   pointer-events:none;
   background:
     linear-gradient(180deg, rgba(0,0,0,.50) 0%, rgba(0,0,0,.20) 26%, rgba(0,0,0,0) 62%),
     radial-gradient(56% 120% at 50% 0%, rgba(0,0,0,.58), rgba(0,0,0,0) 70%);
   filter:blur(3px);
 }
-/* 地（手前の面）＝紙の束の小口。表紙と同じ面の中に帯として置く */
+/* 地（手前の面）＝紙の束の小口。表紙と同じ面の中に帯として置く。高さは base.css の --flat-band */
 .flat::after{
   content:"";
   position:absolute; left:0; right:0; top:100%;
-  height:calc(var(--fe) * .74);
+  height:calc(var(--fe) * var(--flat-band));
   background:linear-gradient(180deg,
     #251c1b  0%, #251c1b 19%,   /* 表紙の板の小口 */
     #c3ac8d 23%,                /* 紙の束。上端は光を受ける */
@@ -839,6 +843,15 @@
 .flat:hover,.flat:focus-visible{
   transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(8px);
 }
+/* 押した手応え。平置きの本はタップするとすぐに商品詳細が開くので、ごく短く沈んで暗くなるだけ
+   （開くのを待たせない）。本そのものに filter をかけると、背と小口の面が表紙の面につぶれる。
+   暗くするのは表紙の絵だけ */
+.flat:active{
+  transform:perspective(var(--flat-persp)) rotateX(var(--flat-tilt)) rotate(var(--rot)) translateZ(-3px);
+  transition-duration:.08s;
+}
+.flat > img{ transition:filter .08s var(--ease); }
+.flat:active > img{ filter:brightness(.86); }
 
 /* --- 光 ------------------------------------------------------
    参考画像の光は、窓の左上から差す低い日差しがひとつ。植物のかかる左上の角から
@@ -948,14 +961,18 @@
 }
 
 /* ============================================================
-   本を手に取る
-   棚の本を1回タップすると、その本が少し前に出てピントが合い、ほかの本はぼやける。
-   背表紙は、書名が読める大きさまで拡大する（縦と横に同じ倍率をかけ、実物どおりの比のまま）。
-   拡大した背表紙の横に、書名と著者名を文字で添える。画面の小さい端末では、
-   拡大しても背表紙の文字が小さいままの本があるため。
-   平置きの本は、表紙を起こして正面に向け、大きく見せる。書名は表紙の下に添える。
-   拡大した本か、添えた書名をもう一度タップすると、商品詳細へ進む。
-   それ以外のところをタップすると、棚にもどる（國分様のご依頼）。
+   本を棚から引き出す
+   棚の本を1回タップすると、その本が自分の場所から手前へ引き出され、途中で止まる。
+   後ろはまだ棚に残っている（9/30 のご依頼「本の後ろ側がまだ本棚に少し残っているくらいの
+   引き出し具合」）。ほかの本はぼかして暗くし、引き出した本にだけピントが合う。
+   引き出した本は、棚の上の 1.76 倍（ご依頼の絵のとおり）。縦と横に同じ倍率をかけ、
+   実物どおりの比のまま。本は自分の列から動かず、手前へ来たぶん、下の端が棚板の手前の縁にかかる。
+   奥行きは三つの手がかりで見せる。画面の中央を向いた側に本の側面（表紙）が細く見えて
+   棚の奥の暗がりへ消える。本の抜けたすき間が暗くなる。本が隣の本と棚板に影を落とす。
+   書名などの文字は添えない（同日のご依頼）。
+   引き出した本をもう一度タップすると、商品詳細へ進む。
+   それ以外のところをタップすると、本は棚へ押しもどされる。
+   平置きの本は、タップするとそのまま商品詳細へ進む（表紙の拡大は無い）。
    倍率・置き場所・動きは scripts/main.js が決める。
    ============================================================ */
 
@@ -967,9 +984,8 @@
   outline:2px solid var(--paper);
   outline-offset:2px;
 }
-/* 手に取っているあいだ、棚のその場所は空いて見える */
-.spine.is-taken,
-.flat.is-taken{ visibility:hidden; }
+/* 引き出しているあいだ、棚のその場所は空いて見える */
+.spine.is-taken{ visibility:hidden; }
 
 /* 上の帯（5）より上に重ね、帯ごとぼかす。メニュー（68）・商品詳細（70）はさらに上 */
 .focus{
@@ -982,10 +998,10 @@
   -webkit-user-select:none; user-select:none;
 }
 .focus[hidden]{ display:none; }
-/* 棚へ戻っているあいだは、次のタップを後ろの棚へ通す */
+/* 棚へもどっているあいだは、次のタップを後ろの棚へ通す */
 .focus.is-leaving{ pointer-events:none; }
 
-/* 後ろの売り場。ぼかして暗くし、手に取った本だけにピントが合って見えるようにする */
+/* 後ろの売り場。ぼかして暗くし、引き出した本だけにピントが合って見えるようにする */
 .focus__scrim{
   position:absolute; inset:0;
   background:rgba(10,8,6,.34);
@@ -1007,16 +1023,30 @@
   .focus__scrim{ background:rgba(10,8,6,.64); }
 }
 
-/* 拡大した本。棚の本の写しを、大きな --mm で描き直したもの。
+/* 本の抜けたすき間。奥の背板は、両隣の本の陰になって暗い。
+   引き出した本は自分の場所より大きく、中心も同じなので、引き出すあいだも押しもどすあいだも
+   この場所を覆っている。ふつうは見えず、画面の端の本を内側へ大きく寄せたときにだけ端がのぞく。
+   置き場所は scripts/main.js（棚の上の本と同じところ。画面を送ると棚といっしょに動く） */
+.focus__slot{
+  position:fixed; left:0; top:0;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(4,2,1,.5) 0, rgba(4,2,1,0) 18%),
+    linear-gradient(90deg, rgba(5,3,2,.96), rgba(12,7,4,.86) 50%, rgba(5,3,2,.96));
+  box-shadow:0 0 5px 1px rgba(5,3,2,.55);
+  opacity:0;
+}
+
+/* 引き出した本。棚の本の写しを、大きな --mm で描き直したもの。
    写真を引き伸ばすのではなく、写真の細かさのまま描く。
-   足もと（棚板に立っていたところ）を軸に、起き上がって前に出る */
+   大きさを変えても動かない点は、本の上から 71%（scripts/main.js の FIX と同じ） */
 .focus__book{
   position:fixed; left:0; top:0;
   display:block;
   margin:0; padding:0; border:0; border-radius:0;
   background:none; color:inherit; font:inherit;
   cursor:pointer;
-  transform-origin:50% 100%;
+  transform-origin:50% 71%;
 }
 .focus__book:focus{ outline:none; }
 /* 細い背表紙でも指で押せるよう、見えない押し幅を 48px 以上取る。上下にも少しゆとり */
@@ -1025,98 +1055,55 @@
   position:absolute; top:-12px; bottom:-12px;
   left:min(0px, calc(50% - 24px)); right:min(0px, calc(50% - 24px));
 }
+/* 引き出しはじめに頭が手前へ傾くときの軸は、本の足もと（scripts/main.js） */
 .focus .focus__book .spine,
 .focus .focus__book .spine:hover{
   transform:none; filter:none; transition:none;
+  transform-origin:50% 100%;
   box-shadow:
     inset  2px 0 1px -1px rgba(240,232,214,.42),
     inset -6px 0 7px -5px rgba(0,0,0,.6),
-     0 28px 36px -14px rgba(0,0,0,.85),
-    14px 10px 26px -10px rgba(0,0,0,.7);
+     1px 0 0 rgba(0,0,0,.4);
 }
-/* 棚板との接地の影は、手に取った本には要らない */
+/* 棚板との接地の影は、引き出した本には要らない */
 .focus__book .spine::after{ display:none; }
-/* 平置きの本は、表紙を起こして正面に向ける */
-.focus__cover{
-  display:block; width:100%; height:100%;
-  max-width:none;
-  object-fit:fill;
+/* 本が落とす影。窓は左上なので、右（隣の本）と下（棚板）へ落ちる。
+   本が手前へ出るほど、影は本から離れてやわらかくなる（scripts/main.js が動かす） */
+.focus__cast{
+  position:absolute; inset:0; z-index:-1;
   pointer-events:none;
-  -webkit-user-drag:none;
-  border-radius:1px 2px 2px 1px;
   box-shadow:
-    -3px 0 0 rgba(0,0,0,.45),
-    -5px 0 5px -2px rgba(0,0,0,.5),
-     0 28px 36px -14px rgba(0,0,0,.9);
+    10px 12px 18px -6px rgba(0,0,0,.66),
+     4px 26px 30px -14px rgba(0,0,0,.72);
 }
-/* キーボードで操作しているときだけ、焦点の枠を本のまわりに出す（by-key は scripts/main.js）。
-   指で手に取ったときも、焦点はこの本へ移す（読み上げで、手に取った本から読めるように）。
-   そのときは枠を出さない */
-.focus.by-key .focus__book:focus-visible .spine,
-.focus.by-key .focus__book:focus-visible .focus__cover{ outline:2px solid var(--paper); outline-offset:5px; }
-
-/* 添える書名と著者名。拡大した背表紙の横（ゆとりのある側）、平置きの本は表紙の下。
-   文字の上をタップしても商品詳細へ進む。文字の横の空いたところは、ぼかした棚と同じく
-   棚にもどる（書名が短いと、枠の半分以上が空いている）。
-   本が着くころに遅れて出す（本と文字が同時に動くと、目がどちらも追えない） */
-.focus__cap{
-  position:fixed; left:0; top:0;
-  width:var(--capw, 200px);
-  margin:0;
-  color:var(--paper);
+/* 本の側面。画面の中央を向いた側に、引き出したぶんだけ細く見える。
+   面は表紙の絵を奥へ縮めたもの。奥の端は目の高さへすぼまり（形は scripts/main.js）、
+   奥へ行くほど暗く、棚の中の暗がりに消える。
+   左を向いた面は窓の光を少し受け、右を向いた面はわずかに陰になる */
+.focus__side{
+  position:absolute; top:0; bottom:0;
   pointer-events:none;
-  opacity:0; transform:translateY(6px);
-  transition:opacity .18s var(--ease-leave), transform .18s var(--ease-leave);
+  background-color:var(--c);
+  background-repeat:no-repeat;
+  /* 表紙の絵を細く縮めると、地の粒が細かい縞になって目立つ。奥へ向かう面なので、わずかにぼかす */
+  filter:blur(.3px);
 }
-.focus.is-open .focus__cap{
-  opacity:1; transform:none;
-  transition:opacity .3s var(--ease-rise) .22s, transform .36s var(--ease-carry) .22s;
+.focus__side::after{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(var(--to), rgba(8,5,3,var(--near)) 0%, rgba(8,5,3,.4) 50%, rgba(6,4,2,.8) 85%, rgb(6,4,2) 100%);
 }
-/* 押せるのは文字のところだけ。幅は文字の長さに合わせる。
-   棚へ戻っているあいだ（is-leaving）は、文字も後ろの棚へタップを通す */
-.focus:not(.is-leaving) .focus__title,
-.focus:not(.is-leaving) .focus__author,
-.focus:not(.is-leaving) .focus__go{ pointer-events:auto; cursor:pointer; }
-.focus__title,
-.focus__author{ width:fit-content; }
-/* 本の左に置くときは本の側へ寄せる。表紙の下に置くときは中央 */
-.focus__cap.is-left{ text-align:right; }
-.focus__cap.is-left .focus__title,
-.focus__cap.is-left .focus__author{ margin-left:auto; }
-.focus__cap.is-below{ text-align:center; }
-.focus__cap.is-below .focus__title,
-.focus__cap.is-below .focus__author{ margin-left:auto; margin-right:auto; }
-/* 行のあいだは余白ではなく内側の詰め物で空ける。書名から目印まで、押せるところが途切れない */
-.focus__title{
-  margin-top:0; margin-bottom:0; padding:0 0 .4em;
-  font-size:16px; line-height:1.6; letter-spacing:.06em;
-  text-shadow:0 1px 8px rgba(0,0,0,.85);
-}
-.focus__author{
-  margin-top:0; margin-bottom:0; padding:0 0 1em;
-  font-size:12px; line-height:1.7; letter-spacing:.04em;
-  color:var(--paper-dim);
-  text-shadow:0 1px 8px rgba(0,0,0,.85);
-}
-/* もう一度タップするところの目印。押せるものに見えるよう、枠と地を付ける */
-.focus__go{
-  display:inline-flex; align-items:center;
-  min-height:36px;
-  margin:0; padding:0 1em;
-  font-size:12px; line-height:1.5; letter-spacing:.08em;
-  color:var(--paper);
-  border:1px solid rgba(210,198,174,.55);
-  border-radius:999px;
-  background:rgba(22,15,10,.62);
-  box-shadow:0 6px 14px -8px rgba(0,0,0,.9);
-}
-.focus__go::after{ content:"\203A"; margin-left:.5em; font-size:1.25em; line-height:1; }
-@media (hover:hover){
-  .focus__cap:hover .focus__go{ background:rgba(60,44,30,.82); border-color:rgba(210,198,174,.85); }
-}
+/* 右を向いた面も、手前の半分は本の色が見える程度に。暗くしすぎると、本の側面ではなく
+   黒い帯に見える */
+.focus__side.is-right{ left:100%;  transform-origin:0 50%;    --to:90deg;  --near:.12; }
+.focus__side.is-left { right:100%; transform-origin:100% 50%; --to:270deg; --near:.1; }
+/* キーボードで操作しているときだけ、焦点の枠を本のまわりに出す（by-key は scripts/main.js）。
+   指で引き出したときも、焦点はこの本へ移す（読み上げで、引き出した本から読めるように）。
+   そのときは枠を出さない */
+.focus.by-key .focus__book:focus-visible .spine{ outline:2px solid var(--paper); outline-offset:5px; }
 
 /* キーボードで焦点が来たときだけ見える「棚にもどる」。
-   指やマウスでは、拡大した本の外をタップすれば戻れる */
+   指やマウスでは、引き出した本の外をタップすれば戻せる */
 .focus__close{
   position:absolute;
   top:calc(14px + env(safe-area-inset-top)); right:14px;
@@ -1134,8 +1121,7 @@
 }
 
 @media (prefers-reduced-motion: reduce){
-  .focus__scrim,.focus__cap{ transition:none; }
-  .focus__cap{ transform:none; }
+  .focus__scrim{ transition:none; }
 }
 
 /* ============================================================
@@ -1302,10 +1288,11 @@
   transform:none; transition:transform .5s var(--ease-carry) .1s;
 }
 
-/* --- 上の帯 -------------------------------------------------- */
+/* --- 上の帯 --------------------------------------------------
+   左に「棚にもどる」、中央に店の名、右にカート（上の帯と同じ並び） */
 .item__bar{
   flex:0 0 auto;
-  display:flex; align-items:center; justify-content:space-between;
+  display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
   gap:12px;
   padding:clamp(10px,2.4vh,16px) clamp(14px,4vw,32px);
   padding-top:calc(clamp(10px,2.4vh,16px) + env(safe-area-inset-top));
@@ -1313,6 +1300,7 @@
   border-bottom:1px solid rgba(210,198,174,.14);
 }
 .item__back{
+  justify-self:start;
   display:inline-flex; align-items:center; gap:.6em;
   background:none; border:none; padding:.4em .2em;
   color:var(--paper-dim); cursor:pointer;
@@ -1326,6 +1314,20 @@
   margin:0; font-size:12.5px; letter-spacing:.24em; text-indent:.24em;
   color:var(--paper-dim);
 }
+/* カート。上の帯のカートと同じ絵と数。指で押せるよう 44px 四方を取り、帯の高さは変えない */
+.item__cart{
+  justify-self:end;
+  position:relative;
+  width:44px; height:44px; margin:-10px -10px -10px 0;
+  display:grid; place-items:center;
+  background:none; border:none; padding:0; cursor:pointer;
+  line-height:0; color:var(--paper);
+}
+.item__cart svg{ width:20px; height:20px; }
+.item__cart svg path,.item__cart svg circle{
+  stroke:currentColor; stroke-width:1.6; fill:none; stroke-linecap:round;
+}
+.item__cart:focus-visible{ outline:2px solid var(--paper-dim); outline-offset:-4px; border-radius:4px; }
 
 /* --- 中身 ---------------------------------------------------- */
 .item__body{
@@ -1381,6 +1383,10 @@
    マウスのある端末だけ色を変える */
 @media (hover:hover){ .item__act:hover{ background:rgba(210,198,174,.14); } }
 .item__act--buy{ border-color:rgba(210,198,174,.85); background:rgba(210,198,174,.18); }
+/* カートに入れたあと（「カートを見る」）。押すとカートが開く。先へ進む印を添える */
+/* 印は読み上げない（ボタンの名前は「カートを見る」のまま）。代わりの文字を空にできない
+   ブラウザでは、印だけを出す（前の content） */
+.item__act--buy.is-in::after{ content:"\203A"; content:"\203A" / ""; margin-left:.6em; font-size:1.2em; line-height:1; }
 .item__note{
   margin:0; font-size:11.5px; line-height:1.8; color:var(--paper-dim);
 }
@@ -1755,7 +1761,8 @@
   filter:drop-shadow(0 1px 6px rgba(0,0,0,.7));
 }
 .topbar__cart svg{ width:20px; height:20px; }
-.topbar__cart .n{
+.topbar__cart .n,
+.item__cart .n{
   position:absolute; top:-2px; right:-4px;
   min-width:16px; height:16px; padding:0 4px;
   display:grid; place-items:center;
@@ -1763,7 +1770,9 @@
   background:var(--paper); color:#1b1510;
   font-size:10px; line-height:1; letter-spacing:0;
 }
-.topbar__cart .n[hidden]{ display:none; }
+.item__cart .n{ top:5px; right:3px; }
+.topbar__cart .n[hidden],
+.item__cart .n[hidden]{ display:none; }
 
 @media (prefers-reduced-motion: reduce){
   .doc,.cart__scrim,.cart__panel,.toast{ transition:none; }

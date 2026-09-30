@@ -161,18 +161,14 @@ PAGE = """<!DOCTYPE html>
 
 </div>
 
-<!-- 本を手に取る。棚の本をタップすると、その本が少し前に出て大きく見える。
-     拡大した本か、横の書名をもう一度タップすると商品詳細へ。
-     ほかのところをタップすると棚にもどる。
+<!-- 本を棚から引き出す。棚の本をタップすると、その本が手前へ引き出され、途中で止まる。
+     引き出した本をもう一度タップすると商品詳細へ。ほかのところをタップすると棚へもどる。
+     層の名前は、引き出した本の書名（scripts/main.js が aria-label に入れる。画面には出さない）。
      「棚にもどる」のボタンは、キーボードで焦点が来たときだけ見える -->
-<div class="focus" id="focus" role="dialog" aria-modal="true" aria-labelledby="focus-title" hidden>
+<div class="focus" id="focus" role="dialog" aria-modal="true" hidden>
   <div class="focus__scrim"></div>
+  <div class="focus__slot" aria-hidden="true"></div>
   <button class="focus__book" type="button"></button>
-  <div class="focus__cap">
-    <p class="focus__title" id="focus-title"></p>
-    <p class="focus__author"></p>
-    <p class="focus__go" aria-hidden="true">この本のページへ</p>
-  </div>
   <button class="focus__close" type="button">棚にもどる</button>
 </div>
 
@@ -249,6 +245,14 @@ PAGE = """<!DOCTYPE html>
       <span>棚にもどる</span>
     </button>
     <p class="item__crumb">綴りの森</p>
+    <!-- カートに入れたあと、棚へもどらずにカートを見て購入へ進めるように（9/30 のご依頼） -->
+    <button type="button" class="item__cart" id="item-cart" aria-label="カートを見る">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 5h3l2.2 10.4a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.6L21 8H7"/>
+        <circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/>
+      </svg>
+      <span class="n" id="item-cart-n" hidden>0</span>
+    </button>
   </header>
 
   <div class="item__body">

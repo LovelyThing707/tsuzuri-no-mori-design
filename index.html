@@ -496,18 +496,14 @@
 
 </div>
 
-<!-- 本を手に取る。棚の本をタップすると、その本が少し前に出て大きく見える。
-     拡大した本か、横の書名をもう一度タップすると商品詳細へ。
-     ほかのところをタップすると棚にもどる。
+<!-- 本を棚から引き出す。棚の本をタップすると、その本が手前へ引き出され、途中で止まる。
+     引き出した本をもう一度タップすると商品詳細へ。ほかのところをタップすると棚へもどる。
+     層の名前は、引き出した本の書名（scripts/main.js が aria-label に入れる。画面には出さない）。
      「棚にもどる」のボタンは、キーボードで焦点が来たときだけ見える -->
-<div class="focus" id="focus" role="dialog" aria-modal="true" aria-labelledby="focus-title" hidden>
+<div class="focus" id="focus" role="dialog" aria-modal="true" hidden>
   <div class="focus__scrim"></div>
+  <div class="focus__slot" aria-hidden="true"></div>
   <button class="focus__book" type="button"></button>
-  <div class="focus__cap">
-    <p class="focus__title" id="focus-title"></p>
-    <p class="focus__author"></p>
-    <p class="focus__go" aria-hidden="true">この本のページへ</p>
-  </div>
   <button class="focus__close" type="button">棚にもどる</button>
 </div>
 
@@ -695,6 +691,14 @@
       <span>棚にもどる</span>
     </button>
     <p class="item__crumb">綴りの森</p>
+    <!-- カートに入れたあと、棚へもどらずにカートを見て購入へ進めるように（9/30 のご依頼） -->
+    <button type="button" class="item__cart" id="item-cart" aria-label="カートを見る">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 5h3l2.2 10.4a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.6L21 8H7"/>
+        <circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/>
+      </svg>
+      <span class="n" id="item-cart-n" hidden>0</span>
+    </button>
   </header>
 
   <div class="item__body">
@@ -766,7 +770,7 @@
   </button>
 </div>
 
-<script type="application/json" id="book-data">{"suika":{"title":"すいかのプール","author":"アンニョン・タル 作／斎藤 真理子 訳","pub":"岩波書店","kata":"A4判","pages":58,"price":1760,"desc":["大きなすいかを半分に割ったら、そこはもうプールだった。","水しぶきの赤、種の黒、遠くの空の青。ページをめくるたびに、夏の一日がゆっくりと過ぎていきます。文字は少なく、絵のなかの音を聞くようにして読む一冊です。","読み聞かせにも、ひとりで眺めるのにも。"],"cover":"assets/images/cover-suika-no-pool.webp","h":297,"w":210,"t":11},"monte":{"title":"モンテレッジオ 小さな村の旅する本屋の物語","author":"内田 洋子","pub":"方丈社","kata":"文庫判","pages":336,"price":990,"desc":["モンテレッジオは、イタリアの山あいにある小さな村です。この村の人たちは、かごに本を詰めて各地をめぐり、本を売って暮らしていました。","なぜ本だったのか。どうやって売り歩いたのか。著者は村を訪ね、残された人びとの話を聞き、記録をたどっていきます。","本を届けるという仕事が、どんな人たちの手で続いてきたのか。その来歴に触れる一冊です。"],"cover":"assets/images/cover-monteleggio.webp","h":148,"w":105,"t":19},"kagaku":{"title":"よみとく10分 かがくのお話25","author":"国立科学博物館 監修","pub":"西東社","kata":"A5判","pages":264,"price":1650,"desc":["どうして空は青いの。どうして氷は水に浮くの。","身のまわりにある「なぜ」を25話、ひとつ10分で読みきれる長さにまとめました。国立科学博物館の監修で、絵と写真をたっぷり使っています。","寝る前のひとつ、朝のひとつ。読み聞かせにも向いています。"],"cover":"assets/images/cover-kagaku-no-ohanashi-25.webp","h":210,"w":148,"t":25},"aya":{"title":"アーヤと魔女","author":"ダイアナ・ウィン・ジョーンズ 作／田中 薫子 訳","pub":"徳間書店","kata":"A5判","pages":128,"price":1540,"desc":["施設で育ったアーヤは、人を思いどおりに動かすのが得意な女の子。","ある日ひきとられた先は、魔女の家でした。朝から晩まで手伝いをさせられ、外にも出してもらえない。それでもアーヤは、すこしも動じません。","したたかで愉快な女の子の物語。読み終えたあと、きっとアーヤのことが好きになっています。"],"cover":"assets/images/cover-aya-to-majo.webp","h":210,"w":148,"t":16}}</script>
+<script type="application/json" id="book-data">{"suika":{"title":"すいかのプール","author":"アンニョン・タル 作／斎藤 真理子 訳","pub":"岩波書店","kata":"A4判","pages":58,"price":1760,"desc":["大きなすいかを半分に割ったら、そこはもうプールだった。","水しぶきの赤、種の黒、遠くの空の青。ページをめくるたびに、夏の一日がゆっくりと過ぎていきます。文字は少なく、絵のなかの音を聞くようにして読む一冊です。","読み聞かせにも、ひとりで眺めるのにも。"],"cover":"assets/images/cover-suika-no-pool.webp"},"monte":{"title":"モンテレッジオ 小さな村の旅する本屋の物語","author":"内田 洋子","pub":"方丈社","kata":"文庫判","pages":336,"price":990,"desc":["モンテレッジオは、イタリアの山あいにある小さな村です。この村の人たちは、かごに本を詰めて各地をめぐり、本を売って暮らしていました。","なぜ本だったのか。どうやって売り歩いたのか。著者は村を訪ね、残された人びとの話を聞き、記録をたどっていきます。","本を届けるという仕事が、どんな人たちの手で続いてきたのか。その来歴に触れる一冊です。"],"cover":"assets/images/cover-monteleggio.webp"},"kagaku":{"title":"よみとく10分 かがくのお話25","author":"国立科学博物館 監修","pub":"西東社","kata":"A5判","pages":264,"price":1650,"desc":["どうして空は青いの。どうして氷は水に浮くの。","身のまわりにある「なぜ」を25話、ひとつ10分で読みきれる長さにまとめました。国立科学博物館の監修で、絵と写真をたっぷり使っています。","寝る前のひとつ、朝のひとつ。読み聞かせにも向いています。"],"cover":"assets/images/cover-kagaku-no-ohanashi-25.webp"},"aya":{"title":"アーヤと魔女","author":"ダイアナ・ウィン・ジョーンズ 作／田中 薫子 訳","pub":"徳間書店","kata":"A5判","pages":128,"price":1540,"desc":["施設で育ったアーヤは、人を思いどおりに動かすのが得意な女の子。","ある日ひきとられた先は、魔女の家でした。朝から晩まで手伝いをさせられ、外にも出してもらえない。それでもアーヤは、すこしも動じません。","したたかで愉快な女の子の物語。読み終えたあと、きっとアーヤのことが好きになっています。"],"cover":"assets/images/cover-aya-to-majo.webp"}}</script>
 <script src="scripts/main.js"></script>
 </body>
 </html>

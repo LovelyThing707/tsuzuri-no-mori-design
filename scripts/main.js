@@ -192,17 +192,20 @@
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-  /* --- 本を手に取る ------------------------------------------
-     棚の本をタップすると、その本が少し前に出てピントが合い、ほかの本はぼやける。
-     背表紙は書名が読める大きさまで拡大し、横に書名と著者名を文字で添える（1回目）。
-     拡大した本か、添えた書名をもう一度タップすると、商品詳細が開く（2回目）。
-     それ以外のところをタップすると、棚にもどる。
+  /* --- 本を棚から引き出す ------------------------------------
+     棚の本をタップすると、その本が自分の場所から手前へ引き出され、途中で止まる。
+     手で本の頭に指をかけ、棚から引き抜きかけたときの動き。後ろはまだ棚に残っている
+     （9/30 のご依頼「本の後ろ側がまだ本棚に少し残っているくらいの引き出し具合」）。
+     ほかの本はぼかして暗くし、引き出した本にだけピントが合う（1回目）。
+     書名などの文字は添えない（同日のご依頼。背表紙そのものが見やすくなれば足りる）。
+     引き出した本をもう一度タップすると、商品詳細が開く（2回目）。
+     それ以外のところをタップすると、本は棚へ押しもどされる。
      以前は指を離しただけで本が開き、途中で指が離れただけでも先の画面へ
-     進んでしまっていた（國分様のご指摘）。先へ進むのは、拡大した本を
+     進んでしまっていた（國分様のご指摘）。先へ進むのは、引き出した本を
      もう一度タップしたときだけにする。
-     平置きの本も同じ二段。表紙を起こして大きく見せ、書名は表紙の下に添える。
-     マウスでは、指している本が少し出て書名の札が出る（何も開かない）。クリックで手に取る。
-     キーボードでは Enter で手に取り、もう一度 Enter で商品詳細、Escape で棚にもどる。 */
+     平置きの本は、タップするとそのまま商品詳細が開く（表紙の拡大は無い。9/30 のご依頼）。
+     マウスでは、指している本が少し出て書名の札が出る（何も開かない）。クリックで引き出す。
+     キーボードでは Enter で引き出し、もう一度 Enter で商品詳細、Escape で棚へもどす。 */
   function shelf(page) {
     var root = document.getElementById('focus');
     var raw = document.getElementById('book-data');
@@ -210,28 +213,46 @@
 
     var BOOKS = JSON.parse(raw.textContent);
     var box = root.querySelector('.focus__book');
-    var cap = root.querySelector('.focus__cap');
+    var hole = root.querySelector('.focus__slot');
     var shut = root.querySelector('.focus__close');
 
-    /* 拡大の決まり。縦と横に同じ倍率 s をかけ、実物どおりの比のまま大きくする。
-       s = min(4, min(画面の高さ − 上下 24px, 680px) ÷ 棚の上での背表紙の高さ)
-       文庫は書名の字が小さいので 4倍まで、背の高い絵本は画面に収まるところまで。
+    /* 引き出す大きさ。縦と横に同じ倍率をかけ、実物どおりの比のまま大きくする。
+       ご依頼の絵では、棚で 205px の本が引き出すと 360px（1.76 倍）。
+       大きさを変えても動かない点は、本の上から 71% のところ（同じ絵から）。本は上へ大きく、
+       下へ少し伸び、下の端は棚板の手前の縁にかかる（手前へ来たぶん）。
+       背の高い本が背の低い画面に収まらないときだけ、収まるところまで倍率を下げる。
+       画面の上の端に近い本（上の段の本、背の高い本）も倍率を下げる。1.76 倍のままだと
+       上の端で止めて下へ伸ばすことになり、本が棚から落ちて平台の上に出たように見える。
+       下の端が棚板の縁より下へ出るのは、本の高さの 12.5% まで（ご依頼の絵と同じ出方）。
        写真を引き伸ばすのではなく、大きな --mm で描き直す（写真の細かさのまま描ける） */
-    var EDGE = 24;        /* 画面の端から空ける */
-    var TALL = 680;       /* 拡大した本の高さの上限 */
-    var SMAX = 4;         /* 倍率の上限。これより大きくすると写真の粗が出る */
-    var GAP = 16;         /* 本と、添える書名のあいだ */
-    var GUARD = 450;      /* 開いてすぐのタップは受けない。二度たたきで先へ進まないように */
-    var DRIFT = 12;       /* 手に取ったまま、これより画面を送ったら棚にもどる */
-    var T_OPEN = 460, T_CLOSE = 260, T_FADE = 160;
+    var PULL = 1.76;
+    var BELOW = 0.125;    /* 棚板の縁より下へ出る長さの上限（引き出した本の高さに対する割合） */
+    var PULL_MIN = 1.2;   /* 画面の上の端で切れかけている本を引き出すときの下限 */
+    var FIX = 0.71;       /* styles/shelf.css の .focus__book の transform-origin と同じ */
+    var EDGE_X = 8;       /* 画面の左右の端から空ける。端の列の本も、なるべく自分の列のまま */
+    var EDGE_Y = 12;      /* 画面の上下の端から空ける */
+    var SIDE = 11;        /* 側面の見える幅の上限（px）。画面の端の本ほど広く見える */
+    var DEPTH = 0.35;     /* 引き出したぶん（本の奥行きに対する割合）。側面に見えるのはここまで */
+    var GUARD = 450;      /* 引き出してすぐのタップは受けない。二度たたきで先へ進まないように */
+    var DRIFT = 12;       /* 引き出したまま、これより画面を送ったら棚へもどす */
+    /* 動きの長さ。引き出すときは、頭に指をかけて手前へ傾ける短い間のあと、
+       すっと出てきて、静かに止まる。押しもどすときは、止まった姿から動き出し、
+       棚に収まる手前で速さを落とす（速さを増したまま着くと、棚の本へ跳んだように見える）。
+       動きを減らす設定では、棚の自分の場所から短く手前へ出て、短く戻るだけ
+       （側面を見せる動きも、傾ける動きもない。透けた姿から現れたり、消えていったりもしない） */
+    var T_OPEN = 500, T_CLOSE = 300, T_SOFT = 280, T_SOFT_CLOSE = 200;
+    var HOOK = 0.16;      /* 引き出す動きのうち、頭に指をかけて傾けるところの割合（80ms） */
+    var EASE_HOOK = 'cubic-bezier(.4,0,.8,.6)';
+    var EASE_PULL = 'cubic-bezier(.24,.6,.3,1)';
+    var EASE_BACK = 'cubic-bezier(.34,.08,.24,1)';
 
-    var src = null;       /* 手に取っている棚の本 */
+    var src = null;       /* 引き出している棚の本 */
     var key = null;
-    var at = null;        /* 拡大した本の置き場所（閉じるときは、ここから棚へ戻す） */
-    var since = 0;        /* 手に取った時刻 */
-    var y0 = 0;           /* 手に取ったときの画面の位置 */
-    var w0 = 0;           /* 手に取ったときの画面の幅 */
-    var anim = null;
+    var at = null;        /* 引き出した本の置き場所と、棚の上の姿 */
+    var since = 0;        /* 引き出した時刻 */
+    var y0 = 0;           /* 引き出したときの画面の位置 */
+    var w0 = 0;           /* 引き出したときの画面の幅 */
+    var anims = [];       /* 動いている途中の動き（本・側面・影・すき間） */
     var later = 0;
 
     /* ぼかしが重い端末（メモリの少ない端末）と、透け感を減らす設定では、暗くするだけにする */
@@ -240,217 +261,275 @@
       root.classList.add('is-plain');
     }
 
-    function css(name, d) {
-      var v = parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue(name));
-      return isNaN(v) ? d : v;
-    }
-
-    /* 棚の上での本の姿。平置きの本は寝かせてあるので、起こしたときの大きさ
-       （変形を含めない幅と高さ）と、足もと（手前の辺）の位置で表す */
+    /* 棚の上での本の姿。指でなぞって少し持ち上がっている途中（is-picked の戻り）や、
+       マウスを乗せて持ち上がっているときも、棚に立っている位置で測る。
+       持ち上がっていたぶん（lx・ly）も返す。引き出す動きは、その持ち上がった姿から始める
+       （棚に立つ位置から始めると、本が一度沈んでから出てくる） */
     function slot(el) {
       var r = el.getBoundingClientRect();
-      var flat = el.classList.contains('flat');
-      var cs = window.getComputedStyle(el);
-      return { flat: flat, cx: r.left + r.width / 2, bottom: r.bottom,
-               w: flat ? parseFloat(cs.width) : r.width,
-               h: flat ? parseFloat(cs.height) : r.height };
-    }
-
-    /* 拡大した本を、棚の上の姿に重ねる変形。軸は本の足もと（.focus__book の transform-origin）。
-       平置きの本は、棚と同じ傾きと遠近で寝かせる。
-       lift のときは、棚の中で少し持ち上げ、わずかに大きくした姿にする */
-    function onShelf(sl, lift) {
-      var dx = sl.cx - (at.L + at.W / 2), dy = sl.bottom - (at.T + at.H);
-      var g = lift ? 1.06 : 1;
-      var kx = sl.w / at.W * g, ky = sl.h / at.H * g;
-      var t = 'translate(' + dx.toFixed(2) + 'px,' + (dy - (lift ? 10 : 0)).toFixed(2) + 'px) ' +
-              'scale(' + kx.toFixed(4) + ',' + ky.toFixed(4) + ')';
-      if (sl.flat) {
-        var tilt = css('--flat-tilt', 54), persp = css('--flat-persp', 700);
-        /* 縮めたぶん、遠近の強さも同じ比で縮める（棚の本と同じ見え方になる） */
-        t += ' perspective(' + (persp / (sl.w / at.W)).toFixed(1) + 'px)' +
-             ' rotateX(' + (lift ? tilt * 0.55 : tilt).toFixed(1) + 'deg)';
+      var m = window.getComputedStyle(el).transform;
+      var dx = 0, dy = 0;
+      if (m && m !== 'none') {
+        var M = new DOMMatrix(m);
+        dx = M.e; dy = M.f;
       }
-      return t;
+      return { l: r.left - dx, t: r.top - dy, w: r.width, h: r.height, lx: dx, ly: dy };
     }
 
-    /* 置き場所を決める。本は棚の自分の列の近くに置き（画面の端から 24px より内側）、
-       書名はゆとりのある側に添える。横に 120px 取れないほど太い本と、平置きの本は、
-       書名を本の下に置く */
-    function layout(el, b, sl) {
+    /* 置き場所を決める。本は棚の自分の列のまま（左右の中心は棚の本と同じ）、
+       上から 71% の点を動かさずに大きくする。画面からはみ出すときだけ、内側へ寄せる。
+       側面は画面の中央を向いた側に見える */
+    function layout(el, b) {
       var vw = root.clientWidth, vh = root.clientHeight;
-      var room = Math.min(vh - 2 * EDGE, TALL);
-      var node, W, H, s, capW, side;
-
-      function measure() {
-        var r = node.getBoundingClientRect();
-        W = r.width; H = r.height;
+      var sl = slot(el);
+      /* 上の端から EDGE_Y 空けて置いたときに、下の端が棚板の縁より BELOW を超えて出ない倍率まで。
+         画面の上の端で切れかけている本でも、背表紙が読みやすくなるよう PULL_MIN までは大きくする */
+      var s = Math.min(PULL, (sl.t + sl.h - EDGE_Y) / (sl.h * (1 - BELOW)));
+      s = Math.min(Math.max(s, PULL_MIN), (vh - 2 * EDGE_Y) / sl.h);
+      /* 写しを大きな --mm で描く。天（紙の束の上面）の見える高さも同じ倍率で */
+      var top = parseFloat(window.getComputedStyle(el, '::before').height) || 0;
+      var node = document.createElement('div');
+      node.className = 'spine';
+      node.setAttribute('style', el.getAttribute('style') || '');
+      node.style.setProperty('--mm', s + 'px');
+      node.style.setProperty('--top', (top * s).toFixed(2) + 'px');
+      var im = el.querySelector('img');
+      if (im) {
+        im = im.cloneNode(false);
+        im.loading = 'eager';
+        node.appendChild(im);
       }
-      function below() {
-        capW = Math.min(300, vw - 2 * EDGE);
-        cap.className = 'focus__cap is-below';
-        cap.style.setProperty('--capw', capW + 'px');
-        return cap.offsetHeight;
-      }
+      var cast = document.createElement('span');
+      cast.className = 'focus__cast';
+      node.appendChild(cast);
+      box.appendChild(node);
+      var nr = node.getBoundingClientRect();
+      var W = nr.width, H = nr.height;
 
-      if (!sl.flat) {
-        s = Math.min(SMAX, room / sl.h);
-        node = document.createElement('div');
-        node.className = 'spine';
-        node.setAttribute('style', el.getAttribute('style') || '');
-        node.style.setProperty('--mm', s + 'px');
-        var im = el.querySelector('img');
-        if (im) {
-          im = im.cloneNode(false);
-          im.loading = 'eager';
-          node.appendChild(im);
-        }
-        box.appendChild(node);
-        measure();
-        capW = Math.min(260, vw - W - 2 * EDGE - GAP);
-        side = capW >= 120;
-      } else {
-        node = document.createElement('img');
-        node.className = 'focus__cover';
-        node.alt = '';
-        node.src = b.cover;
-        box.appendChild(node);
-        side = false;
-      }
+      var cx = sl.l + sl.w / 2, mid = vw / 2;
+      /* 側面の見える幅。画面の中央からの隔たりに比べる（中央の本は側面がほとんど見えない） */
+      var sw = Math.min(SIDE, SIDE * Math.abs(cx - mid) / (vw * 0.42));
+      var right = cx < mid;
+      if (sw < 2.5) sw = 0;
 
-      var L, T, CL, CT, ch;
-      if (side) {
-        /* 本の左右で、ゆとりのある側に書名を置く */
-        var right = (vw - (sl.cx + W / 2)) >= (sl.cx - W / 2);
-        cap.className = 'focus__cap' + (right ? '' : ' is-left');
-        cap.style.setProperty('--capw', capW + 'px');
-        ch = cap.offsetHeight;
-        L = right ? clamp(sl.cx - W / 2, EDGE, vw - EDGE - capW - GAP - W)
-                  : clamp(sl.cx - W / 2, EDGE + capW + GAP, vw - EDGE - W);
-        T = Math.max(EDGE, (vh - H) / 2);
-        CL = right ? L + W + GAP : L - GAP - capW;
-        CT = clamp(T + H / 2 - ch / 2, EDGE, vh - EDGE - ch);
-      } else {
-        ch = below();
-        var fit = room - GAP - ch;
-        if (!sl.flat) {
-          /* 太い本。書名を下に置くぶん、倍率を下げて画面に収める */
-          if (H > fit) {
-            s = s * fit / H;
-            node.style.setProperty('--mm', s + 'px');
-            measure();
-          }
-        } else {
-          /* 平置きの本。表紙を起こし、実物どおりの縦横比で、画面に収まる大きさにする */
-          var ratio = b.h / b.w;
-          W = Math.min(vw * 0.72, vw - 2 * EDGE, fit / ratio, SMAX * sl.w);
-          H = W * ratio;
-          s = W / sl.w;
-        }
-        /* 書名は本の真下、中心をそろえて置く。本が画面の端に近いときは、
-           書名が画面に収まるところまで本のほうを内側へ寄せる（書名だけを寄せると、中心がずれる） */
-        var half = Math.max(W, capW) / 2;
-        var c = clamp(sl.cx, EDGE + half, vw - EDGE - half);
-        L = c - W / 2;
-        T = Math.max(EDGE, (vh - H - GAP - ch) / 2);
-        CL = c - capW / 2;
-        CT = T + H + GAP;
+      var L = cx - W / 2;
+      L = clamp(L, EDGE_X + (right ? 0 : sw), vw - EDGE_X - W - (right ? sw : 0));
+      var T = sl.t + FIX * sl.h - FIX * H;
+      T = clamp(T, EDGE_Y, vh - EDGE_Y - H);
+
+      var side = null;
+      if (sw && b.cover) {
+        /* 側面は表紙の絵を奥へ縮めたもの。引き出したぶん（奥行きの 35%）を、見える幅に収める。
+           奥の端は、画面の中央（目の高さ）へ向かってすぼまる */
+        side = document.createElement('span');
+        side.className = 'focus__side ' + (right ? 'is-right' : 'is-left');
+        side.setAttribute('aria-hidden', 'true');
+        var near = right ? L + W : L;
+        var f = sw / Math.max(60, Math.abs(mid - near));
+        var yv = vh * 0.45 - T;                   /* 目の高さ（本の上の端から） */
+        var a = (yv * f).toFixed(2), z = (H + (yv - H) * f).toFixed(2);
+        var w = sw.toFixed(2);
+        side.style.width = w + 'px';
+        side.style.backgroundImage = 'url("' + b.cover + '")';
+        side.style.backgroundSize = (sw / DEPTH).toFixed(2) + 'px 100%';
+        side.style.backgroundPosition = right ? 'left top' : 'right top';
+        var poly = right
+          ? 'polygon(0 0, ' + w + 'px ' + a + 'px, ' + w + 'px ' + z + 'px, 0 100%)'
+          : 'polygon(0 ' + a + 'px, ' + w + 'px 0, ' + w + 'px 100%, 0 ' + z + 'px)';
+        side.style.webkitClipPath = poly;
+        side.style.clipPath = poly;
+        node.appendChild(side);
       }
 
       box.style.left = L + 'px'; box.style.top = T + 'px';
       box.style.width = W + 'px'; box.style.height = H + 'px';
-      cap.style.left = CL + 'px'; cap.style.top = CT + 'px';
-      /* かけた倍率を書いておく（tests/verify.js が拡大の決まりどおりかを読む） */
+      /* 本の抜けたすき間。棚の上の本と同じところ */
+      hole.style.left = sl.l + 'px'; hole.style.top = sl.t + 'px';
+      hole.style.width = sl.w + 'px'; hole.style.height = sl.h + 'px';
+      /* かけた倍率を書いておく（tests/verify.js が引き出す大きさの決まりどおりかを読む） */
       root.setAttribute('data-scale', s.toFixed(3));
-      return { L: L, T: T, W: W, H: H, s: s };
+      return { L: L, T: T, W: W, H: H, s: s, sl: sl, node: node, side: side, cast: cast };
     }
 
-    /* 1回目。本を手に取る */
+    /* 引き出した本を、棚の上の姿に重ねる変形。軸は上から 71% の点（.focus__book の transform-origin）。
+       g をかけると、その点を動かさずに少しだけ大きくする（頭に指をかけ、手前へ傾けたところ）。
+       lifted のときは、なぞったりマウスを乗せたりして持ち上がっていた姿に重ねる */
+    function onShelf(g, lifted) {
+      var sl = at.sl;
+      var sc = sl.w / at.W;
+      var tx = sl.l - at.L - at.W / 2 * (1 - sc) + (lifted ? sl.lx : 0);
+      var ty = sl.t - at.T - FIX * at.H * (1 - sc) + (lifted ? sl.ly : 0);
+      return 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + (sc * (g || 1)).toFixed(4) + ')';
+    }
+
+    /* 引き出したまま画面が送られたら、本と空いたところも棚といっしょに動かす（層は画面に固定なので）。
+       閉じる動きの途中も同じ。止まった先が、そのときの棚の本の場所になる */
+    function follow() {
+      if (!at || page.shown()) return;
+      var d = window.pageYOffset - y0;
+      box.style.top = (at.T - d) + 'px';
+      hole.style.top = (at.sl.t - d) + 'px';
+    }
+
+    function stop() {
+      anims.forEach(function (a) { a.cancel(); });
+      anims = [];
+    }
+    /* 動きは最後まで持っておき（止めた姿を残すものがある）、片づけるときにまとめて外す */
+    function track(list, then) {
+      anims = list;
+      var a = list[0];
+      a.onfinish = function () { if (anims[0] === a && then) then(); };
+    }
+
+    /* 1回目。本を引き出す（平置きの本は、そのまま商品詳細へ） */
     function open(el) {
       var k = el.getAttribute('data-book');
       var b = BOOKS[k];
       if (!b || page.shown()) return;
+      if (el.classList.contains('flat')) { visit(el); return; }
       if (src) done(true);
       hintDone();
       pick(null);
 
       src = el; key = k;
-      root.querySelector('.focus__title').textContent = b.title;
-      root.querySelector('.focus__author').textContent = b.author;
+      /* 層の名前は書名（書名は画面に出さないが、読み上げでは名乗る） */
+      root.setAttribute('aria-label', b.title);
       box.setAttribute('aria-label', '「' + b.title + '」の商品ページを開く');
       box.innerHTML = '';
       root.classList.remove('is-open', 'is-leaving');
       root.classList.toggle('by-key', byKey);
       root.hidden = false;
 
-      var sl = slot(el);
-      at = layout(el, b, sl);
+      at = layout(el, b);
       el.classList.add('is-taken');
       since = Date.now();
       y0 = window.pageYOffset;
       w0 = root.clientWidth;
 
+      var list;
       if (reduced.matches) {
-        /* 動きを減らす設定では、飛ばさずに短く浮かび上がらせるだけ */
-        anim = root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: T_FADE });
+        /* 棚の自分の場所から、短く手前へ出るだけ。浮かび上がる（透けた姿から現れる）のではなく、
+           本そのものが出てくる。側面を見せる動きも、傾ける動きもない（側面と影は薄く現れるだけ） */
+        var so = { duration: T_SOFT, fill: 'forwards' };
+        list = [
+          box.animate([{ transform: onShelf(1, true) }, { transform: 'none' }],
+            { duration: T_SOFT, easing: 'cubic-bezier(.2,.7,.3,1)' }),
+          hole.animate([{ opacity: 0 }, { opacity: 1 }], so),
+          at.cast.animate([{ opacity: 0 }, { opacity: 1 }], so)
+        ];
+        if (at.side) list.push(at.side.animate([{ opacity: 0 }, { opacity: 1 }], so));
       } else {
-        /* 棚の姿から始め、その場で少し持ち上がって大きくなり、手前の位置へ来る */
-        anim = box.animate([
-          { transform: onShelf(sl), offset: 0 },
-          { transform: onShelf(sl, true), offset: 0.22 },
+        var o = { duration: T_OPEN };
+        var tip = 'perspective(' + Math.round(at.H * 2.2) + 'px) ';
+        list = [
+          /* 本。棚の姿（持ち上がっていたらその姿）のまま頭に指がかかり（わずかに手前へ）、
+             そこから手前へすっと出て止まる */
+          box.animate([
+            { transform: onShelf(1, true), offset: 0, easing: EASE_HOOK },
+            { transform: onShelf(1.02), offset: HOOK, easing: EASE_PULL },
+            { transform: 'none', offset: 1 }
+          ], o),
+          /* 頭が手前へ傾き、引き出すあいだに起き直る。軸は本の足もと。
+             遠近は本の高さに比べて決め、背の高い本も低い本も、頭が同じだけ（4% ほど）手前へ来る */
+          at.node.animate([
+            { transform: tip + 'rotateX(0deg)', offset: 0, easing: 'ease-out' },
+            { transform: tip + 'rotateX(-5deg)', offset: HOOK, easing: 'ease-in-out' },
+            { transform: tip + 'rotateX(0deg)', offset: 0.62 },
+            { transform: tip + 'rotateX(0deg)', offset: 1 }
+          ], o),
+          /* 影は、本が棚から離れるほど遠く、やわらかくなる */
+          at.cast.animate([
+            { opacity: 0, transform: 'translate(-8px,-10px) scale(.9)', offset: 0 },
+            { opacity: 0.25, transform: 'translate(-6px,-8px) scale(.92)', offset: HOOK, easing: EASE_PULL },
+            { opacity: 1, transform: 'none', offset: 1 }
+          ], o),
+          /* すき間は、本が抜けはじめたところから暗くなる */
+          hole.animate([{ opacity: 0 }, { opacity: 0, offset: HOOK * 0.5 }, { opacity: 1, offset: 0.6 }, { opacity: 1 }],
+            Object.assign({ fill: 'forwards' }, o))
+        ];
+        /* 側面は、引き出したぶんだけ見えてくる */
+        if (at.side) list.push(at.side.animate([
+          { transform: 'scaleX(0)', offset: 0 },
+          { transform: 'scaleX(0)', offset: HOOK, easing: EASE_PULL },
           { transform: 'none', offset: 1 }
-        ], { duration: T_OPEN, easing: 'cubic-bezier(.30,.06,.18,1)' });
+        ], o));
       }
-      var a = anim;
-      a.onfinish = function () { if (anim === a) anim = null; };
-      /* 幕と書名は、本が動いているあいだに立ち上げる */
+      track(list);
+      /* 幕（ぼかし）は、本が動いているあいだに立ち上げる */
       window.requestAnimationFrame(function () {
         if (src === el && !root.classList.contains('is-leaving')) root.classList.add('is-open');
       });
-      /* 指で手に取ったときも焦点は移す（読み上げが、手に取った本から読めるように）。
+      /* 指で引き出したときも焦点は移す（読み上げが、引き出した本から読めるように）。
          そのときは焦点の枠を出さない（focusVisible）。枠が出ると、その先の商品詳細の
          「棚にもどる」にも枠が引き継がれる */
       box.focus({ preventScroll: true, focusVisible: byKey });
     }
 
-    /* 棚にもどる。手に取った本は、棚の空いたところへ戻っていく */
+    /* 棚へもどす。引き出した本は、いまの姿から棚の空いたところへ押しもどされる */
     function close() {
       if (!src || root.classList.contains('is-leaving')) return;
       var el = src;
       root.classList.remove('is-open');
       root.classList.add('is-leaving');
+      /* 引き出す途中で閉じたときは、いまの姿から戻す */
+      var cur = function (e, p) { return window.getComputedStyle(e)[p]; };
+      var now = { box: cur(box, 'transform'), node: cur(at.node, 'transform'),
+                  cast: cur(at.cast, 'transform'), castOp: cur(at.cast, 'opacity'),
+                  side: at.side ? cur(at.side, 'transform') : null, sideOp: at.side ? cur(at.side, 'opacity') : null,
+                  hole: cur(hole, 'opacity') };
+      stop();
+      /* 戻す先は、いまの棚の本の場所。引き出したときに測った場所のままだと、画面を送って閉じたとき、
+         本は棚が動く前の場所へ戻り、そのあと棚の本が別のところに現れる。
+         引き出したときの画面の位置（y0）での値に直しておく（follow が画面の送りを足す） */
+      var sl = slot(el), d = window.pageYOffset - y0;
+      at.sl = { l: sl.l, t: sl.t + d, w: sl.w, h: sl.h, lx: 0, ly: 0 };
+      hole.style.left = at.sl.l + 'px';
+      follow();
+      var list;
       if (reduced.matches) {
-        if (anim) anim.cancel();
-        anim = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: T_FADE * 0.75, fill: 'forwards' });
+        /* 短く、棚の自分の場所へ押しもどす。消えていくのではなく、本そのものが戻る */
+        var so = { duration: T_SOFT_CLOSE, fill: 'forwards' };
+        list = [
+          box.animate([{ transform: now.box }, { transform: onShelf() }],
+            { duration: T_SOFT_CLOSE, easing: EASE_BACK, fill: 'forwards' }),
+          hole.animate([{ opacity: now.hole }, { opacity: now.hole, offset: 0.7 }, { opacity: 0 }], so),
+          at.cast.animate([{ opacity: now.castOp }, { opacity: 0 }], so)
+        ];
+        if (at.side) list.push(at.side.animate([{ opacity: now.sideOp }, { opacity: 0 }], so));
       } else {
-        /* 開く途中で閉じたときは、いまの姿から戻す */
-        var now = anim ? window.getComputedStyle(box).transform : 'none';
-        if (anim) anim.cancel();
-        /* 終わりで速さを落とし、棚の空いたところへ静かに収める（開くときと同じ曲線）。
-           速さを増したまま着くと、最後に棚の本へ跳んだように見える */
-        anim = box.animate([{ transform: now }, { transform: onShelf(slot(el)) }],
-          { duration: T_CLOSE, easing: 'cubic-bezier(.30,.06,.18,1)', fill: 'forwards' });
+        var o = { duration: T_CLOSE, easing: EASE_BACK, fill: 'forwards' };
+        list = [
+          box.animate([{ transform: now.box }, { transform: onShelf() }], o),
+          at.node.animate([{ transform: now.node }, { transform: 'none' }], o),
+          at.cast.animate([{ transform: now.cast, opacity: now.castOp }, { transform: 'translate(-8px,-10px) scale(.9)', opacity: 0 }], o),
+          /* すき間は、本が収まりきるまで暗いまま */
+          hole.animate([{ opacity: now.hole }, { opacity: now.hole, offset: 0.7 }, { opacity: 0 }], o)
+        ];
+        if (at.side) list.push(at.side.animate([{ transform: now.side }, { transform: 'scaleX(0)', offset: 0.85 }, { transform: 'scaleX(0)' }], o));
       }
-      anim.onfinish = function () { if (src === el) done(false); };
+      track(list, function () { if (src === el) done(false); });
     }
 
-    /* 片づける。keep のときは焦点を動かさない（商品詳細へ進んだとき、別の本を手に取るとき） */
+    /* 片づける。keep のときは焦点を動かさない（商品詳細へ進んだとき、別の本を引き出すとき） */
     function done(keep) {
       var el = src;
       if (!el) return;
       window.clearTimeout(later);
-      if (anim) { anim.cancel(); anim = null; }
+      stop();
       src = null; key = null; at = null;
       el.classList.remove('is-taken');
       if (!keep) settleFocus(el, root);
       root.hidden = true;
       root.classList.remove('is-open', 'is-leaving');
       root.removeAttribute('data-scale');
+      root.removeAttribute('aria-label');
       box.innerHTML = '';
       box.removeAttribute('style');
+      hole.removeAttribute('style');
     }
 
-    /* 2回目。商品詳細を開く。手に取った本は、商品詳細が出きってから棚へ戻す
+    /* 2回目。商品詳細を開く。引き出した本は、商品詳細が出きってから棚へ戻す
        （先に戻すと、商品詳細が現れるあいだ、後ろに元の棚が透けて見える） */
     function go() {
       if (!src || root.classList.contains('is-leaving')) return;
@@ -461,8 +540,15 @@
         reduced.matches ? 0 : 480);
     }
 
+    /* 平置きの本。そのまま商品詳細を開く。押した手応えは CSS の :active だけ（待たせない） */
+    function visit(el) {
+      if (src) done(true);
+      hintDone();
+      page.open(el.getAttribute('data-book'), el);
+    }
+
     /* 指を離した位置。指で触れる端末のブラウザは、ボタンの近くをたたくと、
-       click をそのボタンに寄せて届ける。拡大した本のすぐ外（画面の隅の上の帯など）を
+       click をそのボタンに寄せて届ける。引き出した本のすぐ外（画面の隅の上の帯など）を
        たたいても商品詳細に進んでしまうので、どこをたたいたかは指を離した位置で決める */
     var lift = null;
     root.addEventListener('pointerup', function (e) {
@@ -470,17 +556,16 @@
     });
     root.addEventListener('click', function (e) {
       if (!src || root.classList.contains('is-leaving')) return;
-      /* 開いてすぐのタップは受けない。二度たたきの2回目や、
+      /* 引き出してすぐのタップは受けない。二度たたきの2回目や、
          指を離したあとに届く click が、そのまま商品詳細を開かないように */
       if (Date.now() - since < GUARD) return;
       var hit = e.target;
       if (lift && Date.now() - lift.t < 700) hit = document.elementFromPoint(lift.x, lift.y) || hit;
       lift = null;
       if (hit.closest('.focus__close')) { close(); return; }
-      /* 先へ進むのは、拡大した本と、添えた文字（書名・著者名・「この本のページへ」）だけ。
-         文字の横の空いたところは、ぼかした棚と同じく棚にもどる */
-      if (hit.closest('.focus__book, .focus__title, .focus__author, .focus__go')) { go(); return; }
-      /* それ以外（ぼかした棚、ほかの本、上の帯のあたり）は、棚にもどる */
+      /* 先へ進むのは、引き出した本（見えない押し幅を含む）だけ */
+      if (hit.closest('.focus__book')) { go(); return; }
+      /* それ以外（ぼかした棚、ほかの本、上の帯のあたり）は、棚へもどす */
       close();
     });
     document.addEventListener('keydown', function (e) {
@@ -489,14 +574,17 @@
       root.classList.add('by-key');
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
       if (e.key === 'Tab') {
-        /* 焦点は、手に取った本と「棚にもどる」のあいだだけを回る */
+        /* 焦点は、引き出した本と「棚にもどる」のあいだだけを回る */
         e.preventDefault();
         (document.activeElement === box ? shut : box).focus({ preventScroll: true });
       }
     }, true);
-    /* 手に取ったまま画面を送ったら、棚にもどる。画面は止めない */
+    /* 引き出したまま画面を送ったら、棚へもどす。画面は止めない。
+       本は棚といっしょに動き、棚の自分の場所へ戻る */
     window.addEventListener('scroll', function () {
-      if (src && !root.classList.contains('is-leaving') &&
+      if (!src) return;
+      follow();
+      if (!root.classList.contains('is-leaving') &&
           Math.abs(window.pageYOffset - y0) > DRIFT) close();
     }, { passive: true });
     /* 画面の向きが変わったら、置き場所が合わなくなるので片づける。
@@ -504,7 +592,7 @@
     window.addEventListener('resize', function () {
       if (src && root.clientWidth !== w0) done(false);
     });
-    /* 履歴をたどったとき（進む操作で商品詳細が開き直したときなど）は、手に取った本を片づける。
+    /* 履歴をたどったとき（進む操作で商品詳細が開き直したときなど）は、引き出した本を片づける。
        商品詳細の popstate が先に動くので、商品詳細が開いていれば焦点はそちらに残す */
     window.addEventListener('popstate', function () {
       if (src) done(page.shown());
@@ -512,7 +600,7 @@
 
     /* 狙いが外れたとき、いちばん近い本を拾う（マウス）。
        いちばん薄い本でも背は10px前後しかない。
-       段の中で当たったなら、横の距離がいちばん近い本を手に取る。
+       段の中で当たったなら、横の距離がいちばん近い本を引き出す。
        見た目には何も足していない（本を太らせずに、狙いだけ広げる）。 */
     function nearest(e) {
       var row = e.target.closest && e.target.closest('.case .row');
@@ -536,7 +624,7 @@
        指の腹より細く、書名の文字も小さい。
        書店で背表紙を指でなぞるように、棚の上を横になぞると、
        指の下の本が少し手前に出て、書名が大きく出る。
-       指を離すと、その本を手に取る（1回目と同じ。商品詳細へは進まない）。
+       指を離すと、その本を棚から引き出す（1回目と同じ。商品詳細へは進まない）。
        指を棚の上下へ外してから離せば、何もせずにやめられる。
        縦に動かしたときはページを送る（棚に touch-action:pan-y）。 */
     var tag = document.createElement('div');
@@ -547,7 +635,7 @@
     var picked = null;          /* いま札を出している本 */
     var touch = null;           /* なぞっている指 */
     var quietUntil = 0;         /* 指を離した直後に届く click を無視する */
-    var OFF = 36;               /* 棚の上下にこれだけ外して離したら、手に取らない */
+    var OFF = 36;               /* 棚の上下にこれだけ外して離したら、引き出さない */
 
     function shelfBooks(row) {
       return Array.prototype.filter.call(
@@ -645,8 +733,8 @@
       var b = null;
       if (onRow(touch.row, e.clientY)) b = touch.on ? picked : bookAt(touch.row, e.clientX);
       endTouch();
-      /* 指を離したあとに届く click で、二度手に取らないように。
-         手に取らずにやめたときも、あとから届く click で本を手に取らないように */
+      /* 指を離したあとに届く click で、二度引き出さないように。
+         引き出さずにやめたときも、あとから届く click で本を引き出さないように */
       quietUntil = Date.now() + 600;
       if (b) open(b);
     });
@@ -677,7 +765,7 @@
     }, { passive: true });
     window.addEventListener('resize', function () { if (!touch) pick(null); });
 
-    /* --- 手に取れることを、一度だけ知らせる ----------------------
+    /* --- 引き出せることを、一度だけ知らせる ----------------------
        指で触れる端末で、最初の棚が見えてきたときに、短く出して消す。
        一度でも棚に触れたら、もう出さない。 */
     var hint = null;
@@ -697,7 +785,7 @@
         hint = document.createElement('p');
         hint.className = 'shelf-hint';
         hint.setAttribute('aria-hidden', 'true');
-        hint.textContent = '本をタップすると、大きく表示されます';
+        hint.textContent = '本をタップすると、棚から引き出されます';
         first.parentNode.appendChild(hint);
         window.requestAnimationFrame(function () { if (hint) hint.classList.add('is-on'); });
         window.setTimeout(function () {
@@ -712,15 +800,15 @@
       io.observe(first);
     })();
 
-    /* マウスのクリック（と、指で平置きの本をタップしたとき）。本を手に取る */
+    /* マウスのクリック（と、指で平置きの本をタップしたとき）。背表紙は引き出し、平置きの本は商品詳細を開く */
     document.addEventListener('click', function (e) {
       if (Date.now() < quietUntil) return;
       if (root.contains(e.target)) return;
       var hit = e.target.closest('.case .spine[data-book], .case .flat[data-book]') || nearest(e);
       if (hit) open(hit);
     });
-    /* キーボード。Enter か Space で本を手に取る。
-       ここで既定の動きを止めておく。止めないと、手に取った本（ボタン）に焦点が移ったあと、
+    /* キーボード。Enter か Space で本を引き出す（平置きの本は商品詳細を開く）。
+       ここで既定の動きを止めておく。止めないと、引き出した本（ボタン）に焦点が移ったあと、
        同じキーでそのまま商品詳細が開いてしまう */
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -930,11 +1018,11 @@
 
   /* --- 商品詳細 ---------------------------------------------
      Shopify では商品ごとに自動で作られる画面（別のページ）。
-     棚で本を手に取り、拡大した本をもう一度タップすると開く。
+     棚で本を引き出し、引き出した本をもう一度タップすると開く。平置きの本はタップするとすぐに開く。
      「棚にもどる」（上と下の二か所）で、開く前と同じ位置の棚にもどる。
      開くたびに履歴を1つ積む。ブラウザの戻るや、スマートフォンの戻る操作でも
      棚にもどる（本物の商品ページは別の URL なので、戻る操作で棚にもどる。それと同じ）。
-     本を手に取っただけ（1回目）では、履歴は積まない。 */
+     本を引き出しただけ（1回目）では、履歴は積まない。 */
   function item(reader) {
     var root = document.getElementById('item');
     var raw = document.getElementById('book-data');
@@ -948,6 +1036,7 @@
     var popping = false;   /* こちらで履歴を戻したときの popstate。もう閉じてあるので何もしない */
     var openedAt = 0;      /* 開いた時刻 */
     var GUARD = 450;       /* 開いてすぐのタップは受けない */
+    var hooks = [];        /* 開いたときに知らせる先（カートが「カートに入れる」の言葉を合わせる） */
 
     function set(sel, txt) { root.querySelector(sel).textContent = txt; }
 
@@ -991,6 +1080,7 @@
       key = k;
       if (el) from = el;
       fill(b);
+      hooks.forEach(function (fn) { fn(k); });
       openedAt = Date.now();
       root.hidden = false;
       body.scrollTop = 0;
@@ -1049,7 +1139,7 @@
       }
     });
 
-    /* 開いてすぐのタップは受けない。拡大した本をすばやく二度たたいたとき、
+    /* 開いてすぐのタップは受けない。引き出した本や平置きの本をすばやく二度たたいたとき、
        2回目がそのまま「カートに入れる」「試し読み」「棚にもどる」に当たらないように。
        カートや試し読みはページ全体で click を受けるので、それより先（捕まえる段階）で止める */
     root.addEventListener('click', function (e) {
@@ -1071,7 +1161,8 @@
       open: open,
       close: close,
       shown: function () { return !root.hidden && !closing; },
-      key: function () { return root.hidden || closing ? null : key; }
+      key: function () { return root.hidden || closing ? null : key; },
+      onOpen: function (fn) { hooks.push(fn); }
     };
   }
 
@@ -1132,7 +1223,11 @@
 
   /* --- カート -----------------------------------------------
      決済と配送の入力は Shopify 標準（要件定義書 2-6）。
-     ここは、そこへ渡るまでの見え方をつくる。 */
+     ここは、そこへ渡るまでの見え方をつくる。
+     商品詳細からも、棚へもどらずにカートを見て購入へ進める（9/30 のご依頼）。
+     商品詳細の右上に上の帯と同じカートを置き、「カートに入れる」は入れたあと「カートを見る」に変える。
+     カートに入っている本の商品詳細を開いたときも、はじめから「カートを見る」。
+     カートは商品詳細の上に開き、閉じると商品詳細にもどる。 */
   function cart(page) {
     var root = document.getElementById('cart');
     var raw = document.getElementById('book-data');
@@ -1143,7 +1238,12 @@
     var sub = document.getElementById('cart-sub');
     var go = document.getElementById('cart-go');
     var badge = document.getElementById('cart-n');
+    var badge2 = document.getElementById('item-cart-n');
+    var buy = document.querySelector('.item__act--buy');
     var items = {};        /* key -> 冊数 */
+    var addedAt = 0;       /* 「カートに入れる」を押した時刻 */
+    var AGAIN = 400;       /* 入れてすぐのタップでは、カートを開かない（二度たたきの2回目） */
+    var opener = null;     /* カートを開いたボタン。キーボードで閉じたら、焦点をここへ返す */
 
     function count() {
       var n = 0;
@@ -1152,10 +1252,25 @@
     }
     function yen(v) { return v.toLocaleString('ja-JP') + '円'; }
 
+    /* 商品詳細の「カートに入れる」を、開いている本がカートに入っているかに合わせる */
+    function sync(k) {
+      if (!buy) return;
+      if (k === undefined) k = page ? page.key() : null;
+      var has = !!(k && items[k]);
+      var txt = has ? 'カートを見る' : 'カートに入れる';
+      if (buy.textContent !== txt) buy.textContent = txt;
+      buy.classList.toggle('is-in', has);
+    }
+
     function draw() {
       var n = count();
-      badge.textContent = n;
-      badge.hidden = n === 0;
+      /* 数は、ボタンの名前にも入れる。ボタンの名前があると、読み上げは中の数を読まない */
+      [badge, badge2].forEach(function (e) {
+        if (!e) return;
+        e.textContent = n;
+        e.hidden = n === 0;
+        e.parentNode.setAttribute('aria-label', n ? 'カートを見る（' + n + '冊）' : 'カートを見る');
+      });
       empty.hidden = n > 0;
       go.disabled = n === 0;
 
@@ -1180,6 +1295,7 @@
       }
       list.innerHTML = html;
       sub.textContent = yen(total);
+      sync();
     }
 
     function add(key) {
@@ -1189,27 +1305,39 @@
       toast('「' + BOOKS[key].title + '」をカートに入れました');
     }
 
-    function open() {
+    function open(from) {
+      opener = from || null;
       root.hidden = false;
       window.requestAnimationFrame(function () { root.classList.add('is-open'); });
       document.body.classList.add('peek-open');
       root.querySelector('.cart__close').focus({ preventScroll: true });
     }
     function close() {
+      if (root.hidden) return;
       root.classList.remove('is-open');
-      document.body.classList.remove('peek-open');
-      window.setTimeout(function () { root.hidden = true; },
-        reduced.matches ? 0 : 320);
+      /* 商品詳細の上で開いていたときは、後ろの棚は止めたまま（商品詳細にもどる） */
+      if (!above(['item', 'doc', 'menu'])) document.body.classList.remove('peek-open');
+      var back = opener;
+      opener = null;
+      window.setTimeout(function () {
+        root.hidden = true;
+        settleFocus(back, root);
+      }, reduced.matches ? 0 : 320);
     }
 
-    /* 「カートに入れる」は商品詳細にある。入れるのは、商品詳細に開いている本 */
+    /* 「カートに入れる」は商品詳細にある。入れるのは、商品詳細に開いている本。
+       入れたあとは「カートを見る」になり、押すとカートが開く */
     document.addEventListener('click', function (e) {
-      if (e.target.closest('.item__act--buy')) {
+      var act = e.target.closest('.item__act--buy');
+      if (act) {
         var k = page ? page.key() : null;
-        if (k) add(k);
+        if (!k) return;
+        if (!items[k]) { add(k); addedAt = Date.now(); }
+        else if (Date.now() - addedAt > AGAIN) open(act);
         return;
       }
-      if (e.target.closest('#cart-open')) { open(); return; }
+      var btn = e.target.closest('#cart-open, #item-cart');
+      if (btn) { open(btn); return; }
       if (e.target.closest('[data-cart-close]')) { close(); return; }
 
       var row = e.target.closest('.cart__row');
@@ -1228,11 +1356,18 @@
         e.stopPropagation(); close();
       }
     }, true);
+    /* 戻る操作で商品詳細が閉じたら、その上に開いていたカートもいっしょに閉じる（試し読みと同じ）。
+       閉じないと、棚の上にカートだけが残り、後ろの棚も止まらずに動く。
+       商品詳細の popstate が先に動く（先に登録してある）ので、ここでは閉じたあとの様子を見る */
+    window.addEventListener('popstate', function () {
+      if (!root.hidden && !(page && page.shown())) close();
+    });
 
     go.addEventListener('click', function () {
       toast('この先はShopifyの購入手続きの画面へ進みます');
     });
 
+    if (page) page.onOpen(sync);
     draw();
   }
 
@@ -1411,10 +1546,10 @@
      帯の高さ（標準的な iPhone で 84px ほど）がちょうどその足りない分にあたるため（9/29 のご依頼）。
      少しでも上へ戻せば、すぐに出す。
      出したままにするのは、森が見えているあいだ（ページの先頭を含む）、
-     覆い（メニュー・カート・商品詳細・試し読み・固定ページ・手に取った本の層）を開いているあいだ、
+     覆い（メニュー・カート・商品詳細・試し読み・固定ページ・引き出した本の層）を開いているあいだ、
      キーボードで帯の中を操作しているあいだ。
      覆いを閉じたあとも出したままにしておき、次に下へ送ったときに引っ込める。
-     ただし手に取った本の層だけは、棚にもどったら開く前の出し入れに戻す。本を見て棚に
+     ただし引き出した本の層だけは、棚にもどったら開く前の出し入れに戻す。本を見て棚に
      もどっただけで、上へ戻してもいないのに帯が看板の列にかぶるのを防ぐ
      （商品詳細へ進んだときは、商品詳細の決まりに従う）。
      出し入れは画面の大きさによらない（スマートフォンもパソコンも同じ）。 */
@@ -1480,7 +1615,7 @@
       return byKey && !!a && a !== document.body && el.contains(a);
     }
 
-    /* 手に取った本の層。peek-open を付けないので、層そのものを見る（棚へ戻る途中は数えない）。
+    /* 引き出した本の層。peek-open を付けないので、層そのものを見る（棚へ戻る途中は数えない）。
        層は帯ごとぼかして覆う（styles/shelf.css の .focus）ので、開いても帯の出し入れは変えない。
        帯を出すと、ぼかしの向こうで帯が現れては消え、本を見ている目の端がちらつく。
        棚にもどったときは、開く前の出し入れのまま */
@@ -1520,7 +1655,7 @@
       if (steering) return;
       /* 森がまだ画面に見えているうち（ページの先頭を含む）は、出したまま */
       if (edge > 0 || held()) { run = 0; put(false); return; }
-      /* 手に取った本の層を開いているあいだは、層のほう（onLayer）が決める */
+      /* 引き出した本の層を開いているあいだは、層のほう（onLayer）が決める */
       if (layerUp()) { run = 0; return; }
       /* キーボードで焦点を移した拍子の送りでは、出し入れしない */
       if (Date.now() - moved < 120) { run = 0; return; }

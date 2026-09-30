@@ -161,7 +161,7 @@
   transform:translateY(-100%);
   transition:transform var(--t-leave) var(--ease-leave);
 }
-/* 手に取った本の層の向こうで出し入れするときは、滑らせない（scripts/main.js が一瞬だけ付ける）。
+/* 引き出した本の層の向こうで出し入れするときは、滑らせない（scripts/main.js が一瞬だけ付ける）。
    層は帯ごとぼかして覆うので、その向こうで帯が滑ると、ぼけた影が動いて見える */
 .topbar.is-still, .topbar.is-away.is-still{ transition:none; }
 .topbar > *{ pointer-events:auto; }
