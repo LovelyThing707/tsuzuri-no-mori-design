@@ -168,6 +168,7 @@ PAGE = """<!DOCTYPE html>
 <div class="focus" id="focus" role="dialog" aria-modal="true" hidden>
   <div class="focus__scrim"></div>
   <div class="focus__slot" aria-hidden="true"></div>
+  <div class="focus__cast" aria-hidden="true"></div>
   <button class="focus__book" type="button"></button>
   <button class="focus__close" type="button">棚にもどる</button>
 </div>

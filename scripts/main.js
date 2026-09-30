@@ -190,15 +190,19 @@
     if (a && a !== document.body && inside && inside.contains(a)) a.blur();
   }
 
-  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-
   /* --- 本を棚から引き出す ------------------------------------
-     棚の本をタップすると、その本が自分の場所から手前へ引き出され、途中で止まる。
+     棚の本をタップすると、その本が自分の場所から手前へ滑り出て、途中で止まる。
      手で本の頭に指をかけ、棚から引き抜きかけたときの動き。後ろはまだ棚に残っている
      （9/30 のご依頼「本の後ろ側がまだ本棚に少し残っているくらいの引き出し具合」）。
-     ほかの本はぼかして暗くし、引き出した本にだけピントが合う（1回目）。
+     引き出した本は箱として描く。前の面が背表紙、横の面が表紙。
+     棚の面より手前に出たところだけを描くので、横の面は、棚の本の輪郭から引き出した背表紙まで
+     伸びる台形に見える。この長さが、絵が大きくなったのではなく本が棚から出てきたことを伝える
+     （以前は背表紙の絵を 1.76 倍に大きくしていて、「切り抜かれた背表紙画像」に見えた）。
+     画面の中央の本も、横の面が見えるように少し横から見る。
+     ほかの本は少しだけぼかして暗くし、引き出した本にだけピントが合う（1回目）。
+     棚は読める程度に残す。本がこの棚から出てきたことが分かるように。
      書名などの文字は添えない（同日のご依頼。背表紙そのものが見やすくなれば足りる）。
-     引き出した本をもう一度タップすると、商品詳細が開く（2回目）。
+     引き出した本（背表紙でも横の面でも）をもう一度タップすると、商品詳細が開く（2回目）。
      それ以外のところをタップすると、本は棚へ押しもどされる。
      以前は指を離しただけで本が開き、途中で指が離れただけでも先の画面へ
      進んでしまっていた（國分様のご指摘）。先へ進むのは、引き出した本を
@@ -214,37 +218,62 @@
     var BOOKS = JSON.parse(raw.textContent);
     var box = root.querySelector('.focus__book');
     var hole = root.querySelector('.focus__slot');
+    var cast = root.querySelector('.focus__cast');
     var shut = root.querySelector('.focus__close');
 
-    /* 引き出す大きさ。縦と横に同じ倍率をかけ、実物どおりの比のまま大きくする。
-       ご依頼の絵では、棚で 205px の本が引き出すと 360px（1.76 倍）。
-       大きさを変えても動かない点は、本の上から 71% のところ（同じ絵から）。本は上へ大きく、
-       下へ少し伸び、下の端は棚板の手前の縁にかかる（手前へ来たぶん）。
-       背の高い本が背の低い画面に収まらないときだけ、収まるところまで倍率を下げる。
-       画面の上の端に近い本（上の段の本、背の高い本）も倍率を下げる。1.76 倍のままだと
-       上の端で止めて下へ伸ばすことになり、本が棚から落ちて平台の上に出たように見える。
-       下の端が棚板の縁より下へ出るのは、本の高さの 12.5% まで（ご依頼の絵と同じ出方）。
-       写真を引き伸ばすのではなく、大きな --mm で描き直す（写真の細かさのまま描ける） */
-    var PULL = 1.76;
-    var BELOW = 0.125;    /* 棚板の縁より下へ出る長さの上限（引き出した本の高さに対する割合） */
-    var PULL_MIN = 1.2;   /* 画面の上の端で切れかけている本を引き出すときの下限 */
-    var FIX = 0.71;       /* styles/shelf.css の .focus__book の transform-origin と同じ */
-    var EDGE_X = 8;       /* 画面の左右の端から空ける。端の列の本も、なるべく自分の列のまま */
+    /* 遠近は一点透視。本は大きくするのではなく、近づいたぶんだけ大きく見える。
+       手のひらの幅ほど引き出した本は、1.26 倍ほど（9/30 のご依頼「今ほど大きくなくていい」）。
+       近づいた物は消える点から離れる向きに写るので、本は自分の場所から少し外側へずれる。
+       消える点の左右の位置は、画面の中央（什器の側板の面の見え方と同じ）。
+       画面の中央より左の本は右の横の面が、右の本は左の横の面が見える。
+       高さは、引き出す本の中ほど。手に取る本は、目の高さで見る。
+       什器の目の高さ（下の段の上のほう）のまま近づけると、下の段の本は足もとが棚板を越えて
+       平台の上まで下がり、上の段の本は頭が看板の近くまで上がって、棚から落ちた・飛び出したように
+       見えた。什器はほとんど平らに描いてあり（棚板の上の面は見えない）、本だけが強く下がると合わない。
+       目の高さを本の中ほどにすると、背表紙は上と下へ同じだけ大きくなり、段の中に収まる。
+       天（紙の束の上面）は、棚の本と同じ細い帯で見える（背表紙の写しに含まれている） */
+    var PULL = 0.75;      /* 引き出す長さ。本の奥行き（判の横幅）に対する割合。後ろの 1/4 は棚に残る */
+    var NEAR = 1.26;      /* そのとき背表紙が、棚の上より何倍に見えるか */
+    /* 画面の中央あたりの本は、真正面から見ると横の面がほとんど見えず、背表紙の絵が大きくなった
+       だけに見える。目は、見える側の本の縁から少なくともこれだけ横にあることにする
+       （そのとき横の面は 15px ほどに写る。本は外側へ 20px ほどずれる） */
+    var ASIDE = 60;
+    /* 背表紙は中ほどを中心に大きくなる。段に収まらないときだけ、中心を上か下へ寄せる。
+       寄せても、上と下のどちらかへ伸びるぶんが全体のこの割合を超えないようにし、
+       超えるときは大きさを控える（多くが上へ伸びると、近づいたのではなく絵が大きくなったように見える） */
+    var LEAN = 0.65;
+    /* 頭は、段の上の板の上の端より、これだけ下で止める（看板や上の段の本の足もとに届かない） */
+    var ROOF = 4;
+    /* 見える横の面の長さは、引き出した長さに対してこの割合まで。広い画面の端の本を近くから見ると、
+       目の前の広い棚を広角で覗いたことになり、横の面が長く伸びすぎる。そのときは大きさを控える */
+    var WIDE = 0.5;
+    /* 画面の端の本を画面に収めるために下げるときの下限。画面の縁に掛かって切れている本でも、
+       少しは手前へ出す（出てこないと、タップが効いたのか分からない） */
+    var NEAR_MIN = 1.02;
+    var TIP = 4;          /* 頭に指をかけて手前へ傾ける角度（deg） */
+    /* 窓の光の向き。本が棚の面から手前へ出たぶんに対する、影のずれ（右へ・下へ）。
+       窓は左上なので、影は右の本と下の棚板に落ちる */
+    var LIGHT_X = 0.3, LIGHT_Y = 0.24;
+    /* 画面の左右の端から空ける。近づいた本は外側へずれるので、列の端の本はここで大きさが決まる
+       （空きを広く取るほど、端の本は大きくならない。引き出す長さは、どの本も同じ） */
+    var EDGE_X = 4;
     var EDGE_Y = 12;      /* 画面の上下の端から空ける */
-    var SIDE = 11;        /* 側面の見える幅の上限（px）。画面の端の本ほど広く見える */
-    var DEPTH = 0.35;     /* 引き出したぶん（本の奥行きに対する割合）。側面に見えるのはここまで */
+    /* キーボードで引き出したときは、焦点の枠（本から 5px 離した太さ 2px の線）のぶんも空ける。
+       空けないと、列の端の本の枠が画面の外へ出て見えない */
+    var RING = 7;
     var GUARD = 450;      /* 引き出してすぐのタップは受けない。二度たたきで先へ進まないように */
     var DRIFT = 12;       /* 引き出したまま、これより画面を送ったら棚へもどす */
     /* 動きの長さ。引き出すときは、頭に指をかけて手前へ傾ける短い間のあと、
-       すっと出てきて、静かに止まる。押しもどすときは、止まった姿から動き出し、
+       まっすぐ手前へすっと滑り出て、静かに止まる。押しもどすときは、止まった姿から動き出し、
        棚に収まる手前で速さを落とす（速さを増したまま着くと、棚の本へ跳んだように見える）。
-       動きを減らす設定では、棚の自分の場所から短く手前へ出て、短く戻るだけ
-       （側面を見せる動きも、傾ける動きもない。透けた姿から現れたり、消えていったりもしない） */
-    var T_OPEN = 500, T_CLOSE = 300, T_SOFT = 280, T_SOFT_CLOSE = 200;
-    var HOOK = 0.16;      /* 引き出す動きのうち、頭に指をかけて傾けるところの割合（80ms） */
+       動きを減らす設定では、傾けずに、短くまっすぐ滑り出て、短く戻るだけ */
+    var T_OPEN = 560, T_CLOSE = 350, T_SOFT = 280, T_SOFT_CLOSE = 200;
+    var HOOK = 0.16;      /* 引き出す動きのうち、頭に指をかけて傾けるところの割合（90ms） */
+    var U_HOOK = 0.03;    /* 傾けるあいだに出てくる長さ（引き出す長さに対する割合） */
     var EASE_HOOK = 'cubic-bezier(.4,0,.8,.6)';
     var EASE_PULL = 'cubic-bezier(.24,.6,.3,1)';
     var EASE_BACK = 'cubic-bezier(.34,.08,.24,1)';
+    var EASE_SOFT = 'cubic-bezier(.2,.7,.3,1)';
 
     var src = null;       /* 引き出している棚の本 */
     var key = null;
@@ -252,7 +281,7 @@
     var since = 0;        /* 引き出した時刻 */
     var y0 = 0;           /* 引き出したときの画面の位置 */
     var w0 = 0;           /* 引き出したときの画面の幅 */
-    var anims = [];       /* 動いている途中の動き（本・側面・影・すき間） */
+    var anims = [];       /* 動いている途中の動き（本・面・影・すき間） */
     var later = 0;
 
     /* ぼかしが重い端末（メモリの少ない端末）と、透け感を減らす設定では、暗くするだけにする */
@@ -276,22 +305,110 @@
       return { l: r.left - dx, t: r.top - dy, w: r.width, h: r.height, lx: dx, ly: dy };
     }
 
-    /* 置き場所を決める。本は棚の自分の列のまま（左右の中心は棚の本と同じ）、
-       上から 71% の点を動かさずに大きくする。画面からはみ出すときだけ、内側へ寄せる。
-       側面は画面の中央を向いた側に見える */
+    /* 箱の横の面。棚の面から、止まったときの背表紙の面までの枠（棚の中にある後ろは描かない）。
+       枠の中を表紙の絵が本といっしょに滑り、奥の暗がりから出てくる。
+       陰は枠に留まる（棚の奥ほど暗い。本が出てくるほど、絵が明るいところへ出る）。
+       枠は見える側の面だけ作る。天と地の面は、目の高さが本の中ほどにあるので見えない。
+       k は、背表紙の奥行き z に対する絵のずれの符号 */
+    function face(name, W, H, Z, KZ) {
+      var el = document.createElement('span');
+      var tex = document.createElement('span');
+      var shade = document.createElement('span');
+      el.className = 'focus__face is-' + name;
+      tex.className = 'focus__tex';
+      shade.className = 'focus__shade';
+      var px = function (v) { return v.toFixed(2) + 'px'; };
+      var set = function (e, l, t, w, h) {
+        e.style.left = px(l); e.style.top = px(t); e.style.width = px(w); e.style.height = px(h);
+      };
+      if (name === 'right') {
+        set(el, W, 0, Z, H); el.style.transformOrigin = '0 50%'; el.style.transform = 'rotateY(90deg)';
+        set(tex, 0, 0, KZ, H); set(shade, 0, 0, Z, H);
+      } else {
+        set(el, -Z, 0, Z, H); el.style.transformOrigin = '100% 50%'; el.style.transform = 'rotateY(-90deg)';
+        set(tex, Z - KZ, 0, KZ, H); set(shade, KZ - Z, 0, Z, H);
+      }
+      el.setAttribute('aria-hidden', 'true');
+      tex.appendChild(shade);
+      el.appendChild(tex);
+      return { name: name, el: el, tex: tex, shade: shade, k: name === 'right' ? -1 : 1 };
+    }
+
+    /* 置き場所を決める。本の後ろの端は棚の本の輪郭のまま動かさず、背表紙を奥行きの 3/4 だけ手前へ出す。
+       どれだけ大きく見えるか（見ている距離）は、本ごとに決める。ふつうは NEAR 倍。
+       段に収まらないとき、広い画面の端の本、画面の外へ出てしまうときだけ控える
+       （引き出す長さは変えない。表紙の 3/4 が見え、影も同じだけ伸びる） */
     function layout(el, b) {
       var vw = root.clientWidth, vh = root.clientHeight;
       var sl = slot(el);
-      /* 上の端から EDGE_Y 空けて置いたときに、下の端が棚板の縁より BELOW を超えて出ない倍率まで。
-         画面の上の端で切れかけている本でも、背表紙が読みやすくなるよう PULL_MIN までは大きくする */
-      var s = Math.min(PULL, (sl.t + sl.h - EDGE_Y) / (sl.h * (1 - BELOW)));
-      s = Math.min(Math.max(s, PULL_MIN), (vh - 2 * EDGE_Y) / sl.h);
-      /* 写しを大きな --mm で描く。天（紙の束の上面）の見える高さも同じ倍率で */
+      var cs = window.getComputedStyle(el);
+      var mm = parseFloat(cs.getPropertyValue('--mm')) || 1;
+      var K = (parseFloat(cs.getPropertyValue('--kw')) || 148) * mm;   /* 本の奥行き（px） */
+      var D = K * PULL;                                                   /* 引き出す長さ（px） */
+      var l = sl.l, t = sl.t, r = sl.l + sl.w, bt = sl.t + sl.h, h = sl.h;
+      var s = NEAR, why = '';
+
+      /* 消える点の左右。画面の中央。ただし本の縁から ASIDE より近ければ、そこまで離す。
+         画面の中央より左の本（中央にかかる本も）は右の面、右の本は左の面が見える */
+      var side = (l + r) / 2 <= vw / 2 ? 'right' : 'left';
+      var vx = side === 'right' ? Math.max(vw / 2, r + ASIDE) : Math.min(vw / 2, l - ASIDE);
+      var off = side === 'right' ? vx - r : l - vx;
+      /* 広い画面の端の本。横の面の長さ off（s − 1）が、引き出した長さ D s の WIDE 倍まで */
+      var q = WIDE * D / off;
+      if (q < 1 && 1 / (1 - q) < s) { s = 1 / (1 - q); why = 'wide'; }
+      /* 画面に収まる倍率まで。背表紙の四隅が、画面の端から EDGE 以上内側にあること
+         （横の面は棚の本の輪郭と背表紙のあいだにあるので、背表紙が収まれば本も収まる）。まず左右 */
+      var ex = EDGE_X + (byKey ? RING : 0), ey = Math.max(EDGE_Y, byKey ? RING : 0);
+      var se = Math.min(l < vx ? (vx - ex) / (vx - l) : Infinity, r > vx ? (vw - ex - vx) / (r - vx) : Infinity);
+      if (se < s) { s = se; why = 'edge'; }
+
+      /* 消える点の高さ。段の中に収める。頭は段の上の板（いちばん上の段では天板）の上の端の
+         ROOF 手前まで、足もとは下の棚板の下の端まで上がり下がりしてよい。
+         f は、目の高さが本の上から何割のところか */
+      var tier = el.closest('.tier');
+      var above = tier && tier.previousElementSibling, below = tier && tier.nextElementSibling;
+      var a = above ? t - above.getBoundingClientRect().top - ROOF : h;
+      var c = below ? below.getBoundingClientRect().bottom - bt : h;
+      var g = h * (s - 1), f = 0.5;
+      if (g * f > a || g * (1 - f) > c) {
+        f = 1 - c / g <= a / g ? Math.min(Math.max(f, 1 - c / g), a / g) : a / (a + c);
+        f = Math.min(Math.max(f, 1 - LEAN), LEAN);
+        var sb = 1 + Math.min(a / f, c / (1 - f)) / h;
+        if (sb < s) { s = sb; why = 'band'; }
+      }
+      var vy = t + h * f;
+      /* 上下も画面に収める */
+      se = Math.min((vy - ey) / (vy - t), (vh - ey - vy) / (bt - vy));
+      if (se < s) { s = se; why = 'edge'; }
+      s = Math.max(s, NEAR_MIN);
+      /* 見ている距離（棚の面から）。奥行きの 3/4 を引き出したとき、背表紙がちょうど s 倍に見える距離。
+         本の奥行きに合わせるので、文庫も A4 判も同じように近づいて見える */
+      var p = D * s / (s - 1);
+
+      /* 止まったときの背表紙の面を、画面の面に置く（そこでは変形なしで描くので、写真の細かさのまま）。
+         棚の面はその奥 Z にある。寸法はどれも、背表紙の面での長さ（棚の上の s 倍） */
+      var W = sl.w * s, H = sl.h * s, Z = D * s, KZ = K * s;
+      var L = vx + (l - vx) * s, T = vy + (t - vy) * s;
+
+      box.style.left = L + 'px'; box.style.top = T + 'px';
+      box.style.width = W + 'px'; box.style.height = H + 'px';
+      box.style.perspective = p.toFixed(1) + 'px';
+      box.style.perspectiveOrigin = (vx - L).toFixed(2) + 'px ' + (vy - T).toFixed(2) + 'px';
+      box.style.setProperty('--c', cs.getPropertyValue('--c'));
+
+      var body = document.createElement('span');
+      body.className = 'focus__body';
+      /* 頭を手前へ傾けるときの軸は、背表紙の足もと（棚板の手前の縁）。指をかけて傾けると、
+         本は足もとの角を支えに起き上がる */
+      body.style.transformOrigin = '50% 100% ' + (-Z).toFixed(2) + 'px';
+
+      /* 背表紙。棚の本の写しを、s 倍の --mm で描き直す（写真を引き伸ばさない）。
+         天（紙の束の上面）の見える高さも同じ倍率で */
       var top = parseFloat(window.getComputedStyle(el, '::before').height) || 0;
       var node = document.createElement('div');
       node.className = 'spine';
       node.setAttribute('style', el.getAttribute('style') || '');
-      node.style.setProperty('--mm', s + 'px');
+      node.style.setProperty('--mm', (mm * s) + 'px');
       node.style.setProperty('--top', (top * s).toFixed(2) + 'px');
       var im = el.querySelector('img');
       if (im) {
@@ -299,76 +416,65 @@
         im.loading = 'eager';
         node.appendChild(im);
       }
-      var cast = document.createElement('span');
-      cast.className = 'focus__cast';
-      node.appendChild(cast);
-      box.appendChild(node);
-      var nr = node.getBoundingClientRect();
-      var W = nr.width, H = nr.height;
+      body.appendChild(node);
 
-      var cx = sl.l + sl.w / 2, mid = vw / 2;
-      /* 側面の見える幅。画面の中央からの隔たりに比べる（中央の本は側面がほとんど見えない） */
-      var sw = Math.min(SIDE, SIDE * Math.abs(cx - mid) / (vw * 0.42));
-      var right = cx < mid;
-      if (sw < 2.5) sw = 0;
+      /* 見える側の横の面。表紙の絵を、背に接する側の端を背表紙にそろえて貼る
+         （右の面は絵の左の端、左の面は絵の右の端。どちらも裏返さずに貼る）。
+         左の面は裏表紙で、絵が無いので表紙の絵を暗く沈めて代える（styles/shelf.css） */
+      var faces = [face(side, W, H, Z, KZ)];
+      if (b.cover) faces[0].tex.style.backgroundImage = 'url("' + b.cover + '")';
+      body.appendChild(faces[0].el);
+      box.appendChild(body);
 
-      var L = cx - W / 2;
-      L = clamp(L, EDGE_X + (right ? 0 : sw), vw - EDGE_X - W - (right ? sw : 0));
-      var T = sl.t + FIX * sl.h - FIX * H;
-      T = clamp(T, EDGE_Y, vh - EDGE_Y - H);
-
-      var side = null;
-      if (sw && b.cover) {
-        /* 側面は表紙の絵を奥へ縮めたもの。引き出したぶん（奥行きの 35%）を、見える幅に収める。
-           奥の端は、画面の中央（目の高さ）へ向かってすぼまる */
-        side = document.createElement('span');
-        side.className = 'focus__side ' + (right ? 'is-right' : 'is-left');
-        side.setAttribute('aria-hidden', 'true');
-        var near = right ? L + W : L;
-        var f = sw / Math.max(60, Math.abs(mid - near));
-        var yv = vh * 0.45 - T;                   /* 目の高さ（本の上の端から） */
-        var a = (yv * f).toFixed(2), z = (H + (yv - H) * f).toFixed(2);
-        var w = sw.toFixed(2);
-        side.style.width = w + 'px';
-        side.style.backgroundImage = 'url("' + b.cover + '")';
-        side.style.backgroundSize = (sw / DEPTH).toFixed(2) + 'px 100%';
-        side.style.backgroundPosition = right ? 'left top' : 'right top';
-        var poly = right
-          ? 'polygon(0 0, ' + w + 'px ' + a + 'px, ' + w + 'px ' + z + 'px, 0 100%)'
-          : 'polygon(0 ' + a + 'px, ' + w + 'px 0, ' + w + 'px 100%, 0 ' + z + 'px)';
-        side.style.webkitClipPath = poly;
-        side.style.clipPath = poly;
-        node.appendChild(side);
-      }
-
-      box.style.left = L + 'px'; box.style.top = T + 'px';
-      box.style.width = W + 'px'; box.style.height = H + 'px';
-      /* 本の抜けたすき間。棚の上の本と同じところ */
-      hole.style.left = sl.l + 'px'; hole.style.top = sl.t + 'px';
+      /* 本の抜けたすき間と、本が落とす影。どちらも棚の面にある */
+      hole.style.left = l + 'px'; hole.style.top = t + 'px';
       hole.style.width = sl.w + 'px'; hole.style.height = sl.h + 'px';
-      /* かけた倍率を書いておく（tests/verify.js が引き出す大きさの決まりどおりかを読む） */
+      var dx = D * LIGHT_X, dy = D * LIGHT_Y;
+      cast.style.left = l + 'px'; cast.style.top = t + 'px';
+      cast.style.width = (sl.w + dx) + 'px'; cast.style.height = (sl.h + dy) + 'px';
+      var P = function (x, y) { return x.toFixed(1) + 'px ' + y.toFixed(1) + 'px'; };
+      cast.style.setProperty('--cast-shape', 'polygon(' + [P(0, 0), P(sl.w, 0), P(sl.w + dx, dy),
+        P(sl.w + dx, sl.h + dy), P(dx, sl.h + dy), P(0, sl.h)].join(',') + ')');
+      cast.style.setProperty('--cast-blur', (1.5 + D * 0.035).toFixed(1) + 'px');
+
+      /* かけた倍率と引き出した長さ、倍率を控えたわけ（band・wide・edge）を書いておく
+         （tests/verify.js が決まりどおりかを読む） */
       root.setAttribute('data-scale', s.toFixed(3));
-      return { L: L, T: T, W: W, H: H, s: s, sl: sl, node: node, side: side, cast: cast };
+      root.setAttribute('data-pull', (D / K).toFixed(3));
+      if (why) root.setAttribute('data-clamp', why);
+      return { L: L, T: T, W: W, H: H, s: s, p: p, D: D, K: K, Z: Z, dx: dx, dy: dy,
+               sl: sl, sx: 0, sy: 0, node: node, body: body, faces: faces };
     }
 
-    /* 引き出した本を、棚の上の姿に重ねる変形。軸は上から 71% の点（.focus__book の transform-origin）。
-       g をかけると、その点を動かさずに少しだけ大きくする（頭に指をかけ、手前へ傾けたところ）。
-       lifted のときは、なぞったりマウスを乗せたりして持ち上がっていた姿に重ねる */
-    function onShelf(g, lifted) {
-      var sl = at.sl;
-      var sc = sl.w / at.W;
-      var tx = sl.l - at.L - at.W / 2 * (1 - sc) + (lifted ? sl.lx : 0);
-      var ty = sl.t - at.T - FIX * at.H * (1 - sc) + (lifted ? sl.ly : 0);
-      return 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + (sc * (g || 1)).toFixed(4) + ')';
+    /* 引き出したぶん u（0 は棚の中、1 は止まったところ）の姿。
+       lifted のときは、なぞったりマウスを乗せたりして持ち上がっていた姿から */
+    function front(u, lifted) {
+      if (u >= 1) return 'none';
+      var x = lifted ? at.sl.lx * at.s : 0, y = lifted ? at.sl.ly * at.s : 0;
+      return 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,' + (-at.Z * (1 - u)).toFixed(2) + 'px)';
+    }
+    /* 面の絵は背表紙といっしょに滑る。陰（stay）は逆にずらして、面の枠に留める */
+    function slide(f, u, stay) {
+      if (u >= 1) return 'none';
+      var z = -at.Z * (1 - u) * f.k * (stay ? -1 : 1);
+      return 'translateX(' + z.toFixed(2) + 'px)';
+    }
+    /* 影は、本が棚から離れるほど右と下へ伸びる */
+    function shade(u) {
+      if (u >= 1) return 'none';
+      var w = at.sl.w, h = at.sl.h;
+      return 'scale(' + ((w + at.dx * u) / (w + at.dx)).toFixed(4) + ',' + ((h + at.dy * u) / (h + at.dy)).toFixed(4) + ')';
     }
 
-    /* 引き出したまま画面が送られたら、本と空いたところも棚といっしょに動かす（層は画面に固定なので）。
+    /* 引き出したまま画面が送られたら、本と空いたところと影も棚といっしょに動かす（層は画面に固定なので）。
        閉じる動きの途中も同じ。止まった先が、そのときの棚の本の場所になる */
     function follow() {
       if (!at || page.shown()) return;
       var d = window.pageYOffset - y0;
-      box.style.top = (at.T - d) + 'px';
-      hole.style.top = (at.sl.t - d) + 'px';
+      box.style.left = (at.L + at.sx) + 'px';
+      box.style.top = (at.T + at.sy - d) + 'px';
+      hole.style.left = cast.style.left = (at.sl.l + at.sx) + 'px';
+      hole.style.top = cast.style.top = (at.sl.t + at.sy - d) + 'px';
     }
 
     function stop() {
@@ -397,7 +503,7 @@
       root.setAttribute('aria-label', b.title);
       box.setAttribute('aria-label', '「' + b.title + '」の商品ページを開く');
       box.innerHTML = '';
-      root.classList.remove('is-open', 'is-leaving');
+      root.classList.remove('is-open', 'is-leaving', 'is-out');
       root.classList.toggle('by-key', byKey);
       root.hidden = false;
 
@@ -406,56 +512,62 @@
       since = Date.now();
       y0 = window.pageYOffset;
       w0 = root.clientWidth;
+      hole.style.opacity = '1';
 
-      var list;
+      var list, o;
       if (reduced.matches) {
-        /* 棚の自分の場所から、短く手前へ出るだけ。浮かび上がる（透けた姿から現れる）のではなく、
-           本そのものが出てくる。側面を見せる動きも、傾ける動きもない（側面と影は薄く現れるだけ） */
-        var so = { duration: T_SOFT, fill: 'forwards' };
+        /* 傾けずに、棚の自分の場所から短くまっすぐ滑り出て、止まったところと同じ姿で止まる。
+           浮かび上がる（透けた姿から現れる）のではなく、本そのものが出てくる */
+        o = { duration: T_SOFT, easing: EASE_SOFT };
         list = [
-          box.animate([{ transform: onShelf(1, true) }, { transform: 'none' }],
-            { duration: T_SOFT, easing: 'cubic-bezier(.2,.7,.3,1)' }),
-          hole.animate([{ opacity: 0 }, { opacity: 1 }], so),
-          at.cast.animate([{ opacity: 0 }, { opacity: 1 }], so)
+          at.node.animate([{ transform: front(0, true) }, { transform: 'none' }], o),
+          cast.animate([{ transform: shade(0), opacity: 0 }, { transform: 'none', opacity: 1 }], o),
+          hole.animate([{ opacity: 0 }, { opacity: 1 }], o)
         ];
-        if (at.side) list.push(at.side.animate([{ opacity: 0 }, { opacity: 1 }], so));
+        at.faces.forEach(function (f) {
+          list.push(f.tex.animate([{ transform: slide(f, 0) }, { transform: 'none' }], o));
+          list.push(f.shade.animate([{ transform: slide(f, 0, true) }, { transform: 'none' }], o));
+        });
       } else {
-        var o = { duration: T_OPEN };
-        var tip = 'perspective(' + Math.round(at.H * 2.2) + 'px) ';
-        list = [
-          /* 本。棚の姿（持ち上がっていたらその姿）のまま頭に指がかかり（わずかに手前へ）、
-             そこから手前へすっと出て止まる */
-          box.animate([
-            { transform: onShelf(1, true), offset: 0, easing: EASE_HOOK },
-            { transform: onShelf(1.02), offset: HOOK, easing: EASE_PULL },
+        o = { duration: T_OPEN };
+        /* 本と面の絵は同じ決まりで動かす（背表紙と横の面の端が離れないように）。
+           棚の姿（持ち上がっていたらその姿）から、頭に指がかかるあいだにわずかに出て、
+           そこから手前へすっと滑り出て止まる */
+        var steps = function (fn) {
+          return [
+            { transform: fn(0), offset: 0, easing: EASE_HOOK },
+            { transform: fn(U_HOOK), offset: HOOK, easing: EASE_PULL },
             { transform: 'none', offset: 1 }
+          ];
+        };
+        list = [
+          at.node.animate(steps(function (u) { return front(u, u === 0); }), o),
+          /* 頭が手前へ傾き、滑り出るあいだに起き直る */
+          at.body.animate([
+            { transform: 'rotateX(0deg)', offset: 0, easing: 'ease-out' },
+            { transform: 'rotateX(' + (-TIP) + 'deg)', offset: HOOK, easing: 'ease-in-out' },
+            { transform: 'rotateX(0deg)', offset: 0.6 },
+            { transform: 'rotateX(0deg)', offset: 1 }
           ], o),
-          /* 頭が手前へ傾き、引き出すあいだに起き直る。軸は本の足もと。
-             遠近は本の高さに比べて決め、背の高い本も低い本も、頭が同じだけ（4% ほど）手前へ来る */
-          at.node.animate([
-            { transform: tip + 'rotateX(0deg)', offset: 0, easing: 'ease-out' },
-            { transform: tip + 'rotateX(-5deg)', offset: HOOK, easing: 'ease-in-out' },
-            { transform: tip + 'rotateX(0deg)', offset: 0.62 },
-            { transform: tip + 'rotateX(0deg)', offset: 1 }
+          /* 影は、本が棚から離れるほど右下へ伸び、濃くなる（ぼかしの強さは、引き出す長さで決まる） */
+          cast.animate([
+            { transform: shade(0), opacity: 0, offset: 0 },
+            { transform: shade(U_HOOK), opacity: 0.2, offset: HOOK, easing: EASE_PULL },
+            { transform: 'none', opacity: 1, offset: 1 }
           ], o),
-          /* 影は、本が棚から離れるほど遠く、やわらかくなる */
-          at.cast.animate([
-            { opacity: 0, transform: 'translate(-8px,-10px) scale(.9)', offset: 0 },
-            { opacity: 0.25, transform: 'translate(-6px,-8px) scale(.92)', offset: HOOK, easing: EASE_PULL },
-            { opacity: 1, transform: 'none', offset: 1 }
-          ], o),
-          /* すき間は、本が抜けはじめたところから暗くなる */
-          hole.animate([{ opacity: 0 }, { opacity: 0, offset: HOOK * 0.5 }, { opacity: 1, offset: 0.6 }, { opacity: 1 }],
-            Object.assign({ fill: 'forwards' }, o))
+          /* 棚の本の輪郭の継ぎ目は、本が抜けはじめたところから暗くする */
+          hole.animate([{ opacity: 0 }, { opacity: 0, offset: HOOK * 0.5 }, { opacity: 1, offset: 0.5 }, { opacity: 1 }], o)
         ];
-        /* 側面は、引き出したぶんだけ見えてくる */
-        if (at.side) list.push(at.side.animate([
-          { transform: 'scaleX(0)', offset: 0 },
-          { transform: 'scaleX(0)', offset: HOOK, easing: EASE_PULL },
-          { transform: 'none', offset: 1 }
-        ], o));
+        at.faces.forEach(function (f) {
+          list.push(f.tex.animate(steps(function (u) { return slide(f, u); }), o));
+          list.push(f.shade.animate(steps(function (u) { return slide(f, u, true); }), o));
+        });
       }
-      track(list);
+      /* 出きったら is-out（キーボードの焦点の枠は、本が止まってから出す。
+         先に出すと、本がまだ棚の中にあるうちに、止まる先の枠だけが見える） */
+      track(list, function () {
+        if (src === el && !root.classList.contains('is-leaving')) root.classList.add('is-out');
+      });
       /* 幕（ぼかし）は、本が動いているあいだに立ち上げる */
       window.requestAnimationFrame(function () {
         if (src === el && !root.classList.contains('is-leaving')) root.classList.add('is-open');
@@ -470,44 +582,36 @@
     function close() {
       if (!src || root.classList.contains('is-leaving')) return;
       var el = src;
-      root.classList.remove('is-open');
+      root.classList.remove('is-open', 'is-out');
       root.classList.add('is-leaving');
       /* 引き出す途中で閉じたときは、いまの姿から戻す */
       var cur = function (e, p) { return window.getComputedStyle(e)[p]; };
-      var now = { box: cur(box, 'transform'), node: cur(at.node, 'transform'),
-                  cast: cur(at.cast, 'transform'), castOp: cur(at.cast, 'opacity'),
-                  side: at.side ? cur(at.side, 'transform') : null, sideOp: at.side ? cur(at.side, 'opacity') : null,
-                  hole: cur(hole, 'opacity') };
+      var now = { node: cur(at.node, 'transform'), body: cur(at.body, 'transform'),
+                  cast: cur(cast, 'transform'), castOp: cur(cast, 'opacity'), hole: cur(hole, 'opacity'),
+                  faces: at.faces.map(function (f) { return [cur(f.tex, 'transform'), cur(f.shade, 'transform')]; }) };
       stop();
       /* 戻す先は、いまの棚の本の場所。引き出したときに測った場所のままだと、画面を送って閉じたとき、
          本は棚が動く前の場所へ戻り、そのあと棚の本が別のところに現れる。
-         引き出したときの画面の位置（y0）での値に直しておく（follow が画面の送りを足す） */
+         画面の送りは follow が足すので、それ以外のずれだけを足しておく */
       var sl = slot(el), d = window.pageYOffset - y0;
-      at.sl = { l: sl.l, t: sl.t + d, w: sl.w, h: sl.h, lx: 0, ly: 0 };
-      hole.style.left = at.sl.l + 'px';
+      at.sx = sl.l - at.sl.l;
+      at.sy = sl.t + d - at.sl.t;
       follow();
-      var list;
-      if (reduced.matches) {
-        /* 短く、棚の自分の場所へ押しもどす。消えていくのではなく、本そのものが戻る */
-        var so = { duration: T_SOFT_CLOSE, fill: 'forwards' };
-        list = [
-          box.animate([{ transform: now.box }, { transform: onShelf() }],
-            { duration: T_SOFT_CLOSE, easing: EASE_BACK, fill: 'forwards' }),
-          hole.animate([{ opacity: now.hole }, { opacity: now.hole, offset: 0.7 }, { opacity: 0 }], so),
-          at.cast.animate([{ opacity: now.castOp }, { opacity: 0 }], so)
-        ];
-        if (at.side) list.push(at.side.animate([{ opacity: now.sideOp }, { opacity: 0 }], so));
-      } else {
-        var o = { duration: T_CLOSE, easing: EASE_BACK, fill: 'forwards' };
-        list = [
-          box.animate([{ transform: now.box }, { transform: onShelf() }], o),
-          at.node.animate([{ transform: now.node }, { transform: 'none' }], o),
-          at.cast.animate([{ transform: now.cast, opacity: now.castOp }, { transform: 'translate(-8px,-10px) scale(.9)', opacity: 0 }], o),
-          /* すき間は、本が収まりきるまで暗いまま */
-          hole.animate([{ opacity: now.hole }, { opacity: now.hole, offset: 0.7 }, { opacity: 0 }], o)
-        ];
-        if (at.side) list.push(at.side.animate([{ transform: now.side }, { transform: 'scaleX(0)', offset: 0.85 }, { transform: 'scaleX(0)' }], o));
-      }
+      var o = reduced.matches
+        ? { duration: T_SOFT_CLOSE, easing: EASE_BACK, fill: 'forwards' }
+        : { duration: T_CLOSE, easing: EASE_BACK, fill: 'forwards' };
+      /* 本そのものが棚の自分の場所へ戻る（消えていくのではない）。
+         輪郭の継ぎ目は、本が収まりきるまで暗いまま */
+      var list = [
+        at.node.animate([{ transform: now.node }, { transform: front(0) }], o),
+        at.body.animate([{ transform: now.body }, { transform: 'none' }], o),
+        cast.animate([{ transform: now.cast, opacity: now.castOp }, { transform: shade(0), opacity: 0 }], o),
+        hole.animate([{ opacity: now.hole }, { opacity: now.hole, offset: 0.7 }, { opacity: 0 }], o)
+      ];
+      at.faces.forEach(function (f, i) {
+        list.push(f.tex.animate([{ transform: now.faces[i][0] }, { transform: slide(f, 0) }], o));
+        list.push(f.shade.animate([{ transform: now.faces[i][1] }, { transform: slide(f, 0, true) }], o));
+      });
       track(list, function () { if (src === el) done(false); });
     }
 
@@ -519,14 +623,20 @@
       stop();
       src = null; key = null; at = null;
       el.classList.remove('is-taken');
-      if (!keep) settleFocus(el, root);
+      /* 焦点を返すのは、焦点がまだ層の中（か、どこにもない）ときだけ。棚へもどるあいだに
+         キーボードで別の本へ移っていたら、そのままにする（元の本へ引きもどさない） */
+      var a = document.activeElement;
+      if (!keep && (!a || a === document.body || root.contains(a))) settleFocus(el, root);
       root.hidden = true;
-      root.classList.remove('is-open', 'is-leaving');
+      root.classList.remove('is-open', 'is-leaving', 'is-out');
       root.removeAttribute('data-scale');
+      root.removeAttribute('data-pull');
+      root.removeAttribute('data-clamp');
       root.removeAttribute('aria-label');
       box.innerHTML = '';
       box.removeAttribute('style');
       hole.removeAttribute('style');
+      cast.removeAttribute('style');
     }
 
     /* 2回目。商品詳細を開く。引き出した本は、商品詳細が出きってから棚へ戻す

@@ -962,18 +962,24 @@
 
 /* ============================================================
    本を棚から引き出す
-   棚の本を1回タップすると、その本が自分の場所から手前へ引き出され、途中で止まる。
+   棚の本を1回タップすると、その本が自分の場所から手前へまっすぐ滑り出て、途中で止まる。
    後ろはまだ棚に残っている（9/30 のご依頼「本の後ろ側がまだ本棚に少し残っているくらいの
-   引き出し具合」）。ほかの本はぼかして暗くし、引き出した本にだけピントが合う。
-   引き出した本は、棚の上の 1.76 倍（ご依頼の絵のとおり）。縦と横に同じ倍率をかけ、
-   実物どおりの比のまま。本は自分の列から動かず、手前へ来たぶん、下の端が棚板の手前の縁にかかる。
-   奥行きは三つの手がかりで見せる。画面の中央を向いた側に本の側面（表紙）が細く見えて
-   棚の奥の暗がりへ消える。本の抜けたすき間が暗くなる。本が隣の本と棚板に影を落とす。
+   引き出し具合」）。引き出した本は箱として描く。
+     前の面 … 背表紙（棚の本の写しを、引き出した大きさで描き直したもの。天の細い帯も含む）
+     横の面 … 表紙。画面の中央より左の本は右の面、右の本は左の面が見える
+   棚の面より手前に出たところだけを描く。後ろは両隣の本のあいだに隠れている。
+   面の枠は棚の面から背表紙までで、表紙の絵がその中を本といっしょに滑り、
+   棚の奥の暗がりから明るいところへ出てくる。
+   遠近の消える点は、左右は画面の中央（什器の側板と同じ）、高さは引き出す本の中ほど
+   （手に取る本は目の高さで見る。本は上下へ同じだけ大きくなり、自分の段に収まる）。
+   大きくなるのは近づいたぶんだけで、本は自分の場所から少しだけ外側へずれる。
+   本は右の本と下の棚板に影を落とす。
+   ほかの本は少しだけぼかして暗くする。棚が読めるまま、引き出した本にだけピントが合う。
    書名などの文字は添えない（同日のご依頼）。
    引き出した本をもう一度タップすると、商品詳細へ進む。
    それ以外のところをタップすると、本は棚へ押しもどされる。
    平置きの本は、タップするとそのまま商品詳細へ進む（表紙の拡大は無い）。
-   倍率・置き場所・動きは scripts/main.js が決める。
+   大きさ・置き場所・動きは scripts/main.js が決める。
    ============================================================ */
 
 /* 触れる本であることを示す */
@@ -1001,12 +1007,14 @@
 /* 棚へもどっているあいだは、次のタップを後ろの棚へ通す */
 .focus.is-leaving{ pointer-events:none; }
 
-/* 後ろの売り場。ぼかして暗くし、引き出した本だけにピントが合って見えるようにする */
+/* 後ろの売り場。少しだけぼかして暗くし、引き出した本にだけピントが合って見えるようにする。
+   棚は読めるまま残す（本がこの棚から出てきたことが分かるように）。
+   以前は強くぼかして暗くしていたので、本だけが棚から切り離されて浮いて見えた */
 .focus__scrim{
   position:absolute; inset:0;
-  background:rgba(10,8,6,.34);
-  -webkit-backdrop-filter:blur(var(--focus-blur)) brightness(.62) saturate(.85);
-          backdrop-filter:blur(var(--focus-blur)) brightness(.62) saturate(.85);
+  background:rgba(10,8,6,.1);
+  -webkit-backdrop-filter:blur(var(--focus-blur)) brightness(.8) saturate(.92);
+          backdrop-filter:blur(var(--focus-blur)) brightness(.8) saturate(.92);
   opacity:0;
   transition:opacity .22s var(--ease-leave);
 }
@@ -1017,18 +1025,20 @@
 .focus.is-plain .focus__scrim{
   -webkit-backdrop-filter:none;
           backdrop-filter:none;
-  background:rgba(10,8,6,.64);
+  background:rgba(10,8,6,.3);
 }
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .focus__scrim{ background:rgba(10,8,6,.64); }
+  .focus__scrim{ background:rgba(10,8,6,.3); }
 }
 
 /* 本の抜けたすき間。奥の背板は、両隣の本の陰になって暗い。
-   引き出した本は自分の場所より大きく、中心も同じなので、引き出すあいだも押しもどすあいだも
-   この場所を覆っている。ふつうは見えず、画面の端の本を内側へ大きく寄せたときにだけ端がのぞく。
+   すき間そのものは見えない。本は後ろがまだ棚の中にあり、見ている側からは、すき間は
+   本の背表紙と横の面に隠れている（実際の棚でも、引き抜きかけの本の奥は見えない）。
+   ここで暗くしておくのは、横の面の奥の端と棚の本の輪郭との継ぎ目。暗くしないと、
+   継ぎ目に後ろの明るいものが細い筋になって透ける。本が棚を離れたことは、影が伝える。
    置き場所は scripts/main.js（棚の上の本と同じところ。画面を送ると棚といっしょに動く） */
 .focus__slot{
-  position:fixed; left:0; top:0;
+  position:absolute; left:0; top:0;
   pointer-events:none;
   background:
     linear-gradient(180deg, rgba(4,2,1,.5) 0, rgba(4,2,1,0) 18%),
@@ -1037,16 +1047,32 @@
   opacity:0;
 }
 
-/* 引き出した本。棚の本の写しを、大きな --mm で描き直したもの。
-   写真を引き伸ばすのではなく、写真の細かさのまま描く。
-   大きさを変えても動かない点は、本の上から 71%（scripts/main.js の FIX と同じ） */
+/* 本が落とす影。窓は左上なので、右の本と下の棚板に落ちる。影の形は、棚の本の輪郭を
+   本が手前へ出たぶんだけ右下へ引きのばしたもの（形とぼかしは scripts/main.js が決める）。
+   本が手前へ出るにつれて、影は右下へ伸びて濃くなる。ぼかしの強さは、引き出す長さで決まる */
+.focus__cast{
+  position:absolute; left:0; top:0;
+  pointer-events:none;
+  transform-origin:0 0;
+  -webkit-filter:blur(var(--cast-blur, 6px));
+          filter:blur(var(--cast-blur, 6px));
+}
+.focus__cast::before{
+  content:"";
+  position:absolute; inset:0;
+  background:rgba(6,4,2,.82);
+  -webkit-clip-path:var(--cast-shape);
+          clip-path:var(--cast-shape);
+}
+
+/* 引き出した本。置き場所は、止まったときの背表紙の面。
+   遠近（perspective）は本ごとに scripts/main.js が決める */
 .focus__book{
-  position:fixed; left:0; top:0;
+  position:absolute; left:0; top:0;
   display:block;
   margin:0; padding:0; border:0; border-radius:0;
   background:none; color:inherit; font:inherit;
   cursor:pointer;
-  transform-origin:50% 71%;
 }
 .focus__book:focus{ outline:none; }
 /* 細い背表紙でも指で押せるよう、見えない押し幅を 48px 以上取る。上下にも少しゆとり */
@@ -1055,52 +1081,82 @@
   position:absolute; top:-12px; bottom:-12px;
   left:min(0px, calc(50% - 24px)); right:min(0px, calc(50% - 24px));
 }
-/* 引き出しはじめに頭が手前へ傾くときの軸は、本の足もと（scripts/main.js） */
+/* 箱。背表紙と面を、同じ奥行きの中に置く */
+.focus__body{
+  position:absolute; left:0; top:0; width:100%; height:100%;
+  display:block;
+  transform-style:preserve-3d;
+}
 .focus .focus__book .spine,
 .focus .focus__book .spine:hover{
-  transform:none; filter:none; transition:none;
-  transform-origin:50% 100%;
+  position:absolute; left:0; top:0;
+  filter:none; transition:none;
   box-shadow:
     inset  2px 0 1px -1px rgba(240,232,214,.42),
     inset -6px 0 7px -5px rgba(0,0,0,.6),
      1px 0 0 rgba(0,0,0,.4);
 }
+.focus .focus__book .spine{ transform:none; }
 /* 棚板との接地の影は、引き出した本には要らない */
 .focus__book .spine::after{ display:none; }
-/* 本が落とす影。窓は左上なので、右（隣の本）と下（棚板）へ落ちる。
-   本が手前へ出るほど、影は本から離れてやわらかくなる（scripts/main.js が動かす） */
-.focus__cast{
-  position:absolute; inset:0; z-index:-1;
-  pointer-events:none;
-  box-shadow:
-    10px 12px 18px -6px rgba(0,0,0,.66),
-     4px 26px 30px -14px rgba(0,0,0,.72);
+
+/* 箱の横の面。枠は棚の面から背表紙の面まで（置き方は scripts/main.js）。枠の外は描かない */
+.focus__face{
+  position:absolute;
+  display:block;
+  overflow:hidden;
+  -webkit-backface-visibility:hidden;
+          backface-visibility:hidden;
 }
-/* 本の側面。画面の中央を向いた側に、引き出したぶんだけ細く見える。
-   面は表紙の絵を奥へ縮めたもの。奥の端は目の高さへすぼまり（形は scripts/main.js）、
-   奥へ行くほど暗く、棚の中の暗がりに消える。
-   左を向いた面は窓の光を少し受け、右を向いた面はわずかに陰になる */
-.focus__side{
-  position:absolute; top:0; bottom:0;
-  pointer-events:none;
-  background-color:var(--c);
+.focus__tex,
+.focus__shade{
+  position:absolute;
+  display:block;
+  -webkit-backface-visibility:hidden;
+          backface-visibility:hidden;
+}
+.focus__tex{ overflow:hidden; background-color:var(--c); }
+
+/* 横の面は表紙。背に接する側の端を背表紙にそろえる。
+   背は表紙の左にある綴じ方で描く（平置きの本と同じ）。棚では右の面が表紙、左の面が裏表紙になる。
+   裏表紙の絵は無いので、表紙の絵を少し暗く沈めて代える。
+   奥へ向かう面なので、表紙の地の粒が細かい縞にならないよう、わずかにぼかす */
+.focus__face.is-right .focus__tex,
+.focus__face.is-left .focus__tex{
   background-repeat:no-repeat;
-  /* 表紙の絵を細く縮めると、地の粒が細かい縞になって目立つ。奥へ向かう面なので、わずかにぼかす */
-  filter:blur(.3px);
+  background-size:100% 100%;
+  -webkit-filter:blur(.25px);
+          filter:blur(.25px);
 }
-.focus__side::after{
-  content:"";
-  position:absolute; inset:0;
-  background:linear-gradient(var(--to), rgba(8,5,3,var(--near)) 0%, rgba(8,5,3,.4) 50%, rgba(6,4,2,.8) 85%, rgb(6,4,2) 100%);
+.focus__face.is-left .focus__tex{
+  -webkit-filter:blur(.25px) brightness(.78) saturate(.8);
+          filter:blur(.25px) brightness(.78) saturate(.8);
 }
-/* 右を向いた面も、手前の半分は本の色が見える程度に。暗くしすぎると、本の側面ではなく
-   黒い帯に見える */
-.focus__side.is-right{ left:100%;  transform-origin:0 50%;    --to:90deg;  --near:.12; }
-.focus__side.is-left { right:100%; transform-origin:100% 50%; --to:270deg; --near:.1; }
+
+/* 陰。枠に留まり、棚の奥ほど暗い。本が出てくるほど、絵が明るいところへ出る。
+   窓は左上。左を向いた面は光を受け、右を向いた面はわずかに陰になる */
+.focus__face.is-right .focus__shade{
+  background:linear-gradient(90deg, rgba(8,5,3,.2) 0%, rgba(8,5,3,.36) 40%, rgba(6,4,2,.72) 82%, rgba(6,4,2,.94) 100%);
+}
+.focus__face.is-left .focus__shade{
+  background:linear-gradient(270deg, rgba(8,5,3,.05) 0%, rgba(8,5,3,.26) 40%, rgba(6,4,2,.66) 82%, rgba(6,4,2,.92) 100%);
+}
+
 /* キーボードで操作しているときだけ、焦点の枠を本のまわりに出す（by-key は scripts/main.js）。
    指で引き出したときも、焦点はこの本へ移す（読み上げで、引き出した本から読めるように）。
-   そのときは枠を出さない */
-.focus.by-key .focus__book:focus-visible .spine{ outline:2px solid var(--paper); outline-offset:5px; }
+   そのときは枠を出さない。
+   枠はボタン（止まったときの背表紙と同じ大きさ）の上に重ねて描き、本が止まってから出す（is-out）。
+   箱の中の背表紙に付けると、奥行きのある面の重なりで枠が切れ、ところどころしか描かれない。
+   ボタンの outline でも、見えている横の面の下に隠れて、その側の辺が描かれない。
+   枠は本から 5px 離した太さ 2px の線（以前の outline と同じ） */
+.focus__book::after{
+  content:"";
+  position:absolute; inset:-7px;
+  border:2px solid var(--paper);
+  pointer-events:none;
+  visibility:hidden;
+}
+.focus.by-key.is-out .focus__book:focus-visible::after{ visibility:visible; }
 
 /* キーボードで焦点が来たときだけ見える「棚にもどる」。
    指やマウスでは、引き出した本の外をタップすれば戻せる */

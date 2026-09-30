@@ -401,6 +401,10 @@ async function oneScreen(b) {
       const head = document.querySelector('.market__head');
       window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY);
     });
+    /* 帯を引っ込めるのは、送ったあとの次のこま。機械が混んでいると、読み込んだ直後のこまが
+       150ms を過ぎることがあり、そのときだけ帯が出たままと測っていた（直す前の版でも同じように落ちる）。
+       引っ込むまで待ってから測る。引っ込まなければ、下の検査で落ちる */
+    await p.waitForFunction(() => document.querySelector('.topbar').classList.contains('is-away'), null, { timeout: 1500 }).catch(() => {});
     await p.waitForTimeout(150);
     const fit = () => {
       const mk = document.querySelector('.market');
@@ -856,15 +860,26 @@ async function toMarket(p, m) {
   }), null, { timeout: 2000 }).catch(() => {});
 }
 /* 売り場 m の段 ti（省けば上から探す）で、見えている本 k（指で押す点は、本の下の端から 40px 上）。
-   その段の下の棚板の上の端（boardTop）も返す */
+   k を「monte:2」のように書くと、その本の2冊目。「mid」は、画面の左右の中央にいちばん近い本、「last」は列の右の端の本。
+   その段の下の棚板の上の端（boardTop）と、引き出した本が上下に出てよい範囲（段の上の板の上の端 bandTop、
+   下の棚板の下の端 bandBot）、看板の下の端（headBot）も返す */
 const spineAt = (p, m, k, ti) => p.evaluate(([m, k, ti]) => {
   const mk = document.querySelectorAll('.market')[m];
   const scope = ti === null ? mk : mk.querySelectorAll('.case .tier')[ti];
-  const e = [...scope.querySelectorAll('.case .row .spine')].find(e => (!k || e.dataset.book === k) && getComputedStyle(e).display !== 'none');
+  const [kk, nth] = (k || '').split(':');
+  const vis = [...scope.querySelectorAll('.case .row .spine')].filter(e => getComputedStyle(e).display !== 'none');
+  const cx = e => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; };
+  const e = kk === 'mid' ? vis.slice().sort((a, b) => Math.abs(cx(a) - innerWidth / 2) - Math.abs(cx(b) - innerWidth / 2))[0]
+    : kk === 'last' ? vis.filter(e => e.getBoundingClientRect().left < innerWidth).pop()
+    : vis.filter(e => !kk || e.dataset.book === kk)[(+nth || 1) - 1];
   const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
-  const board = e.closest('.tier').nextElementSibling.getBoundingClientRect();
+  const tier = e.closest('.tier');
+  const board = tier.nextElementSibling.getBoundingClientRect();
   return { x: r.left + r.width / 2, y: r.bottom - 40, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height,
-           k: e.dataset.book, t_mm: Math.max(parseFloat(cs.getPropertyValue('--t')), 5), boardTop: board.top };
+           k: e.dataset.book, t_mm: Math.max(parseFloat(cs.getPropertyValue('--t')), 5), kw: parseFloat(cs.getPropertyValue('--kw')),
+           mm: parseFloat(cs.getPropertyValue('--mm')) || 1,
+           boardTop: board.top, bandTop: tier.previousElementSibling.getBoundingClientRect().top, bandBot: board.bottom,
+           headBot: mk.querySelector('.market__head').getBoundingClientRect().bottom };
 }, [m, k, ti === undefined ? null : ti]);
 /* 引き出す・棚へ押しもどす動きが終わるまで待つ。
    決め打ちの待ち時間だと、機械が混んでいるときだけ落ちる（後ろをぼかす層は描くのが重い） */
@@ -883,24 +898,27 @@ const tapState = async p => { await still(p); return p.evaluate(() => {
   const f = document.getElementById('focus'), it = document.getElementById('item');
   const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom }; };
   const box = f.querySelector('.focus__book'), node = box.querySelector('.spine');
-  const side = box.querySelector('.focus__side'), cast = box.querySelector('.focus__cast'), hole = f.querySelector('.focus__slot');
+  const cast = f.querySelector('.focus__cast'), hole = f.querySelector('.focus__slot');
   const pad = getComputedStyle(box, '::before');
   const a = document.activeElement;
   const sc = f.querySelector('.focus__scrim');
   return {
     open: !f.hidden, leaving: f.classList.contains('is-leaving'), item: !it.hidden,
     pull: !!document.querySelector('#pull, .pull, .pull-fly'),
-    scale: f.dataset.scale ? +f.dataset.scale : null,
+    scale: f.dataset.scale ? +f.dataset.scale : null, pullK: f.dataset.pull ? +f.dataset.pull : null,
+    clamp: f.dataset.clamp || '', out: f.classList.contains('is-out'),
     box: f.hidden ? null : R(box), node: node ? R(node) : null,
     nodeMm: node ? parseFloat(node.style.getPropertyValue('--mm')) : null,
     nodeFilter: node ? getComputedStyle(node).filter : null,
-    tf: getComputedStyle(box).transform,
+    tf: getComputedStyle(box).transform, nodeTf: node ? getComputedStyle(node).transform : null,
     padW: f.hidden ? 0 : box.getBoundingClientRect().width - parseFloat(pad.left) - parseFloat(pad.right),
     padH: f.hidden ? 0 : box.getBoundingClientRect().height - parseFloat(pad.top) - parseFloat(pad.bottom),
     /* 添える文字（書名・著者名・「この本のページへ」）は無い */
     caption: f.querySelectorAll('.focus__cap, .focus__title, .focus__author, .focus__go, p').length + f.textContent.replace('棚にもどる', '').trim().length,
-    side: side && !f.hidden ? Object.assign(R(side), { cls: side.className }) : null,
-    cast: !!cast && !f.hidden && getComputedStyle(cast).boxShadow !== 'none' && +getComputedStyle(cast).opacity > 0.9,
+    /* 箱の横の面。見える側の面だけがある */
+    faces: f.hidden ? [] : [...box.querySelectorAll('.focus__face')].map(e => Object.assign(R(e), { side: e.className.replace(/.*is-/, '') })),
+    cast: !!cast && !f.hidden && getComputedStyle(cast).filter !== 'none' && +getComputedStyle(cast).opacity > 0.9 &&
+          cast.getBoundingClientRect().width > 0,
     hole: f.hidden ? null : Object.assign(R(hole), { op: +getComputedStyle(hole).opacity }),
     label: box.getAttribute('aria-label'), name: f.getAttribute('aria-label'),
     scrim: getComputedStyle(sc).opacity, blur: getComputedStyle(sc).backdropFilter,
@@ -909,16 +927,60 @@ const tapState = async p => { await still(p); return p.evaluate(() => {
     tag: document.querySelector('.pick-tag').classList.contains('is-on'),
     active: a === document.body ? 'body' : (a.getAttribute('aria-label') || a.className),
     activeInFocus: f.contains(a), activeSpine: !!(a.closest && a.closest('.case .spine, .case .flat')),
-    ring: node ? getComputedStyle(node).outlineStyle : 'none',
+    /* 焦点の枠は、ボタン（止まったときの背表紙と同じ大きさ）の上に重ねて描く */
+    ring: f.hidden || getComputedStyle(box, '::after').visibility !== 'visible' ? 'none' : getComputedStyle(box, '::after').borderTopStyle,
     y: Math.round(window.scrollY), hlen: history.length, hstate: history.state, href: location.href,
     vw: document.documentElement.clientWidth, vh: window.innerHeight,
   };
 }); };
-/* 引き出す大きさの決まり。縦横は同じ倍率。
-   ふつうは 1.76 倍。上の端から 12px 空けて置いたとき、下の端が棚板の縁より本の高さの 12.5% を
-   超えて出るなら、そこまで下げる（上の段の本、背の高い本。棚から落ちたように見せない）。
-   ただし 1.2 倍より小さくはしない。最後に、画面の高さ − 24px に収まるところまで */
-const pullScale = (vh, h, top) => Math.min(Math.max(Math.min(1.76, (top + h - 12) / (h * 0.875)), 1.2), (vh - 24) / h);
+/* 引き出した本の姿（9/30 のご依頼）。本は箱として手前へ滑り出る。止まった姿を、棚の本の輪郭 sp と比べる。
+   背表紙は、棚の本を、ある一点（消える点）を中心に k 倍した位置にある（近づいたぶんだけ大きく見える）。
+     消える点 … 左右は画面の中央。ただし見える側の本の縁から 60px より近ければ、そこまで離れる
+               （画面の中央の本も、横の面が見える）。背表紙の左右の端は、そこから棚の本の端へ向かう線の上
+     高さ     … 本の中ほど。頭が上がるぶんと足もとが下がるぶんは同じ。段に収まらないときだけ上か下へ寄り、
+               そのときは頭か足もとが段の縁に着いていて、上下どちらかへ伸びるぶんは全体の 65% まで
+     段       … 頭は段の上の板（いちばん上の段では天板）の上の端より 4px 以上下、
+               足もとは下の棚板の下の端より上（棚から落ちたり、看板へ飛び出したりして見えない）
+     背表紙   … 棚の上の 1.2〜1.35 倍。控えてよいのは、次のときだけ（data-clamp に書かれたわけを、ここで確かめる）
+                 band … 頭か足もとが、段の縁に着いている
+                 wide … 広い画面の端の本。見える横の面の長さが、引き出した長さの半分
+                 edge … 背表紙のどこかの縁が、画面の端の空き（左右 4px・上下 12px）に着いている
+               どれも 1.02 倍以上
+     後ろ     … 見えている横の面の奥の端は、棚の本の輪郭にそろう（1px 以内。後ろはまだ棚の中）
+     面       … 横の面はちょうど1つ。画面の中央より左の本（中央にかかる本も）は右の面、右の本は左の面。
+               長さは背表紙の幅の 25% 以上
+     長さ     … 引き出すのは、どの本も奥行きの 75% */
+function pose3d(s, sp) {
+  const k = s.scale, n = s.node, vw = s.vw, vh = s.vh;
+  const right = (sp.l + sp.r) / 2 <= vw / 2;
+  const vx = right ? Math.max(vw / 2, sp.r + 60) : Math.min(vw / 2, sp.l - 60);
+  const fx = x => vx + (x - vx) * k;
+  const dev = Math.max(Math.abs(n.l - fx(sp.l)), Math.abs(n.r - fx(sp.r)));
+  const rise = sp.t - n.t, drop = n.b - sp.b;
+  const f = rise / (rise + drop);
+  const atTop = Math.abs(n.t - (sp.bandTop + 4)) <= 0.6, atBot = Math.abs(n.b - sp.bandBot) <= 0.6;
+  const inBand = n.t >= sp.bandTop + 4 - 0.6 && n.b <= sp.bandBot + 0.6;
+  const edgeX = n.l <= 4.6 || n.r >= vw - 4.6, edgeY = n.t <= 12.6 || n.b >= vh - 12.6;
+  const midOk = Math.abs(rise - drop) <= 0.6 || ((atTop || atBot || edgeY) && f >= 0.345 && f <= 0.655);
+  const side = s.faces.length === 1 ? s.faces[0] : null;
+  const faceLen = side ? side.w : 0;
+  const Z = s.pullK * sp.kw * (sp.mm || 1) * k;
+  const why = { '': true, band: atTop || atBot, wide: Math.abs(faceLen - 0.5 * Z) <= 1, edge: edgeX || edgeY };
+  const scaleOk = Math.abs(n.w / sp.w - k) <= 0.012 && Math.abs(n.h / sp.h - k) <= 0.012 && k <= 1.35 &&
+    (s.clamp ? why[s.clamp] === true && k >= 1.02 : k >= 1.2);
+  const pullOk = s.pullK >= 0.7 && s.pullK <= 0.8;
+  const facesOk = !!side && side.side === (right ? 'right' : 'left');
+  const back = s.faces.map(f => (f.side === 'right' ? f.r - sp.r : f.l - sp.l));
+  const backOk = back.length > 0 && back.every(v => Math.abs(v) <= 1);
+  const sideOk = facesOk && faceLen >= 0.25 * n.w && Math.abs(faceLen - (right ? vx - sp.r : sp.l - vx) * (k - 1)) <= 1;
+  const all = [n, ...s.faces];
+  const onScreen = n.l >= 3.5 && n.r <= vw - 3.5 && n.t >= 11.5 && n.b <= vh - 11.5 &&
+    all.every(r => r.l >= -0.5 && r.r <= vw + 0.5 && r.t >= -0.5 && r.b <= vh + 0.5);
+  const drift = (n.l + n.r) / 2 - (sp.l + sp.r) / 2;
+  const outward = Math.sign(drift) === Math.sign((sp.l + sp.r) / 2 - vx);
+  return { vx, dev, rise, drop, f, midOk, inBand, atTop, atBot, scaleOk, pullOk, facesOk, back, backOk, side, faceLen, sideOk,
+           onScreen, drift, outward, Z };
+}
 
 /* ---- 1b. 指でなぞって選ぶ --------------------------------------
    なぞるのは残す（指の下の本が少し出て、書名の札が出る）。
@@ -1012,54 +1074,50 @@ async function tapFlow(b) {
     await toMarket(p, 0);
 
     /* --- 1回目：背表紙をタップすると、その本が自分の場所から手前へ引き出され、途中で止まる。
-       商品詳細へは進まない。上の段・下の段・背の高い本（すいかのプール）で --- */
-    for (const [m, k, ti] of [[0, 'monte', 0], [0, 'aya', 0], [0, 'kagaku', 1], [0, 'monte', 1], [1, 'suika', 0]]) {
+       商品詳細へは進まない。上の段・下の段・背の高い本（すいかのプール）・画面の中央の本・列の右の端の本で --- */
+    for (const [m, k0, ti] of [[0, 'monte', 0], [0, 'aya', 0], [0, 'kagaku', 1], [0, 'monte', 1], [1, 'suika', 0], [0, 'mid', 1], [0, 'mid', 0], [0, 'last', 1]]) {
       await toMarket(p, m);
-      const sp = await spineAt(p, m, k, ti);
+      const sp = await spineAt(p, m, k0, ti);
+      const k = sp.k;
       const before = await tapState(p);
       await touchTap(cdp, p, sp.x, sp.y);
       await p.waitForTimeout(750);
       const s = await tapState(p);
-      const nm = `${n} ${k}${ti ? '（下の段）' : ''}`;
+      const nm = `${n} ${k0 === 'mid' ? '画面の中央の本（' + k + '）' : k0 === 'last' ? '列の右の端の本（' + k + '）' : k}${ti ? '（下の段）' : ''}`;
       t(s.open && !s.item && !s.pull, `${nm}: タップすると本が棚から引き出される（商品詳細へは進まない）`);
       t(s.hlen === before.hlen && s.href === before.href, `${nm}: 1回目では履歴を積まない`);
-      /* 大きさ。ご依頼の絵のとおり棚の上の約 1.8 倍（1.76 倍）。画面の上の端に近い本と、
-         収まらない背の高い本だけ下げる（そのときも 1.2 倍以上） */
-      const want = pullScale(vp.h, sp.h, sp.t);
-      t(Math.abs(s.scale - want) <= 0.005 && Math.abs(s.nodeMm - s.scale) <= 0.001 && s.scale >= 1.2 && (want < 1.76 || (s.scale >= 1.6 && s.scale <= 2.0)),
-        `${nm}: 引き出した本は棚の上の約1.8倍。上の端に近い本と背の高い本は下げる (${s.scale} / ${want.toFixed(3)})`);
-      t(Math.abs(s.node.w / sp.w - s.scale) <= 0.02 && Math.abs(s.node.h / sp.h - s.scale) / s.scale <= 0.02,
-        `${nm}: 実物どおりの比のまま大きくなる（幅 ${(s.node.w / sp.w).toFixed(3)}倍・高さ ${(s.node.h / sp.h).toFixed(3)}倍）`);
-      /* 自分の列のまま。画面の端で内側へ寄せたときだけ、中心が少しずれてよい */
-      const dc = (s.node.l + s.node.w / 2) - (sp.l + sp.w / 2);
-      const atEdge = s.node.l <= 8.5 || s.node.r >= vp.w - 8.5 || (s.side && (s.side.l <= 8.5 || s.side.r >= vp.w - 8.5));
-      t(Math.abs(dc) <= 1 || (atEdge && Math.abs(dc) <= 12),
-        `${nm}: 本は自分の列のまま手前へ出る（中心のずれ ${dc.toFixed(1)}px${atEdge ? '、画面の端' : ''}）`);
-      /* 下の端は棚板の縁にかかるが、ご依頼の絵と同じく本の高さの 1 割ほどまで。
-         それより下へ出ると、本が棚から落ちて平台の上に出たように見える */
-      t(s.node.b > sp.boardTop + 4 && s.node.b - sp.boardTop <= 0.13 * s.node.h,
-        `${nm}: 手前へ来たぶん、本の下の端が棚板の手前の縁にかかる（縁より ${(s.node.b - sp.boardTop).toFixed(0)}px 下、本の高さの ${((s.node.b - sp.boardTop) / s.node.h * 100).toFixed(1)}%）`);
-      t(s.node.t >= 11.5 && s.node.b <= vp.h - 11.5 && s.node.l >= 7.5 && s.node.r <= vp.w - 7.5 &&
-        (!s.side || (s.side.l >= 7.5 && s.side.r <= vp.w - 7.5)),
-        `${nm}: 引き出した本が画面に収まる (${s.node.l.toFixed(0)},${s.node.t.toFixed(0)} ${s.node.w.toFixed(0)}x${s.node.h.toFixed(0)})`);
-      t(s.tf === 'none' && s.nodeFilter === 'none', `${nm}: 引き出した本は写真の細かさのまま描き直し（引き伸ばさない）、ピントが合っている`);
+      /* 本は箱として手前へ滑り出て、後ろはまだ棚の中にある（9/30 のご依頼）。
+         大きさは近づいたぶんだけ（1.2〜1.35 倍）。本は自分の段から出ない */
+      const g = pose3d(s, sp);
+      t(g.scaleOk && Math.abs(s.nodeMm - s.scale) <= 0.001,
+        `${nm}: 背表紙は近づいたぶんだけ大きく見える（${s.scale}倍${s.clamp ? '、控えたわけ ' + s.clamp : ''}。幅 ${(s.node.w / sp.w).toFixed(3)}倍・高さ ${(s.node.h / sp.h).toFixed(3)}倍）`);
+      t(g.dev <= 1 && g.outward,
+        `${nm}: 自分の列から、消える点と反対の側へ少しずれるだけ（ずれ ${g.drift.toFixed(1)}px、遠近の線からの外れ ${g.dev.toFixed(2)}px）`);
+      t(g.inBand && g.midOk && s.node.t >= sp.headBot + 3.5,
+        `${nm}: 上下へはほぼ同じだけ大きくなり、自分の段に収まる（頭 +${g.rise.toFixed(1)}px・足もと +${g.drop.toFixed(1)}px。` +
+        `足もとは棚板の下の端まで ${(sp.bandBot - s.node.b).toFixed(1)}px、頭は看板まで ${(s.node.t - sp.headBot).toFixed(1)}px）`);
+      t(g.pullOk, `${nm}: 本の奥行きの 70〜80% を引き出し、後ろは棚に残る（${(s.pullK * 100).toFixed(0)}%）`);
+      t(g.backOk,
+        `${nm}: 見えている面の奥の端は、棚の本の輪郭にそろう（${s.faces.map((f, i) => f.side + ' ' + g.back[i].toFixed(2) + 'px').join('・') || '面なし'}）`);
+      t(g.facesOk && g.sideOk,
+        `${nm}: 消える点の側の横の面（表紙）が、背表紙の幅の 25% 以上の長さで見える（${s.faces.map(f => f.side + ' ' + f.w.toFixed(1) + 'x' + f.h.toFixed(1)).join('・') || '面なし'}、背表紙の幅 ${s.node.w.toFixed(1)}px）`);
+      t(g.onScreen, `${nm}: 引き出した本が画面に収まる (${s.node.l.toFixed(0)},${s.node.t.toFixed(0)} ${s.node.w.toFixed(0)}x${s.node.h.toFixed(0)})`);
+      t(s.tf === 'none' && s.nodeTf === 'none' && s.nodeFilter === 'none',
+        `${nm}: 止まった背表紙は変形なしで描く（写真の細かさのまま）。ピントが合っている`);
       t(s.taken === 1, `${nm}: 棚のその場所は空いて見える`);
-      t(s.scrim === '1' && /blur/.test(s.blur), `${nm}: ほかの本はぼかして暗くする (${s.blur})`);
+      /* 棚は読めるまま（ぼかしは軽く）。本がこの棚から出てきたことが分かるように */
+      const bl = /blur\(([\d.]+)px\)/.exec(s.blur), br = /brightness\(([\d.]+)\)/.exec(s.blur);
+      t(s.scrim === '1' && bl && +bl[1] > 0 && +bl[1] <= 3 && br && +br[1] >= 0.75,
+        `${nm}: ほかの本は少しだけぼかして暗くする。棚は読めるまま (${s.blur})`);
       t(s.caption === 0, `${nm}: 書名・著者名・「この本のページへ」は添えない`);
-      /* 奥行きの手がかり。画面の中央を向いた側に本の側面が細く見え、本は隣の本と棚板に影を落とす。
-         本の抜けたすき間も暗くしておく（引き出した本がその場所を覆うので、ふつうは見えない） */
-      const toRight = sp.l + sp.w / 2 < vp.w / 2;
-      const sideOk = s.side
-        ? (toRight ? /is-right/.test(s.side.cls) && s.side.l >= s.node.r - 1 : /is-left/.test(s.side.cls) && s.side.r <= s.node.l + 1) &&
-          s.side.w >= 2.5 && s.side.w <= 11.5
-        : Math.abs(sp.l + sp.w / 2 - vp.w / 2) < 30;
-      t(sideOk, `${nm}: 画面の中央を向いた側に、本の側面が細く見える (${s.side ? s.side.cls.replace('focus__side ', '') + ' ' + s.side.w.toFixed(1) + 'px' : 'なし'})`);
       t(s.cast && s.hole && s.hole.op === 1 && Math.abs(s.hole.l - sp.l) <= 1 && Math.abs(s.hole.t - sp.t) <= 1 && Math.abs(s.hole.h - sp.h) <= 1,
-        `${nm}: 引き出した本は影を落とし、本の抜けたすき間は暗くしておく`);
+        `${nm}: 引き出した本は棚に影を落とし、本の抜けたすき間は暗くしておく`);
       t(s.padW >= 47.9 && s.padH >= s.box.h, `${nm}: 引き出した本の押せる幅は 48px 以上 (${s.padW.toFixed(1)}px)`);
       t(s.label === '「' + BOOKS[k].title + '」の商品ページを開く' && s.name === BOOKS[k].title,
         `${nm}: 引き出した本はボタンとして読み上げ、層は書名を名乗る (${s.name})`);
-      console.log(`  INFO  ${nm}: 倍率 ${s.scale}、引き出した背表紙 ${s.node.w.toFixed(1)}x${s.node.h.toFixed(1)}px、中心のずれ ${dc.toFixed(1)}px、棚板の縁より ${(s.node.b - sp.boardTop).toFixed(0)}px 下`);
+      t(s.activeInFocus && s.out && s.ring === 'none', `${nm}: 指で引き出したときも焦点は本へ移るが、焦点の枠は出さない`);
+      console.log(`  INFO  ${nm}: 倍率 ${s.scale}${s.clamp ? '（' + s.clamp + '）' : ''}、引き出した長さ ${(s.pullK * 100).toFixed(0)}%（${(s.pullK * sp.kw).toFixed(0)}px）、背表紙 ${s.node.w.toFixed(1)}x${s.node.h.toFixed(1)}px、ずれ ${g.drift.toFixed(1)}px、頭 +${g.rise.toFixed(1)}・足もと +${g.drop.toFixed(1)}px、面 ${s.faces.map(f => f.side + ' ' + f.w.toFixed(1) + 'x' + f.h.toFixed(1)).join('・') || 'なし'}`);
+      const toRight = sp.l + sp.w / 2 < vp.w / 2;
       /* ほかのところ（本と反対の側の上の隅）をタップすると、本は棚へ押しもどされる */
       await touchTap(cdp, p, toRight ? vp.w - 12 : 12, 60);
       await p.waitForTimeout(500);
@@ -1069,44 +1127,64 @@ async function tapFlow(b) {
       t(!c.activeInFocus && !c.activeSpine && !c.tag, `${nm}: 指でもどしたあと、棚の本に焦点も札も残らない (${c.active})`);
     }
 
-    /* 動き。棚の本の姿から始まり、自分の列のまま大きくなって止まる（画面の中ほどへ飛ばない）。
-       引き出すのは 0.4〜0.5 秒、押しもどすのは 0.3 秒ほど */
+    /* 動き。棚の本の姿から始まり、頭が手前へ傾いてから、まっすぐ手前へ滑り出て止まる。
+       背表紙は消える点から棚の本へ向かう線の上を近づき（自分の列のまま、外側へ少しずれるだけ。
+       消える点は止まった姿から求め、左右は画面の中央、高さは本の中ほどにあることも確かめる）、
+       横の面は背表紙にくっついたまま、棚の本の輪郭から伸びてくる（絵が大きくなるのではない）。
+       引き出すのは 0.55 秒ほど、押しもどすのは 0.35 秒ほど */
     {
       await toMarket(p, 0);
       const q = await spineAt(p, 0, 'kagaku', 1);
       await touchTap(cdp, p, q.x, q.y);
       const mo = await p.evaluate(() => new Promise(res => requestAnimationFrame(() => {
-        const f = document.getElementById('focus'), bx = f.querySelector('.focus__book');
-        const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus'));
+        const f = document.getElementById('focus'), node = f.querySelector('.focus__book .spine');
+        const tex = f.querySelector('.focus__face.is-right .focus__tex');
+        const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus') && !(a instanceof CSSTransition));
         an.forEach(a => a.pause());
-        const main = an.find(a => a.effect.target === bx);
-        const at = ms => { an.forEach(a => { a.currentTime = ms; }); const r = bx.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; };
-        const frames = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].map(at);
-        const side = an.find(a => a.effect.target.classList.contains('focus__side'));
-        const out = { dur: main ? main.effect.getComputedTiming().duration : 0, frames,
-                      sideFrom: side ? side.effect.getKeyframes()[0].transform : null,
+        const main = an.find(a => a.effect.target === node);
+        const at = ms => { an.forEach(a => { a.currentTime = ms; }); const r = node.getBoundingClientRect(), x = tex && tex.getBoundingClientRect();
+          return { ms, l: r.left, t: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom, tx: x ? x.left : null }; };
+        const frames = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550].map(at);
+        const out = { dur: main ? main.effect.getComputedTiming().duration : 0, frames, vw: innerWidth, vh: innerHeight, scale: +f.dataset.scale,
                       tip: an.some(a => /rotateX\(-/.test(JSON.stringify(a.effect.getKeyframes()))) };
         an.forEach(a => a.finish());
+        const r = node.getBoundingClientRect();
+        out.fin = { l: r.left, t: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom };
         res(out);
       })));
-      const f0 = mo.frames[0], fz = mo.frames[mo.frames.length - 1];
-      const cx = f => f.l + f.w / 2;
-      const grow = mo.frames.every((f, i) => i === 0 || f.h >= mo.frames[i - 1].h - 0.5);
-      const column = mo.frames.every(f => Math.abs(cx(f) - (q.l + q.w / 2)) <= 1.5);
-      t(Math.abs(f0.l - q.l) <= 1 && Math.abs(f0.t - q.t) <= 1 && Math.abs(f0.h - q.h) <= 1 && grow && column && fz.h / q.h > 1.6,
-        `${n}: 引き出す動きは棚の本の姿から始まり、自分の列のまま大きくなる（高さ ${mo.frames.map(f => f.h.toFixed(0)).join('→')}px、中心のずれ 最大 ${Math.max(...mo.frames.map(f => Math.abs(cx(f) - (q.l + q.w / 2)))).toFixed(1)}px）`);
-      t(mo.dur >= 400 && mo.dur <= 500 && mo.tip && mo.sideFrom === 'scaleX(0)',
-        `${n}: 引き出すのは ${mo.dur}ms。頭が手前へ傾いてから出て、側面は引き出したぶんだけ見えてくる`);
+      const f0 = mo.frames[0], fz = mo.frames[mo.frames.length - 1], fin = mo.fin;
+      const kf = fin.h / q.h, vx = (fin.l - q.l * kf) / (1 - kf), vy = (fin.t - q.t * kf) / (1 - kf);
+      const eye = Math.abs(vx - mo.vw / 2) <= 1.5 && vy >= q.t + 0.345 * q.h && vy <= q.t + 0.655 * q.h;
+      /* 頭を傾けるあいだ（90ms）は、頭が手前へ来て足もとは奥のままなので、写る高さが 2px ほど揺れることがある */
+      const grow = mo.frames.every((f, i) => i === 0 || f.h >= mo.frames[i - 1].h - (f.ms <= 150 ? 3 : 0.5));
+      /* 止まるまで、背表紙の中心は外側（消える点と反対）へ動き続け、戻らない */
+      const dir = Math.sign((q.l + q.r) / 2 - vx);
+      const out = dir !== 0 && mo.frames.every((f, i) => i === 0 || dir * ((f.l + f.r) / 2 - (mo.frames[i - 1].l + mo.frames[i - 1].r) / 2) >= -0.3);
+      /* 傾きが収まったあとは、背表紙は消える点を中心に棚の本を拡げた位置にある */
+      const line = mo.frames.filter(f => f.ms >= 350).every(f => { const k = f.h / q.h;
+        return Math.abs(f.l - (vx + (q.l - vx) * k)) <= 1 && Math.abs(f.t - (vy + (q.t - vy) * k)) <= 1; });
+      /* 横の面の手前の端は、背表紙の端にくっついている。見える長さは 0 から伸びる。
+         傾いているあいだは、同じ縁の上端と下端で外枠の端が別の点になるので、傾きが収まってから比べる */
+      const glued = mo.frames.every(f => f.tx !== null && (f.ms > 0 && f.ms < 350 || Math.abs(f.tx - f.r) <= 1));
+      const len = mo.frames.map(f => q.r - f.r);
+      const lengthen = len[0] <= 1 && len.every((v, i) => i === 0 || v >= len[i - 1] - 0.3) && len[len.length - 1] >= 0.25 * fz.w;
+      t(Math.abs(f0.l - q.l) <= 1 && Math.abs(f0.t - q.t) <= 1 && Math.abs(f0.h - q.h) <= 1 && grow && out && line && eye &&
+        Math.abs(kf - mo.scale) <= 0.01 && mo.scale >= 1.2 && mo.scale <= 1.35,
+        `${n}: 引き出す動きは棚の本の姿から始まり、消える点から棚の本へ向かう線の上を手前へ出る（高さ ${mo.frames.map(f => f.h.toFixed(0)).join('→')}px、` +
+        `中心 ${mo.frames.map(f => ((f.l + f.r) / 2).toFixed(0)).join('→')}px、消える点 ${vx.toFixed(1)},${vy.toFixed(1)}）`);
+      t(glued && lengthen,
+        `${n}: 横の面（表紙）は背表紙にくっついたまま、棚の本の輪郭から伸びてくる（見える長さ ${len.map(v => v.toFixed(0)).join('→')}px）`);
+      t(mo.dur >= 520 && mo.dur <= 600 && mo.tip, `${n}: 引き出すのは ${mo.dur}ms。頭が手前へ傾いてから、滑り出る`);
       await p.waitForTimeout(500);
-      await touchTap(cdp, p, 12, 60);
+      await touchTap(cdp, p, vp.w - 12, 60);
       const back = await p.evaluate(() => new Promise(res => requestAnimationFrame(() => {
-        const bx = document.querySelector('.focus__book');
-        const a = document.getAnimations().find(a => a.effect && a.effect.target === bx);
+        const node = document.querySelector('.focus__book .spine');
+        const a = document.getAnimations().find(a => a.effect && a.effect.target === node);
         res(a ? a.effect.getComputedTiming().duration : 0);
       })));
       await p.waitForTimeout(600);
       const c = await tapState(p);
-      t(back >= 250 && back <= 350 && !c.open && c.taken === 0, `${n}: 押しもどすのは ${back}ms で、棚の元の場所に収まる`);
+      t(back >= 300 && back <= 400 && !c.open && c.taken === 0, `${n}: 押しもどすのは ${back}ms で、棚の元の場所に収まる`);
     }
 
     /* 引き出した本のすぐ外（見えない押し幅の外）をタップすると、棚へもどす。
@@ -1122,9 +1200,11 @@ async function tapFlow(b) {
       const q = where === 'left' ? await spineAt(p, 0, 'aya') : await rightmost();
       await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(750);
       const s1 = await tapState(p);
+      /* 本（背表紙と見えている面）と見えない押し幅の外 */
       const room = Math.max(24, s1.box.w / 2) + 14;
       const cx = s1.box.l + s1.box.w / 2;
-      const bx = where === 'left' ? cx + room + (s1.side && /is-right/.test(s1.side.cls) ? s1.side.w : 0) : cx - room - (s1.side && /is-left/.test(s1.side.cls) ? s1.side.w : 0);
+      const ext = [s1.box, ...s1.faces];
+      const bx = where === 'left' ? Math.max(cx + room, ...ext.map(r => r.r + 14)) : Math.min(cx - room, ...ext.map(r => r.l - 14));
       const by = s1.box.t + s1.box.h / 2;
       await touchTap(cdp, p, bx, by); await p.waitForTimeout(600);
       const c = await tapState(p);
@@ -1171,6 +1251,28 @@ async function tapFlow(b) {
     s = await tapState(p);
     t(!s.item && !s.open && s.y === yA, `${n}: 上の「棚にもどる」で、同じ位置の棚にもどる (${s.y}/${yA})`);
     t(!(s.hstate && s.hstate.item), `${n}: 「棚にもどる」で、積んだ履歴も戻る`);
+
+    /* 引き出した本の横の面（表紙）をタップしても商品詳細。見えない押し幅の外の、面の上で */
+    sp = await spineAt(p, 0, 'aya');
+    await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
+    s = await tapState(p);
+    {
+      const fc = s.faces[0];
+      const fx = fc.side === 'right' ? s.node.r + (fc.r - s.node.r) * 0.7 : s.node.l - (s.node.l - fc.l) * 0.7;
+      const fy = s.node.t + s.node.h / 2;
+      const pad = Math.max(24, s.box.w / 2), cx = s.box.l + s.box.w / 2;
+      const onFace = await p.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return !!(e && e.closest('.focus__face')); }, [fx, fy]);
+      const h2 = s.hlen;
+      await touchTap(cdp, p, fx, fy); await p.waitForTimeout(800);
+      s = await tapState(p);
+      /* 前の検査で戻る操作をしたあとなので、積んだ履歴は先の履歴と入れ替わり、数は増えないことがある。
+         履歴の中身（商品詳細の本）で見る */
+      t(onFace && Math.abs(fx - cx) > pad && s.item && s.itemTitle === BOOKS.aya.title && s.hlen >= h2 && s.hstate && s.hstate.item === 'aya',
+        `${n}: 引き出した本の横の面（表紙）をタップしても商品詳細（${fc.side} の面の ${fx.toFixed(0)},${fy.toFixed(0)}。押し幅の外）`);
+      await p.goBack(); await p.waitForTimeout(700);
+      s = await tapState(p);
+      t(!s.item && !s.open && s.y === yA, `${n}: 横の面から開いた商品詳細も、戻る操作で同じ位置の棚にもどる`);
+    }
 
     /* 引き出した本の下のほう（棚板にかかったところ）をタップしても商品詳細。
        戻る操作（ブラウザ・スマートフォンの戻る）で棚へ */
@@ -1221,7 +1323,8 @@ async function tapFlow(b) {
        引き出した本がボタンの高さに重なる下の段の本で、重なるところをたたく */
     for (const [where, act] of [['left', 'buy'], ['right', 'read']]) {
       await toMarket(p, 0);
-      const q = where === 'left' ? await spineAt(p, 0, 'monte', 1) : await rightmost(1);
+      /* 左の端の本は、手前へ出ると画面の端へ寄ってボタンから外れるので、2冊目の文庫で */
+      const q = where === 'left' ? await spineAt(p, 0, 'monte:2', 1) : await rightmost(1);
       await touchTap(cdp, p, q.x, q.y); await p.waitForTimeout(750);
       const s1 = await tapState(p);
       const a2 = acts[act];
@@ -1408,8 +1511,11 @@ async function pcFlow(b) {
   t(s.tag && lifted && !s.open, 'PC: マウスを乗せると本が少し出て書名の札が出る（何も開かない）');
   await p.mouse.click(sp.x, sp.y); await p.waitForTimeout(700);
   s = await tapState(p);
-  const want = pullScale(900, sp.h, sp.t);
-  t(s.open && !s.item && Math.abs(s.scale - want) <= 0.005 && s.caption === 0, `PC: クリックで本を棚から引き出す (倍率 ${s.scale})`);
+  /* 広い画面の端の本は、横の面が伸びすぎないよう大きさを控える（控えたわけは pose3d が確かめる）。
+     本の後ろが棚の輪郭にそろい、遠近の線の上にあり、段に収まるのは同じ */
+  const gp = pose3d(s, sp);
+  t(s.open && !s.item && s.caption === 0 && gp.scaleOk && gp.pullOk && gp.dev <= 1 && gp.backOk && gp.sideOk && gp.onScreen && gp.inBand && gp.midOk,
+    `PC: クリックで本を棚から引き出す (倍率 ${s.scale}${s.clamp ? '（' + s.clamp + '）' : ''}、引き出した長さ ${(s.pullK * 100).toFixed(0)}%、面 ${s.faces.map(f => f.side + ' ' + f.w.toFixed(0) + 'x' + f.h.toFixed(0)).join('・')})`);
   t(!s.tag, 'PC: 引き出すと書名の札は消える');
   await p.mouse.click(1400, 450); await p.waitForTimeout(500);
   s = await tapState(p);
@@ -1426,6 +1532,19 @@ async function pcFlow(b) {
   await p.keyboard.press('Escape'); await p.waitForTimeout(500);
   s = await tapState(p);
   t(!s.open, 'PC: Escape で棚へもどす');
+  /* 広い画面でも、画面の中央あたりの本は 1.2〜1.35 倍。控えるのは、横の面が伸びすぎる離れた本だけで、
+     そのときも横の面は引き出した長さの半分の長さで見える */
+  await toMarket(p, 0);
+  for (const [k, ti] of [['mid', 1], ['aya', 0]]) {
+    const q = await spineAt(p, 0, k, ti);
+    await p.mouse.click(q.x, q.y); await p.waitForTimeout(700);
+    s = await tapState(p);
+    const g = pose3d(s, q);
+    t(s.open && g.scaleOk && g.pullOk && g.dev <= 1 && g.backOk && g.sideOk && g.onScreen && g.inBand && g.midOk &&
+      (k === 'mid' ? !s.clamp && s.scale >= 1.2 && s.scale <= 1.35 : s.clamp === 'wide'),
+      `PC: ${k === 'mid' ? '画面の中央の本' : '画面の中央から離れた本'}（${q.k}）は ${s.scale} 倍${s.clamp ? '（' + s.clamp + '）' : ''}。横の面 ${g.faceLen.toFixed(0)}px`);
+    await p.mouse.click(1420, 880); await p.waitForTimeout(500);
+  }
 
   /* --- キーボードだけで --- */
   await p.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 0); document.querySelector('.hero__scroll').focus(); });
@@ -1439,6 +1558,42 @@ async function pcFlow(b) {
   t(s.open && !s.item && s.hlen === h0, 'キーボード: Enter で本を引き出す（商品詳細へは進まない）');
   t(s.active === '「' + BOOKS[first.key].title + '」の商品ページを開く' && s.ring === 'solid',
     `キーボード: 焦点は「「書名」の商品ページを開く」に移り、枠が見える (${s.active})`);
+  /* 枠は本のまわりに途切れずに描かれ、画面の外へもはみ出さない。四つの辺を画面から読み、
+     枠を消した姿と比べる（箱の中の背表紙に付けていたときは、奥行きのある面の重なりで枠が切れ、
+     左と上の辺が描かれなかった。見え方の指定だけを読む検査では分からなかった）。
+     画面の一部だけを撮ると、奥行きのある面の描き方が変わり、切れた枠も途切れずに写ることがあるので、
+     画面全体を撮ってから読む */
+  {
+    const bx = s.box;
+    const strips = [{ x: bx.l - 9, y: bx.t + 6, width: 6, height: bx.h - 12, rows: true },
+                    { x: bx.r + 3, y: bx.t + 6, width: 6, height: bx.h - 12, rows: true },
+                    { x: bx.l + 3, y: bx.t - 9, width: bx.w - 6, height: 6, rows: false },
+                    { x: bx.l + 3, y: bx.b + 3, width: bx.w - 6, height: 6, rows: false }];
+    const linesIn = async () => { const png = (await p.screenshot()).toString('base64');
+      return p.evaluate(async ({ png, strips }) => {
+        const img = new Image();
+        await new Promise(r => { img.onload = r; img.src = 'data:image/png;base64,' + png; });
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+        const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+        const k = img.width / innerWidth;
+        return strips.map(c => {
+          const w = Math.round(c.width * k), h = Math.round(c.height * k);
+          const d = cx.getImageData(Math.round(c.x * k), Math.round(c.y * k), w, h).data;
+          const L = i => 0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2];
+          const out = [];
+          if (c.rows) for (let y = 0; y < h; y++) { let m = 0; for (let x = 0; x < w; x++) m = Math.max(m, L(y * w + x)); out.push(m); }
+          else for (let x = 0; x < w; x++) { let m = 0; for (let y = 0; y < h; y++) m = Math.max(m, L(y * w + x)); out.push(m); }
+          return out;
+        });
+      }, { png, strips }); };
+    const on = await linesIn();
+    const hide = await p.addStyleTag({ content: '.focus__book::after{ visibility:hidden !important; }' });
+    const off = await linesIn();
+    await hide.evaluate(e => e.remove());
+    const share = on.map((l, i) => l.filter((v, j) => v >= 150 && v - off[i][j] >= 30).length / l.length);
+    t(bx.l - 7 >= 0 && bx.t - 7 >= 0 && bx.r + 7 <= 1440 && bx.b + 7 <= 900 && share.every(v => v >= 0.9),
+      `キーボード: 焦点の枠は本のまわりに途切れずに描かれ、画面に収まる（${['左', '右', '上', '下'].map((q, i) => q + ' ' + (share[i] * 100).toFixed(0) + '%').join('・')}、枠の左の端 ${(bx.l - 7).toFixed(1)}px）`);
+  }
   await p.keyboard.press('Tab'); await p.waitForTimeout(120);
   const t1 = await p.evaluate(() => ({ cls: document.activeElement.className, text: document.activeElement.textContent, op: getComputedStyle(document.activeElement).opacity }));
   await p.keyboard.press('Tab'); await p.waitForTimeout(120);
@@ -1501,7 +1656,7 @@ async function pcFlow(b) {
     f.classList.remove('is-plain');
     return { blur, plain };
   });
-  t(/blur/.test(dim.blur) && dim.plain.bf === 'none' && /0\.6\d?\)$/.test(dim.plain.bg),
+  t(/blur/.test(dim.blur) && dim.plain.bf === 'none' && /0\.3\)$/.test(dim.plain.bg),
     `PC: 後ろはぼかして暗くする。重い端末向けに、ぼかさず暗くするだけの見え方もある (${dim.blur} / ${dim.plain.bg})`);
 
   /* --- 読み上げ。本は隠さず、書名のボタンとして読む。什器の部材は読まない --- */
@@ -1569,7 +1724,8 @@ async function screens(b) {
     await sp.click(); await p.waitForTimeout(700);
     let s = await tapState(p);
     t(s.open && !s.item && s.caption === 0, `${vp.n}: 背表紙をクリックすると、本が棚から引き出される（文字は添えない）`);
-    t(s.node.t >= 11.5 && s.node.b <= vp.h - 11.5 && s.node.l >= 7.5 && s.node.r <= s.vw - 7.5, `${vp.n}: 引き出した本が画面に収まる`);
+    t(s.node.t >= 11.5 && s.node.b <= vp.h - 11.5 && s.node.l >= 3.5 && s.node.r <= s.vw - 3.5 &&
+      s.faces.every(r => r.l >= -0.5 && r.r <= s.vw + 0.5 && r.t >= -0.5 && r.b <= vp.h + 0.5), `${vp.n}: 引き出した本が画面に収まる`);
 
     await p.click('.focus__book'); await p.waitForTimeout(750);
     s = await p.evaluate(() => {
@@ -2264,7 +2420,8 @@ async function topbarHide(b) {
     s = await barState(p, 0);
     const over = await p.evaluate(() => { const e = document.elementFromPoint(20, 20); return !!(e && e.closest('#focus')); });
     t(s.open === 'focus' && s.away && over, `${n}: 本を引き出しているあいだも、帯は引っ込めたまま（層が帯の上にかぶる）`);
-    await touchTap(cdp, p, 12, 60);
+    /* 左の本は、手前へ出ると画面の左の上へ寄る（近づいた物は外側へずれる）。棚へもどすのは反対の右の上で */
+    await touchTap(cdp, p, vp.w - 12, 60);
     s = await barState(p, 600);
     const tops = await trackedTops(p);
     t(!s.open && s.away && s.gone && s.y === yShelf && Math.abs(s.heads[0] - head1) <= 1,
@@ -2277,7 +2434,7 @@ async function topbarHide(b) {
     /* 帯が出ているところで引き出したときは、棚へもどしても出たまま */
     sp = await spineAt(p, 0, 'aya');
     await touchTap(cdp, p, sp.x, sp.y); await p.waitForTimeout(750);
-    await touchTap(cdp, p, 12, 60);
+    await touchTap(cdp, p, vp.w - 12, 60);
     s = await barState(p, 600);
     t(!s.open && s.shown && !s.away, `${n}: 帯が出ているところで引き出したときは、棚へもどしても帯は出たまま`);
     await fingerScroll(cdp, p, x, y, 40);
@@ -2765,7 +2922,7 @@ async function fixes(b) {
   t(!/0\.1[0-9]s|0\.[2-9]/.test(r.delay), `動きを減らす設定では、遅れも残さない（${r.delay}）`);
 
   /* 本を引き出すときは、ただ現れる（透けた姿から浮かび上がる）のではなく、棚の自分の場所から
-     短く手前へ出る（0.2 秒ほど）。側面を見せる動きも、頭を傾ける動きもない（側面と影は薄く現れるだけ）。
+     短くまっすぐ手前へ滑り出て（0.28 秒ほど）、ふだんと同じ姿で止まる。頭を傾ける動きはなく、行き過ぎて戻ることもない。
      押しもどすときも、消えていくのではなく、本そのものが棚の自分の場所へ戻る */
   await p.goto(URL, { waitUntil: 'networkidle' });
   await p.evaluate(() => {
@@ -2778,52 +2935,59 @@ async function fixes(b) {
     };
   });
   await toMarket(p, 0);
-  /* マウスを乗せずにクリックだけを送る（乗せると本が持ち上がり、始まりの姿が 3.5px 上になる） */
+  /* マウスを乗せずにクリックだけを送る（乗せると本が持ち上がり、始まりの姿が 3.5px 上になる）。
+     画面の端でない本で（端の本は画面に収めるため引き出す長さが短い） */
   const rm = await p.evaluate(async () => {
-    const e = document.querySelector('.case .row .spine[data-book]');
-    const r0 = e.getBoundingClientRect();
+    const e = [...document.querySelectorAll('.case .row .spine[data-book]')].filter(e => getComputedStyle(e).display !== 'none')[2];
+    const r0 = e.getBoundingClientRect(), kw = parseFloat(getComputedStyle(e).getPropertyValue('--kw'));
+    const tier = e.closest('.tier');
+    const band = { bandTop: tier.previousElementSibling.getBoundingClientRect().top, bandBot: tier.nextElementSibling.getBoundingClientRect().bottom,
+                   mm: parseFloat(getComputedStyle(e).getPropertyValue('--mm')) || 1 };
     e.click();
-    const f = document.getElementById('focus'), bx = f.querySelector('.focus__book');
-    const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus'));
-    const main = an.find(a => a.effect.target === bx);
+    const f = document.getElementById('focus'), node = f.querySelector('.focus__book .spine');
+    const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus') && !(a instanceof CSSTransition));
+    const main = an.find(a => a.effect.target === node);
     an.forEach(a => a.pause());
-    const at = ms => { an.forEach(a => { a.currentTime = ms; }); const r = bx.querySelector('.spine').getBoundingClientRect();
-      return { l: r.left, t: r.top, w: r.width, h: r.height, op: +getComputedStyle(bx).opacity }; };
-    const frames = [0, 50, 100, 150, 199].map(at);
+    const at = ms => { an.forEach(a => { a.currentTime = ms; }); const r = node.getBoundingClientRect();
+      return { l: r.left, t: r.top, w: r.width, h: r.height, op: +getComputedStyle(node).opacity }; };
+    const frames = [0, 50, 100, 150, 200, 250, 279].map(at);
     an.forEach(a => a.play());
-    await new Promise(res => setTimeout(res, 250));
+    await new Promise(res => setTimeout(res, 350));
+    const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom }; };
     return {
-      r0: { l: r0.left, t: r0.top, w: r0.width, h: r0.height }, frames, dur: main ? main.effect.getComputedTiming().duration : 0,
+      r0: Object.assign({ l: r0.left, t: r0.top, w: r0.width, h: r0.height, r: r0.right, b: r0.bottom, kw }, band), frames, dur: main ? main.effect.getComputedTiming().duration : 0,
       open: !f.hidden, anims: window.__anims,
-      tf: getComputedStyle(bx).transform, op: getComputedStyle(bx).opacity,
+      tf: getComputedStyle(node).transform, op: getComputedStyle(node).opacity,
       scrim: getComputedStyle(document.querySelector('.focus__scrim')).opacity,
-      scale: +f.dataset.scale,
+      end: { scale: +f.dataset.scale, pullK: +f.dataset.pull, clamp: f.dataset.clamp || '', node: R(node), vw: document.documentElement.clientWidth, vh: innerHeight,
+             faces: [...f.querySelectorAll('.focus__face')].map(e => Object.assign(R(e), { side: e.className.replace(/.*is-/, '') })) },
     };
   });
-  const bookA = rm.anims.find(a => a.id === 'focus__book');
-  const f0 = rm.frames[0], cx = f => f.l + f.w / 2;
+  const bookA = rm.anims.find(a => /spine/.test(a.id));
+  const f0 = rm.frames[0], fz = rm.end.node, cx = f => f.l + f.w / 2;
+  const dirR = Math.sign(cx(rm.r0) - rm.end.vw / 2);
   const slide = Math.abs(f0.l - rm.r0.l) <= 1 && Math.abs(f0.t - rm.r0.t) <= 1 && Math.abs(f0.h - rm.r0.h) <= 1 &&
-    rm.frames.every((f, i) => f.op === 1 && Math.abs(cx(f) - (rm.r0.l + rm.r0.w / 2)) <= 1.5 && (i === 0 || f.h >= rm.frames[i - 1].h - 0.5));
-  t(rm.open && bookA && rm.dur <= 300 && rm.dur >= 150 && slide && !bookA.keys.includes('opacity') &&
-    rm.anims.every(a => a.d <= 300 && !a.tf.some(v => /rotate|perspective/.test(v)) && !/spine/.test(a.id) &&
-      (!/focus__side/.test(a.id) || (a.tf.length === 0 && a.keys.every(k => k === 'opacity')))),
-    `動きを減らす設定では、ただ現れるのではなく、棚の自分の場所から短く手前へ出る。透けない。側面を見せる動きも傾ける動きもない（高さ ${rm.frames.map(f => f.h.toFixed(0)).join('→')}px、${rm.anims.map(a => a.id + ':' + a.keys.join('/') + ' ' + a.d + 'ms').join('・')}）`);
-  const rmWant = pullScale(844, rm.r0.h, rm.r0.t);
-  t(rm.tf === 'none' && rm.op === '1' && rm.scrim === '1' && Math.abs(rm.scale - rmWant) <= 0.005,
-    `動きを減らす設定でも、動き終わると引き出した本がその大きさで出ている (${rm.scale} / ${rmWant.toFixed(3)})`);
+    rm.frames.every((f, i) => f.op === 1 && f.h <= fz.h + 0.5 && (i === 0 || (f.h >= rm.frames[i - 1].h - 0.5 &&
+      dirR * (cx(f) - cx(rm.frames[i - 1])) >= -0.3)));
+  t(rm.open && bookA && rm.dur >= 250 && rm.dur <= 300 && slide && !bookA.keys.includes('opacity') &&
+    rm.anims.every(a => a.d <= 300 && !a.tf.some(v => /rotate/.test(v))),
+    `動きを減らす設定では、棚の自分の場所から短くまっすぐ滑り出る。透けず、傾けず、行き過ぎない（${rm.dur}ms、高さ ${rm.frames.map(f => f.h.toFixed(0)).join('→')}px）`);
+  const rg = pose3d(rm.end, rm.r0);
+  t(rm.tf === 'none' && rm.op === '1' && rm.scrim === '1' && rg.scaleOk && rg.pullOk && rg.dev <= 1 && rg.backOk && rg.sideOk && rg.inBand && rg.midOk,
+    `動きを減らす設定でも、止まった姿はふだんと同じ（${rm.end.scale}倍、引き出した長さ ${(rm.end.pullK * 100).toFixed(0)}%、面 ${rm.end.faces.map(f => f.side).join('・')}）`);
   /* 開いてすぐ（450ms）のクリックは受けないので、待ってから */
   await p.waitForTimeout(300);
   await p.mouse.click(8, 8);
   const rc = await p.evaluate(() => {
-    const f = document.getElementById('focus'), bx = f.querySelector('.focus__book');
-    const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus'));
+    const f = document.getElementById('focus'), bx = f.querySelector('.focus__book .spine');
+    const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus') && !(a instanceof CSSTransition));
     const main = an.find(a => a.effect.target === bx);
     if (!main) return null;
     an.forEach(a => a.pause());
     const d = main.effect.getComputedTiming().duration;
     const mid = (an.forEach(a => { a.currentTime = d / 2; }), +getComputedStyle(bx).opacity);
     an.forEach(a => { a.currentTime = d - 1; });
-    const nb = bx.querySelector('.spine').getBoundingClientRect(), e = document.querySelector('.is-taken').getBoundingClientRect();
+    const nb = bx.getBoundingClientRect(), e = document.querySelector('.is-taken').getBoundingClientRect();
     const keys = Object.keys(Object.assign({}, ...main.effect.getKeyframes()));
     const op = +getComputedStyle(bx).opacity;
     an.forEach(a => a.finish());
