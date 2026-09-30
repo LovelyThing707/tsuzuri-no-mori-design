@@ -21,51 +21,21 @@
    本は画像に焼き込まず、1冊ずつ判型と厚みから描く（必須条件⑤）。
    ============================================================ */
 
-/* 上の余白（--bar-h）は、帯を引っ込めるようになっても残す。看板の列を画面の上端に
-   寄せたとき、この余白は画面の外（上）にあって画面の高さを使わない。
-   前の売り場とのあいだの間合いと、看板の後ろの壁の陰は、この高さで組んである */
+/* 売り場の上には、看板の列も暗い帯も置かない。棚のテーマは天板に留めた札に書く（.market__sign）。
+   以前は本棚の上に、帯の高さぶんの余白と看板の列（約 140px）があり、影を重ねて暗くしていた。
+   「つぎの森へ」と2つめの本棚のあいだに暗い帯が挟まって見えるので、取り除いた（10/1 のご指摘）。
+     1つめの売り場 … 森から店内へ入るところの、暗い壁が明けていく高さ（--entry、layout.css の
+                      .room::before）だけ空け、明けきったところから本棚が始まる
+     2つめから     … 通路（「つぎの森へ」）のすぐ下から本棚が始まる。通路の下の余白が間合い
+   本棚の上の壁は、通路と同じ店内の壁のまま（影を重ねない）。
+   本棚の後ろの壁だけは少し沈める。切り欠きのある端末を横に持つと、柱の外に壁が見える */
 .market{
-  position:relative; padding-top:var(--bar-h);
-  /* 左上にかかる植物の幅。天板と看板の壁の日だまり、葉の影もこの幅で置く */
+  position:relative; padding-top:var(--entry);
+  /* 左上にかかる植物の幅。天板の日だまりと葉の影もこの幅で置く */
   --lw: clamp(78px, 21vw, 180px);
-  /* 看板のまわりの壁。参考画像では本棚の上は暗い木の壁で、看板の文字が浮く。
-     店内の壁（layout.css の .interior）の上に、売り場のぶんだけ影を重ねる。
-     天板のすぐ上、植物の右には窓の日が当たる。日だまりは明るい色を重ねず、
-     影を薄くして壁の木そのものを見せる（色を重ねると、白くかすんで見える）。
-     植物の真下と右には葉の影が落ち、そのすき間だけ日が抜ける。 */
-  background:
-    url("../assets/images/leaf-shadow.webp")
-      calc(var(--lw) * .45) calc(var(--bar-h) + var(--head-h) * .45) / var(--lw) calc(var(--head-h) * .55) no-repeat,
-    radial-gradient(calc(var(--lw) * 1.6) calc(var(--head-h) * .95) at calc(var(--lw) * 1.75) 100%,
-      rgba(16,10,5,0) 0%, rgba(16,10,5,.12) 50%, rgba(16,10,5,.28) 100%)
-      left top / 100% calc(var(--bar-h) + var(--head-h)) no-repeat,
-    linear-gradient(180deg,
-      rgba(16,10,5,.25) 0, rgba(16,10,5,.22) calc(var(--bar-h) + var(--head-h) * .6),
-      rgba(16,10,5,0) calc(var(--bar-h) + var(--head-h)),
-      rgba(16,10,5,.34) calc(var(--bar-h) + var(--head-h) + 1px), rgba(16,10,5,.34) 100%);
+  background:rgba(16,10,5,.34) content-box;
 }
-/* 看板は本棚の内側の左右の端にそろえる（広い画面で、看板だけ中央に浮かないように） */
-.market > .wrap{
-  max-width:none;
-  padding-inline:calc(var(--post-w) + clamp(10px, 1.6vw, 26px));
-}
-
-/* --- 看板 --------------------------------------------------- */
-.market__head{
-  position:relative; z-index:3;
-  height:var(--head-h);
-  display:flex; align-items:center; justify-content:space-between;
-  gap:14px;
-  margin:0;
-}
-.market__sign{
-  position:relative;
-  margin:0;
-  font-size:clamp(15px,4.2vw,20px);
-  letter-spacing:.28em;
-  color:var(--paper);
-  text-align:left;
-}
+.aisle + .market{ padding-top:0; }
 
 .scene{ position:relative; }
 
@@ -198,13 +168,23 @@
   filter:brightness(1.36) saturate(1.05);   /* 窓から遠い右の柱は少し控えめ */
 }
 
-/* 天板。柱のあいだに納めた厚い板。上の角が光を受け、下の角は裏へ回り込む。
-   影は落とさない。下には天板の裏（いちばん上の段の天井）が続く。 */
+/* 天板。柱のあいだに納めた厚い板。上は笠木（上の角が窓の光を受ける）、その下は幕板。
+   笠木は幕板より少し手前に出ているので、笠木の下の角のすぐ下に細い陰が落ちる。
+   幕板の下の角は裏へ回り込み、天板の裏（いちばん上の段の天井）に続く。影は落とさない。
+   幕板には、棚のテーマの札を画鋲で留める（.market__sign）。
+   以前の天板は 21mm の1枚で、札を留めるには細すぎた（10/1 のご指摘）。1枚の板の絵を
+   縦に伸ばすと木目が流れて、壁に平たく貼った帯に見えるので、2枚の板で組む。
+   どちらの板の絵も、元の縮尺のまま貼る（笠木は以前の天板と同じ絵と大きさ）。 */
 .case__crown{
   position:relative; z-index:3;
   background:
     /* 上の角 */
     linear-gradient(180deg, rgba(255,228,180,.16) 0, rgba(255,228,180,.16) 1px, rgba(255,228,180,.06) 2px, rgba(255,228,180,0) 3px),
+    /* 笠木の下の陰。下の角のすぐ下がいちばん暗く、下へ薄れる */
+    linear-gradient(180deg, rgba(14,7,3,0) var(--cap), rgba(14,7,3,.62) var(--cap), rgba(14,7,3,.34) calc(var(--cap) + 2px),
+      rgba(14,7,3,.12) calc(var(--cap) + 6px), rgba(14,7,3,0) calc(var(--cap) + 12px)),
+    /* 幕板の下の角。裏へ回り込んで暗くなる */
+    linear-gradient(180deg, rgba(10,5,2,0) calc(100% - 6px), rgba(10,5,2,.2) calc(100% - 2px), rgba(10,5,2,.46) 100%),
     /* 柱との継ぎ目 */
     linear-gradient(90deg,
       rgba(20,11,5,0) calc(var(--pl) - 1px), rgba(20,11,5,.62) calc(var(--pl) - 1px),
@@ -212,9 +192,68 @@
       rgba(20,11,5,0) calc(100% - var(--pr) - 2px), rgba(20,11,5,.62) calc(100% - var(--pr) - 2px),
       rgba(20,11,5,.62) calc(100% - var(--pr) + 1px), rgba(20,11,5,0) calc(100% - var(--pr) + 1px)),
     linear-gradient(90deg, rgba(10,5,2,0) 45%, rgba(10,5,2,.1) 100%),
-    /* 板は1枚。画面が広くても同じ木目を繰り返さない。
+    /* 幕板の色。背板と同じ明るい板を、笠木と柱に合う落ち着いた色に沈める */
+    linear-gradient(rgb(178,168,196), rgb(178,168,196)) left bottom / 100% calc(100% - var(--cap)) no-repeat,
+    /* 笠木も幕板も、それぞれ1枚の板。画面が広くても同じ木目を繰り返さない。
        下の色は、木の絵が届く前に日だまり（.case__crown::after）が灰色で出ないように */
-    url("../assets/images/case-crown-front.webp") left center / max(2062px, 100%) 100% no-repeat var(--wood-dark);
+    url("../assets/images/case-crown-front.webp") left top / max(2062px, 100%) var(--cap) no-repeat,
+    url("../assets/images/case-crown-fascia.webp") left bottom / max(2062px, 100%) calc(100% - var(--cap)) no-repeat var(--wood-dark);
+  background-blend-mode:normal, normal, normal, normal, normal, multiply, normal, normal;
+}
+
+/* --- 棚のテーマの札 ------------------------------------------
+   10/1 のご依頼「本棚のテーマを添付のように紙に書いたように表示することは可能でしょうか？」。
+   町の本屋の棚に留めてある手書きの札のように、きなりの紙に手書きで書き、天板の左に
+   真鍮の画鋲で1本留める（画鋲は笠木に、紙は笠木から幕板にかかる）。紙はまっすぐ、文字は左寄せ。
+   札は見出しの文字そのもの（画像にしない）。売り場の名前、メニューの売り場、
+   「棚をのぞく」の行き先に使う。天板は読み上げない部材なので、札は天板の外に置いて重ねる。
+     紙   … tools/gen_card.py が描くきなりの紙（しわ・繊維・はさみで切った縁）。
+              札の幅は文字の長さで変わるので、紙の絵を札いっぱいに伸ばして貼る
+     文字 … 手書きの書体（Zen Kurenaido）。札に使う字だけを取り寄せる（index.html）。
+              届くまでは明朝で書き、届いたら差し替える
+     影   … 紙の縁の形から、右下へ落とす（光は左上の窓）。紙が板から少し浮いた薄い札に見える
+     明るさ … 店の明かりの中の紙。白く光らせず、少し落ち着いた暖かい色にする。
+              明るい色を重ねたり覆い焼きで明るくしたりはしない（白いモヤ・切り抜きの見え方）
+   置く場所は、どの画面も左の柱のすぐ内側。高さは天板の中で、上に 7mm、下に 18mm の木を残す。
+   下の 18mm は、引き出した本の頭が天板に入ってよい高さ（scripts/main.js の CROWN_REACH、21mm）より上。
+   引き出した本が札にかぶらない。左上の植物より手前に置く（紙の縁が葉にかかり、文字は隠れない） */
+.market__sign{
+  position:absolute; z-index:8;
+  left:calc(var(--pl) + 9px); top:calc(var(--mm) * 7);
+  height:calc(var(--mm) * 37);
+  padding:0 .62em 0 .56em;
+  margin:0;
+  font-family:"Zen Kurenaido","Shippori Mincho","Noto Serif JP",
+              "Hiragino Mincho ProN","Yu Mincho","YuMincho",serif;
+  font-weight:400;
+  font-size:clamp(16px, 4.3vw, 20px);
+  line-height:calc(var(--mm) * 37);
+  letter-spacing:.06em;
+  color:#2a2420;
+  text-align:left;
+  white-space:nowrap;
+  /* 住所欄の印（#theme-1）で直接跳んだときも、本棚の上の端が画面の上にそろうように */
+  scroll-margin-top:calc(var(--mm) * 7);
+  /* 紙が落とす影。紙の縁の形のまま、右下へ */
+  filter:drop-shadow(1px 1.5px 1px rgba(12,6,2,.6)) drop-shadow(2.5px 4px 4.5px rgba(12,6,2,.36));
+}
+/* 紙 */
+.market__sign::before{
+  content:"";
+  position:absolute; inset:0; z-index:-1;
+  background:url("../assets/images/shelf-card-paper.webp") 0 0 / 100% 100% no-repeat;
+}
+/* 画鋲。真鍮の丸い頭。左上の窓の光を受けて左上が光り、右下へ小さな影を落とす */
+.market__sign::after{
+  content:"";
+  position:absolute; left:50%; top:calc(var(--mm) * .5);
+  width:calc(var(--mm) * 10); height:calc(var(--mm) * 10);
+  margin-left:calc(var(--mm) * -5);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 33% 28%, rgba(255,246,214,.95) 0, rgba(255,240,196,.5) 12%, rgba(255,236,180,0) 26%),
+    radial-gradient(circle at 42% 38%, #dcb55e 0, #b88b36 38%, #86601d 68%, #4f360d 100%);
+  box-shadow:1.5px 2px 1.5px rgba(16,8,2,.55), inset -.6px -1px 1px rgba(40,24,4,.5);
 }
 
 /* --- 段 ------------------------------------------------------
@@ -856,7 +895,7 @@
 /* --- 光 ------------------------------------------------------
    参考画像の光は、窓の左上から差す低い日差しがひとつ。植物のかかる左上の角から
    入り、日が当たるところにだけ現れる。
-     看板の壁と天板 … 植物の右に日だまり。植物の真下は葉の影が落ち、すき間だけ日が抜ける
+     天板           … 植物の右に日だまり。植物の真下は葉の影が落ち、すき間だけ日が抜ける
      左の柱         … 縦にゆるく明暗の帯。平台に近い足もとほど明るい（柱の background）
      左の脚         … 平台の下の左の脚も日を受けて少し明るい（.case__base）
      平台の天面     … 左の端と手前がいちばん明るく、右下がりの光と影の帯。右へ消える。
@@ -874,8 +913,6 @@
    段の中や本の手前には、何も重ねない。
    光の下の面には暗い木の色（--wood-dark）を敷いておく。木の絵が届く前に、
    光の地図だけが灰色の膜になって出ないように。
-   看板の壁だけは、影を薄くして日だまりにする（.market）。壁の木は売り場の外の
-   店内の壁（.interior）にあり、売り場が現れる途中は売り場の中だけで混ざるため。
    床の筋の太さと間隔は、狭い画面では床の奥行き、広い画面では画面の幅に合わせる。
    平台の帯は、窓から離れるほど間を広く、明暗をゆるくする。広い画面で細い筋や
    同じ間隔の帯が並ぶと、日差しではなく縞模様に見える。
@@ -927,16 +964,17 @@
     linear-gradient(180deg, transparent 0, #000 35%);
           mask-composite:intersect;
 }
-/* 天板の小口。植物の真下は葉の影が落ち、葉のすき間を抜けた日だけが小さく光る。
+/* 天板の前の面（笠木と幕板）。植物の真下は葉の影が落ち、葉のすき間を抜けた日だけが小さく光る。
    その右は葉にさえぎられない日だまりで、右へなだらかに消える。
-   地図の幅は植物の幅（--lw）に合わせる */
+   以前は天板の上の壁に落ちていた葉の影と日だまりが、高くなった天板の上に落ちる。
+   地図の幅は植物の幅（--lw）に合わせる。札（.market__sign）はこの上に重なる */
 .case__crown::after{
   content:"";
   position:absolute; inset:0;
   pointer-events:none;
   background:
     linear-gradient(var(--sun-crown), var(--sun-crown)),
-    url("../assets/images/sunlight-crown.webp") left top / calc(var(--lw) * 3.4) 100% no-repeat #000;
+    url("../assets/images/sunlight-crown-board.webp") left top / calc(var(--lw) * 3.4) 100% no-repeat #000;
   background-blend-mode:multiply, normal;
   mix-blend-mode:color-dodge;
 }
@@ -947,12 +985,14 @@
    絵の小さな葉は白っぽい灰緑で、暗い壁の上では淡い霞に見える。
    壁の苔（layout.css）と同じ考え方で、少し暗く、緑を濃くして葉として見せる。
    植物は目の前にかかる主役なので、壁の苔より控えめに暗くする。
+   葉は上の壁から垂れて、柱の頭と笠木にかかり、笠木の下の影の線のあたりで消える。
+   幕板まで下ろすと、消えかけの葉が札の下の板に薄く透けて、にごった染みに見えた。
    幅（--lw）は .market で決める */
 .case__leaves{
   position:absolute; z-index:7;
-  left:0; top:calc(var(--head-h) * -.5);
+  left:0; top:calc(var(--mm) * -26);
   width:var(--lw);
-  height:calc(var(--head-h) * .5 + var(--crown) + 6px);
+  height:calc(var(--mm) * 26 + var(--cap) + 6px);
   background:url("../assets/images/wall-moss-edge.webp") no-repeat left calc(var(--lw) * -.7) / 100% auto;
   -webkit-mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
           mask-image:linear-gradient(180deg, #000 55%, transparent 100%);
@@ -1843,7 +1883,7 @@
    ページが上にかぶさるように */
 .menu{ position:fixed; inset:0; z-index:68; }
 /* 売り場へ寄せたときの位置は scripts/main.js の glide が決める。下へ送るときは帯を
-   引っ込めて看板の列を画面の上端に、上へ送るときは出てくる帯のすぐ下にそろえる */
+   引っ込めて本棚の上の端を画面の上端に、上へ送るときは出てくる帯のすぐ下にそろえる */
 .menu[hidden]{ display:none; }
 .menu__scrim{
   position:absolute; inset:0;

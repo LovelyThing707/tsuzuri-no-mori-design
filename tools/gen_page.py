@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import io, os, sys
+from urllib.parse import quote
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import gen_data as D
@@ -17,6 +18,13 @@ def market(idx, name, tiers, lying, note):
     平台に並べる本の判横の合計（--sumw*）と、いちばん背の高い本（--flat-hmax*）は
     冊数ごとに本棚（.case）に書き、画面の幅に合う冊数のものを CSS が選ぶ。
     段の数（--tiers）も本棚に書く。柱の木の絵と光を置く位置に使う（shelf.css）。
+
+    棚のテーマ（見出し）は、天板に画鋲で留めた手書きの紙の札として描く
+    （10/1 のご依頼「本棚のテーマを添付のように紙に書いたように表示することは可能でしょうか？」）。
+    札は本棚といっしょに現れて動くので、本棚の中に置く。天板は読み上げない部材（aria-hidden）なので、
+    見出しは天板の中に入れず、本棚のいちばん初めに置いて天板の上に重ねる（shelf.css）。
+    見出しは画像にせず、文字のまま残す。売り場の名前（aria-labelledby）、メニューの売り場の一覧、
+    「棚をのぞく」の行き先（#theme-1）は、この見出しを使う。
 
     読み上げでは、本（背表紙・平置き）だけを「書名のボタン」として読む。
     段と平台は、本をまとめる「1段目」「平台」などのまとまりとして読む。
@@ -36,14 +44,10 @@ def market(idx, name, tiers, lying, note):
     cubbies = "".join('<i class="cubby"></i>' for _ in range(8))
     return """
   <section class="market" aria-labelledby="theme-%d">
-    <div class="wrap">
-      <div class="market__head">
-        <h2 class="market__sign" id="theme-%d">%s</h2>
-      </div>
-    </div>
     <div class="scene">
-      <p class="sr-only">%s</p>
       <div class="case" style="%s">
+        <h2 class="market__sign" id="theme-%d">%s</h2>
+        <p class="sr-only">%s</p>
         <div class="case__crown" aria-hidden="true"></div>
 %s
         <div class="case__board case__board--last" aria-hidden="true"></div>
@@ -59,7 +63,7 @@ def market(idx, name, tiers, lying, note):
         <div class="case__leaves" aria-hidden="true"></div>
       </div>
     </div>
-  </section>""" % (idx, idx, name, note, case_vars(len(tiers), w, hmax), upper,
+  </section>""" % (idx, case_vars(len(tiers), w, hmax), idx, name, note, upper,
                    D.platform(lying), cubbies)
 
 
@@ -79,6 +83,8 @@ PAGE = """<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500&family=Noto+Serif+JP:wght@400;500&display=swap" rel="stylesheet">
+<!-- 棚のテーマの札に書く手書きの書体。札に使う字だけを取り寄せる（数 KB）。字は売り場の名前から拾う -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&display=swap&text=%(card_text)s" rel="stylesheet">
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/layout.css">
 <link rel="stylesheet" href="styles/hero.css">
@@ -331,12 +337,26 @@ PAGE = """<!DOCTYPE html>
 </html>
 """
 
+THEMES = ['子供に読みたい本', '夜に読む本']
+
+
+def card_text(names):
+    """札の書体を取り寄せるときに渡す字。売り場の名前に出てくる字を、重ねずに順に並べる。
+    売り場を足せば、その名前の字も自動で入る"""
+    seen = []
+    for ch in ''.join(names):
+        if ch not in seen:
+            seen.append(ch)
+    return quote(''.join(seen), safe='')
+
+
 html = PAGE % dict(
     books   = D.book_json(),
     pages   = G.pages_html(),
-    market1 = market(1, '子供に読みたい本', D.SHELF_A, D.LYING_A,
+    card_text = card_text(THEMES),
+    market1 = market(1, THEMES[0], D.SHELF_A, D.LYING_A,
                      '本棚の2つの段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
-    market2 = market(2, '夜に読む本', D.SHELF_B, D.LYING_B,
+    market2 = market(2, THEMES[1], D.SHELF_B, D.LYING_B,
                      '本棚の段に背表紙が並び、その下のせり出した平台に、表紙を上にして本を寝かせて置いています。'),
 )
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(html)

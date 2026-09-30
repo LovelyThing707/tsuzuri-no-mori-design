@@ -287,11 +287,12 @@ async function shelf(b) {
       t(k.legs && Math.abs(k.baseBottom - k.floorTop) <= 1,
         `${n}: 平台の下は脚で支え、本棚が床に立つ (台輪${k.baseBottom}/床${k.floorTop})`);
       t(k.deckInCase, `${n}: 平台は本棚の下部がせり出したもの（一つの家具）`);
-      /* 板は本と同じ縮尺の実寸の厚み。天板 21mm・棚板 24mm。
-         画面の高さで決めていたころは、板が細い棒に見えるとのご指摘を受けた */
+      /* 板は本と同じ縮尺の実寸の厚み。天板 62mm（笠木 21mm と幕板）・棚板 24mm。
+         画面の高さで決めていたころは、板が細い棒に見えるとのご指摘を受けた。
+         天板は、21mm では札を留めるには細すぎるとのご指摘（10/1）で高くした */
       t(k.boardH.every(h => Math.abs(h - 24 * m.mm) <= 1),
         `${n}: 棚板の小口は厚さ24mm (${k.boardH.join('・')}px / ${(24 * m.mm).toFixed(1)}px)`);
-      t(Math.abs(k.crownH - 21 * m.mm) <= 1, `${n}: 天板の小口は厚さ21mm (${k.crownH}px / ${(21 * m.mm).toFixed(1)}px)`);
+      t(Math.abs(k.crownH - 62 * m.mm) <= 1, `${n}: 天板（笠木と幕板）は高さ62mm。札を留められる (${k.crownH}px / ${(62 * m.mm).toFixed(1)}px)`);
       /* 箱の内側が見える。天板の裏、左右の側板の内側の面、平台の下の脚の内側の面 */
       t(k.ceilOn && Math.abs(k.ceilH - 18 * m.mm) <= 1,
         `${n}: いちばん上の段に天板の裏が見え、両端を側板と斜めに留める (${k.ceilH}px)`);
@@ -374,8 +375,8 @@ async function shelf(b) {
    9/28 のご依頼：すいかのプールを除いた2段で、背表紙の棚と平置きまで、スクロールせずに
    一画面で見られるか。
    9/29 から、下へ読み進めると上の帯が引っ込む（4b）。見方は、標準的な iPhone の画面
-   （390x844）で、帯が引っ込み、売り場の看板の列が画面の上端に来たとき。
-   下へ送って来たときと、「棚をのぞく」で寄せたとき（看板の列は上端にそろう）の両方で見る。
+   （390x844）で、帯が引っ込み、本棚の上の端が画面の上端に来たとき。
+   下へ送って来たときと、「棚をのぞく」で寄せたとき（本棚の上の端は上端にそろう）の両方で見る。
    平台に寝かせた本と、平台の手前の縁が画面に入っていれば可。
    ほかの大きさのスマートフォンも同じ見方で見る。
    背の低い画面（375x667、Safari で帯が出ているときの 390x664 など）は、まだ収まらない。
@@ -396,9 +397,9 @@ async function oneScreen(b) {
   for (const vp of FIT.concat(INFO)) {
     const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
     await p.goto(URL, { waitUntil: 'networkidle' });
-    /* 先頭から下へ送り、看板の列を画面の上端に（帯は途中で引っ込む） */
+    /* 先頭から下へ送り、本棚の上の端を画面の上端に（帯は途中で引っ込む） */
     await p.evaluate(() => {
-      const head = document.querySelector('.market__head');
+      const head = document.querySelector('.market .case');
       window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY);
     });
     /* 帯を引っ込めるのは、送ったあとの次のこま。機械が混んでいると、読み込んだ直後のこまが
@@ -410,7 +411,7 @@ async function oneScreen(b) {
       const mk = document.querySelector('.market');
       const bar = document.querySelector('.topbar').getBoundingClientRect();
       const away = document.querySelector('.topbar').classList.contains('is-away');
-      const head = mk.querySelector('.market__head').getBoundingClientRect();
+      const head = mk.querySelector('.case').getBoundingClientRect();
       const lip = mk.querySelector('.deck__lip').getBoundingClientRect();
       const post = parseFloat(getComputedStyle(mk.querySelector('.case'), '::before').width);
       /* 寝かせた本の下の端は、表紙の手前に帯で描いた地（紙の束の小口）の下の端 */
@@ -431,11 +432,11 @@ async function oneScreen(b) {
                       window.innerWidth - post - Math.max(last.right, bands[bands.length - 1].right)] };
     };
     const r = await p.evaluate(fit);
-    /* 帯は引っ込み（下の端が画面の上端より上）、看板の列は画面の上端にある */
+    /* 帯は引っ込み（下の端が画面の上端より上）、本棚の上の端は画面の上端にある */
     const top = s => s.away && s.bar <= 0.5 && Math.abs(s.head) <= 1;
-    const msg = `${vp.n} ${vp.w}x${vp.h}: 下へ送って看板の列を画面の上端に寄せたとき、帯は引っ込み、平台の本と手前の縁が一画面に入る` +
-      `（看板 ${r.head}px・帯の下の端 ${r.bar}px、余り 本 ${(r.h - r.books).toFixed(1)}px・縁 ${(r.h - r.lip).toFixed(1)}px）`;
-    t(top(r), `${vp.n} ${vp.w}x${vp.h}: 下へ送ると帯は引っ込み、看板の列を画面の上端に置ける（看板 ${r.head}px・帯の下の端 ${r.bar}px）`);
+    const msg = `${vp.n} ${vp.w}x${vp.h}: 下へ送って本棚の上の端を画面の上端に寄せたとき、帯は引っ込み、平台の本と手前の縁が一画面に入る` +
+      `（本棚の上の端 ${r.head}px・帯の下の端 ${r.bar}px、余り 本 ${(r.h - r.books).toFixed(1)}px・縁 ${(r.h - r.lip).toFixed(1)}px）`;
+    t(top(r), `${vp.n} ${vp.w}x${vp.h}: 下へ送ると帯は引っ込み、本棚の上の端を画面の上端に置ける（本棚の上の端 ${r.head}px・帯の下の端 ${r.bar}px）`);
     if (FIT.includes(vp)) t(top(r) && r.books <= r.h && r.lip <= r.h, msg);
     else console.log('  INFO  ' + msg.replace('入る', '入るか'));
     if (vp.w >= 360) t(r.k >= 0.6, `${vp.n} ${vp.w}x${vp.h}: 平置きの倍率が 0.6px/mm 以上 (${r.k.toFixed(3)})`);
@@ -443,18 +444,155 @@ async function oneScreen(b) {
       `${vp.n} ${vp.w}x${vp.h}: 平置きの端の本は柱にかからない (左 ${r.ends[0].toFixed(1)}・右 ${r.ends[1].toFixed(1)}px)`);
     await p.close();
 
-    /* 「棚をのぞく」で寄せたとき（読み手が実際にたどる道）。帯は引っ込み、看板の列は画面の上端 */
+    /* 「棚をのぞく」で寄せたとき（読み手が実際にたどる道）。帯は引っ込み、本棚の上の端は画面の上端 */
     const q = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
     await q.goto(URL, { waitUntil: 'networkidle' });
     await q.click('.hero__scroll'); await q.waitForTimeout(400);
     const j = await q.evaluate(fit);
     const jmsg = `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で寄せたとき、帯は引っ込み、平台の本と手前の縁が一画面に入る` +
-      `（看板 ${j.head}px・帯の下の端 ${j.bar}px、余り 本 ${(j.h - j.books).toFixed(1)}px・縁 ${(j.h - j.lip).toFixed(1)}px）`;
-    t(top(j), `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で、帯は引っ込み、看板の列が画面の上端に来る（看板 ${j.head}px・帯の下の端 ${j.bar}px）`);
+      `（本棚の上の端 ${j.head}px・帯の下の端 ${j.bar}px、余り 本 ${(j.h - j.books).toFixed(1)}px・縁 ${(j.h - j.lip).toFixed(1)}px）`;
+    t(top(j), `${vp.n} ${vp.w}x${vp.h}: 「棚をのぞく」で、帯は引っ込み、本棚の上の端が画面の上端に来る（本棚の上の端 ${j.head}px・帯の下の端 ${j.bar}px）`);
     if (FIT.includes(vp)) t(top(j) && j.books <= j.h && j.lip <= j.h, jmsg);
     else console.log('  INFO  ' + jmsg.replace('入る', '入るか'));
     await q.close();
   }
+}
+
+/* ---- 1d2. 棚のテーマの札と、本棚の上 ----------------------------------
+   10/1 のご依頼「本棚のテーマを添付のように紙に書いたように表示することは可能でしょうか？」。
+   棚のテーマは、天板に画鋲で留めた手書きの紙の札。天板は札が留まる高さ（62mm）にした。
+   「つぎの森へ」と2つめの本棚のあいだの暗い帯は無くした（同日のご指摘）。
+     札       … 見出しの文字そのもの（h2#theme-N.market__sign）。読み上げない部材（aria-hidden）の中に置かない。
+                 天板の中に収まり（上に 6px 以上、下は引き出した本の頭が届く高さより上）、左の柱のすぐ内側。
+                 手書きの書体（Zen Kurenaido）が届いて使われている。紙の絵の上に暗い墨色の字で、
+                 字と紙の明るさの比は 7:1 以上。紙は白く光らない。画鋲が札の上の中ほどにある。
+                 葉は字にかからない（字の上を指せば札に当たる）
+     本棚の上 … 2つめの本棚は、通路のすぐ下から始まる。売り場に看板の列も暗い帯も無い。
+                 1つめの本棚は、森から店内へ入るところの暗い壁が明けきってから始まる */
+async function card(b) {
+  const THEMES = ['子供に読みたい本', '夜に読む本'];
+  for (const vp of VIEWS) {
+    const p = await b.newPage({ viewport: { width: vp.w, height: vp.h }, reducedMotion: 'reduce' });
+    await p.addInitScript(() => { try { localStorage.setItem('shelf-hint', '1'); } catch (e) {} });
+    await p.goto(URL, { waitUntil: 'networkidle' });
+    await p.evaluate(() => document.fonts.ready);
+    await p.evaluate(() => document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in')));
+    const m = await p.evaluate(() => {
+      const px = v => parseFloat(v) || 0;
+      const rgb = c => (c.match(/[\d.]+/g) || []).map(Number);
+      const out = { heads: document.querySelectorAll('.market__head').length, markets: [] };
+      const room = document.querySelector('.room').getBoundingClientRect();
+      const fade = px(getComputedStyle(document.querySelector('.room'), '::before').height);
+      const aisle = document.querySelector('.aisle').getBoundingClientRect();
+      document.querySelectorAll('.market').forEach((mk, i) => {
+        const h = mk.querySelector('.market__sign'), c = mk.querySelector('.case');
+        const cr = c.getBoundingClientRect(), crown = mk.querySelector('.case__crown').getBoundingClientRect();
+        const r = h.getBoundingClientRect(), cs = getComputedStyle(h);
+        /* 左の柱の内側の端（切り欠きのない画面では柱の幅） */
+        const pl = px(getComputedStyle(c, '::before').width);
+        const pin = getComputedStyle(h, '::after'), paper = getComputedStyle(h, '::before');
+        const pw = px(pin.width), pt = r.top + px(pin.top), pcx = r.left + px(pin.left) + px(pin.marginLeft) + pw / 2;
+        const prev = mk.previousElementSibling;
+        out.markets.push({
+          id: h.id, text: h.textContent, tag: h.tagName, inCase: h.parentElement === c,
+          hidden: !!h.closest('[aria-hidden="true"]'), label: mk.getAttribute('aria-labelledby'),
+          top: +(r.top - crown.top).toFixed(1), below: +(crown.bottom - r.bottom).toFixed(1),
+          left: +(r.left - (cr.left + pl)).toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1),
+          crownH: +crown.height.toFixed(1), crownTop: +(crown.top - cr.top).toFixed(1),
+          font: cs.fontFamily, loaded: document.fonts.check(`${cs.fontSize} "Zen Kurenaido"`, h.textContent),
+          fontSize: px(cs.fontSize), ink: rgb(cs.color), spacing: px(cs.letterSpacing) / px(cs.fontSize),
+          paper: /shelf-card-paper/.test(paper.backgroundImage) && paper.content !== 'none', z: +cs.zIndex,
+          leavesZ: +getComputedStyle(mk.querySelector('.case__leaves')).zIndex,
+          shadow: /drop-shadow/.test(cs.filter),
+          pin: pin.content !== 'none' && pw >= 8 && pw <= 12 && pt >= r.top - 3 && pt + pw <= r.top + 14 && Math.abs(pcx - (r.left + r.width / 2)) <= 1.5,
+          pinBox: [+(pt - r.top).toFixed(1), +(pcx - r.left - r.width / 2).toFixed(1), pw],
+          /* 本棚の上 */
+          bg: getComputedStyle(mk).backgroundImage,
+          afterAisle: !!(prev && prev.classList.contains('aisle')),
+          gapAisle: +(cr.top - aisle.bottom).toFixed(1), fromRoom: +(cr.top - room.top).toFixed(1), fade,
+          y: r.top + window.scrollY,
+        });
+      });
+      return out;
+    });
+    t(m.heads === 0, `${vp.n}: 看板の列（.market__head）は無い。棚のテーマは札に書く`);
+    for (const [i, k] of m.markets.entries()) {
+      const n = `${vp.n} 売り場${i + 1}`;
+      t(k.tag === 'H2' && k.id === `theme-${i + 1}` && k.label === k.id && k.text === THEMES[i] && k.inCase && !k.hidden,
+        `${n}: 札は見出しの文字そのもの（h2#${k.id}「${k.text}」）で、読み上げない部材の中に置かない`);
+      t(k.crownH >= 58 && k.crownH <= 62.5 && k.crownTop === 0,
+        `${n}: 天板は本棚のいちばん上で、札が留まる高さ（${k.crownH}px）`);
+      t(k.top >= 6 && k.below >= 17.5 && k.h >= 34 && k.h <= 44,
+        `${n}: 札は天板の中に収まる（上に ${k.top}px・下に ${k.below}px の木。下は引き出した本の頭が届く 17px より上。札の高さ ${k.h}px）`);
+      t(k.left >= 0 && k.left <= 20, `${n}: 札は左の柱のすぐ内側（柱から ${k.left}px）`);
+      t(/^"?Zen Kurenaido"?/.test(k.font) && k.loaded,
+        `${n}: 手書きの書体（Zen Kurenaido）が届いて使われている（${k.font.split(',')[0]}${k.loaded ? '' : '、未着'}）`);
+      t(k.fontSize >= 16 && k.fontSize <= 20 && k.spacing >= 0.03 && k.spacing <= 0.09,
+        `${n}: 字の大きさ ${k.fontSize.toFixed(1)}px、字の間 ${k.spacing.toFixed(2)}em`);
+      t(k.paper && k.shadow, `${n}: 紙の絵の札で、紙の縁の形のまま影を落とす`);
+      t(k.pin, `${n}: 画鋲が札の上の中ほどにある（上から ${k.pinBox[0]}px・中央から ${k.pinBox[1]}px・径 ${k.pinBox[2]}px）`);
+      t(k.bg === 'none', `${n}: 売り場に暗い帯を重ねない（${k.bg.slice(0, 60)}）`);
+      if (k.afterAisle) t(Math.abs(k.gapAisle) <= 2, `${n}: 本棚は「つぎの森へ」の通路のすぐ下から始まる（あいだ ${k.gapAisle}px）`);
+      else t(k.fromRoom >= k.fade - 1 && k.fromRoom <= k.fade + 24,
+        `${n}: 本棚は、森から店内へ入るところの暗い壁が明けきってから始まる（店内の上の端から ${k.fromRoom}px、明ける高さ ${k.fade}px）`);
+    }
+    /* 字と紙の明るさの比。字を消して紙だけを写し、紙の暗いところ（暗いほうから 5% の点）と字の色で測る。
+       紙は白く光らない（きなりの色。明るさの中ほどが白よりはっきり暗い） */
+    for (const [i, k] of m.markets.entries()) {
+      const n = `${vp.n} 売り場${i + 1}`;
+      await p.evaluate(y => window.scrollTo(0, Math.max(0, y - 100)), k.y);
+      await p.waitForTimeout(150);
+      /* 字の上を指したとき、札に当たるか（葉や部材が字にかからない）。字の入る箱の内側を細かく見る */
+      const hit = await p.evaluate(i => {
+        const h = document.querySelectorAll('.market__sign')[i];
+        const range = document.createRange(); range.selectNodeContents(h);
+        const tr = range.getBoundingClientRect();
+        const miss = [];
+        let n = 0;
+        for (let fx = 0.04; fx < 1; fx += 0.08) for (const fy of [0.3, 0.5, 0.7]) {
+          const x = tr.left + tr.width * fx, y = tr.top + tr.height * fy;
+          const e = document.elementFromPoint(x, y);
+          n++;
+          if (e !== h) miss.push((e && (e.className || e.tagName)) + '@' + x.toFixed(0) + ',' + y.toFixed(0));
+        }
+        return { miss, n };
+      }, i);
+      t(k.z > k.leavesZ && hit.miss.length === 0,
+        `${n}: 札は植物より手前。葉は字にかからない（字の上 ${hit.n} 点）${hit.miss.length ? ' — ' + hit.miss.slice(0, 3).join(' ') : ''}`);
+      const r = await p.evaluate(i => { const h = document.querySelectorAll('.market__sign')[i]; h.style.color = 'transparent';
+        const b = h.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; }, i);
+      const g = await lumaOf(p, { x: r.x + 6, y: r.y + 12, width: r.w - 12, height: r.h - 18 });
+      await p.evaluate(i => { document.querySelectorAll('.market__sign')[i].style.color = ''; }, i);
+      const sorted = g.a.slice().sort((a, b) => a - b);
+      const lo = sorted[Math.floor(sorted.length * 0.05)], mid = sorted[Math.floor(sorted.length / 2)];
+      const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const Li = 0.2126 * f(k.ink[0]) + 0.7152 * f(k.ink[1]) + 0.0722 * f(k.ink[2]);
+      const ratio = (f(lo) + 0.05) / (Li + 0.05);
+      t(ratio >= 7 && Li < 0.03, `${n}: 暗い墨色の字（rgb ${k.ink.join(',')}）が紙の上で読める（明るさの比 ${ratio.toFixed(2)}:1、紙の暗いところで）`);
+      t(mid >= 180 && mid <= 222, `${n}: 紙は白く光らない、落ち着いたきなりの色（紙の明るさの中ほど ${mid}）`);
+    }
+    await p.close();
+  }
+  /* 住所欄の印（#theme-2）で直接開いたとき（ブラウザが自分で送る）。本棚の上の端が、ブラウザが帯のぶん
+     空けるところ（帯を出しているとき・引っ込めたときの間）に来て、札がまるごと見える */
+  const q = await b.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await q.goto(URL + '#theme-2', { waitUntil: 'networkidle' });
+  await q.waitForTimeout(600);
+  const j = await q.evaluate(() => {
+    const root = document.documentElement, away = root.classList.contains('bar-away');
+    root.classList.remove('bar-away');
+    const full = parseFloat(getComputedStyle(root).scrollPaddingTop);
+    root.classList.add('bar-away');
+    const low = parseFloat(getComputedStyle(root).scrollPaddingTop);
+    if (!away) root.classList.remove('bar-away');
+    const sign = document.getElementById('theme-2').getBoundingClientRect();
+    return { top: document.querySelectorAll('.market .case')[1].getBoundingClientRect().top, full, low,
+      seen: sign.top >= 0 && sign.bottom <= innerHeight,
+      end: window.scrollY >= root.scrollHeight - innerHeight - 1 };
+  });
+  t(j.seen && ((j.top >= j.low - 2 && j.top <= j.full + 2) || (j.end && j.top > j.low)),
+    `#theme-2 で直接開くと、2つめの本棚の上の端は帯のぶん下に来て、札がまるごと見える（${j.top.toFixed(1)}px、帯のぶん ${j.low.toFixed(1)}〜${j.full.toFixed(1)}px${j.end ? '、ページの終わり' : ''}）`);
+  await q.close();
 }
 
 /* ---- 1e. 段の高さは、画面の幅で見えている本に合わせて変わる -----------
@@ -843,13 +981,13 @@ async function touchSlide(cdp, p, pts, step = 16) {
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
-/* 売り場 m（0 から）の看板を、上の帯のすぐ下へ */
+/* 売り場 m（0 から）の本棚の上の端を、上の帯のすぐ下へ */
 async function toMarket(p, m) {
   await p.evaluate(m => {
     document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
     const mk = document.querySelectorAll('.market')[m];
     const bar = document.querySelector('.topbar').getBoundingClientRect().height;
-    window.scrollTo(0, mk.querySelector('.market__head').getBoundingClientRect().top + window.scrollY - bar);
+    window.scrollTo(0, mk.querySelector('.case').getBoundingClientRect().top + window.scrollY - bar);
   }, m);
   await p.waitForTimeout(500);
   /* 売り場が現れる動き（下から 18px、1 秒ほど）が終わるまで待つ。途中で測ると本の位置が数 px ずれ、
@@ -862,7 +1000,9 @@ async function toMarket(p, m) {
 /* 売り場 m の段 ti（省けば上から探す）で、見えている本 k（指で押す点は、本の下の端から 40px 上）。
    k を「monte:2」のように書くと、その本の2冊目。「mid」は、画面の左右の中央にいちばん近い本、「last」は列の右の端の本。
    その段の下の棚板の上の端（boardTop）と、引き出した本が上下に出てよい範囲（段の上の板の上の端 bandTop、
-   下の棚板の下の端 bandBot）、看板の下の端（headBot）も返す */
+   下の棚板の下の端 bandBot）、棚のテーマの札の下の端（cardBot）も返す。
+   いちばん上の段の bandTop は、天板の下の端から 21mm 上（天板が 21mm だったころの天板の上の端。
+   天板を高くしても、引き出し方は変えない） */
 const spineAt = (p, m, k, ti) => p.evaluate(([m, k, ti]) => {
   const mk = document.querySelectorAll('.market')[m];
   const scope = ti === null ? mk : mk.querySelectorAll('.case .tier')[ti];
@@ -875,11 +1015,13 @@ const spineAt = (p, m, k, ti) => p.evaluate(([m, k, ti]) => {
   const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
   const tier = e.closest('.tier');
   const board = tier.nextElementSibling.getBoundingClientRect();
+  const up = tier.previousElementSibling, ur = up.getBoundingClientRect();
+  const mm0 = parseFloat(cs.getPropertyValue('--mm')) || 1;
   return { x: r.left + r.width / 2, y: r.bottom - 40, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height,
            k: e.dataset.book, t_mm: Math.max(parseFloat(cs.getPropertyValue('--t')), 5), kw: parseFloat(cs.getPropertyValue('--kw')),
            mm: parseFloat(cs.getPropertyValue('--mm')) || 1,
-           boardTop: board.top, bandTop: tier.previousElementSibling.getBoundingClientRect().top, bandBot: board.bottom,
-           headBot: mk.querySelector('.market__head').getBoundingClientRect().bottom };
+           boardTop: board.top, bandTop: up.classList.contains('case__crown') ? ur.bottom - 21 * mm0 : ur.top, bandBot: board.bottom,
+           cardBot: mk.querySelector('.market__sign').getBoundingClientRect().bottom };
 }, [m, k, ti === undefined ? null : ti]);
 /* 引き出す・棚へ押しもどす動きが終わるまで待つ。
    決め打ちの待ち時間だと、機械が混んでいるときだけ落ちる（後ろをぼかす層は描くのが重い） */
@@ -939,8 +1081,8 @@ const tapState = async p => { await still(p); return p.evaluate(() => {
                （画面の中央の本も、横の面が見える）。背表紙の左右の端は、そこから棚の本の端へ向かう線の上
      高さ     … 本の中ほど。頭が上がるぶんと足もとが下がるぶんは同じ。段に収まらないときだけ上か下へ寄り、
                そのときは頭か足もとが段の縁に着いていて、上下どちらかへ伸びるぶんは全体の 65% まで
-     段       … 頭は段の上の板（いちばん上の段では天板）の上の端より 4px 以上下、
-               足もとは下の棚板の下の端より上（棚から落ちたり、看板へ飛び出したりして見えない）
+     段       … 頭は段の上の板の上の端（いちばん上の段では、天板の下の端から 21mm 上）より 4px 以上下、
+               足もとは下の棚板の下の端より上（棚から落ちたり、テーマの札にかかったりして見えない）
      背表紙   … 棚の上の 1.2〜1.35 倍。控えてよいのは、次のときだけ（data-clamp に書かれたわけを、ここで確かめる）
                  band … 頭か足もとが、段の縁に着いている
                  wide … 広い画面の端の本。見える横の面の長さが、引き出した長さの半分
@@ -1093,9 +1235,9 @@ async function tapFlow(b) {
         `${nm}: 背表紙は近づいたぶんだけ大きく見える（${s.scale}倍${s.clamp ? '、控えたわけ ' + s.clamp : ''}。幅 ${(s.node.w / sp.w).toFixed(3)}倍・高さ ${(s.node.h / sp.h).toFixed(3)}倍）`);
       t(g.dev <= 1 && g.outward,
         `${nm}: 自分の列から、消える点と反対の側へ少しずれるだけ（ずれ ${g.drift.toFixed(1)}px、遠近の線からの外れ ${g.dev.toFixed(2)}px）`);
-      t(g.inBand && g.midOk && s.node.t >= sp.headBot + 3.5,
+      t(g.inBand && g.midOk && s.node.t >= sp.cardBot + 0.5,
         `${nm}: 上下へはほぼ同じだけ大きくなり、自分の段に収まる（頭 +${g.rise.toFixed(1)}px・足もと +${g.drop.toFixed(1)}px。` +
-        `足もとは棚板の下の端まで ${(sp.bandBot - s.node.b).toFixed(1)}px、頭は看板まで ${(s.node.t - sp.headBot).toFixed(1)}px）`);
+        `足もとは棚板の下の端まで ${(sp.bandBot - s.node.b).toFixed(1)}px、頭はテーマの札の下の端まで ${(s.node.t - sp.cardBot).toFixed(1)}px）`);
       t(g.pullOk, `${nm}: 本の奥行きの 70〜80% を引き出し、後ろは棚に残る（${(s.pullK * 100).toFixed(0)}%）`);
       t(g.backOk,
         `${nm}: 見えている面の奥の端は、棚の本の輪郭にそろう（${s.faces.map((f, i) => f.side + ' ' + g.back[i].toFixed(2) + 'px').join('・') || '面なし'}）`);
@@ -2190,7 +2332,7 @@ async function nav(b) {
     t(await p.evaluate(() => !document.body.classList.contains('peek-open')),
       `${vp.n}: 閉じたら棚が動くように戻る`);
 
-    /* 売り場へ寄せる。看板が画面に入っているか */
+    /* 売り場へ寄せる。テーマの札が画面に入っているか */
     await p.click('#menu-open'); await p.waitForTimeout(600);
     await p.click('#menu-markets li:nth-child(2) a'); await p.waitForTimeout(1400);
     s = await p.evaluate(() => {
@@ -2202,7 +2344,7 @@ async function nav(b) {
     });
     t(s.menu && !s.lock, `${vp.n}: 売り場を選ぶとメニューは閉じる`);
     t(s.top >= 0 && s.top < s.h * 0.4,
-      `${vp.n}: 選んだ売り場の看板が画面に入る（上から${s.top}px）`);
+      `${vp.n}: 選んだ売り場のテーマの札が画面に入る（上から${s.top}px）`);
 
     /* 覆いを押して閉じる。左から出るので、押すのは右の端。
        下へ送ったあとは帯が引っ込んでいるので、読み手と同じく少し上へ戻して出してから押す */
@@ -2231,7 +2373,7 @@ async function nav(b) {
    少し上へ戻せば出る。森が見えているうち（ページの先頭を含む）、覆いを開いているあいだ、
    キーボードで帯に来たときは出したまま。本を引き出した層は帯ごと覆うので、
    層を開いても閉じても帯の出し入れは変えない。「棚をのぞく」とメニューの売り場は、下へ送るときは
-   看板の列を画面の上端に、上へ送るときは出てきた帯のすぐ下にそろえる。
+   本棚の上の端を画面の上端に、上へ送るときは出てきた帯のすぐ下にそろえる。
    指（本物のタッチ）、マウスの輪、キーボード、iOS の Safari の高さの変わり方で確かめる。 */
 
 /* 指で画面を送る。dy が正なら下へ（指は上へ動く）。
@@ -2260,7 +2402,7 @@ async function barState(p, ms = 450) {
       away: b.classList.contains('is-away'), lit: b.classList.contains('is-lit'),
       top: +r.top.toFixed(1), bottom: +r.bottom.toFixed(1),
       shown: Math.abs(r.top) <= 0.5, gone: r.bottom <= 0.5,
-      heads: [...document.querySelectorAll('.market__head')].map(e => +e.getBoundingClientRect().top.toFixed(1)),
+      heads: [...document.querySelectorAll('.market .case')].map(e => +e.getBoundingClientRect().top.toFixed(1)),
       y: Math.round(window.scrollY),
       /* ページの終わりまで送ってある（これより下へは送れない） */
       end: window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1,
@@ -2349,7 +2491,7 @@ async function topbarHide(b) {
     s = await barState(p);
     t(s.away && s.gone, `${n}: また下へ送ると、帯は引っ込む`);
 
-    /* 「棚をのぞく」。下へ送るので、帯は引っ込んで着き、看板の列が画面の上端に来る。
+    /* 「棚をのぞく」。下へ送るので、帯は引っ込んで着き、本棚の上の端が画面の上端に来る。
        送りの途中や、止まる間際の小さな動きで、帯が出てこない */
     await p.evaluate(() => window.scrollTo(0, 0));
     s = await barState(p);
@@ -2359,9 +2501,9 @@ async function topbarHide(b) {
     s = await barState(p, 1800);
     let log = await p.evaluate(() => window.__bar);
     t(s.away && s.gone && Math.abs(s.heads[0]) <= 1 && log.join() === 'true',
-      `${n}: 「棚をのぞく」で、帯は引っ込み、看板の列が画面の上端に来る。途中で帯は出てこない（看板の列 ${s.heads[0]}px、出し入れ ${log.join('→')}）`);
+      `${n}: 「棚をのぞく」で、帯は引っ込み、本棚の上の端が画面の上端に来る。途中で帯は出てこない（本棚の上の端 ${s.heads[0]}px、出し入れ ${log.join('→')}）`);
 
-    /* メニューの売り場。下の売り場へは看板の列を画面の上端に、上の売り場へは出てきた帯のすぐ下に */
+    /* メニューの売り場。下の売り場へは本棚の上の端を画面の上端に、上の売り場へは出てきた帯のすぐ下に */
     await fingerScroll(cdp, p, x, y, -16);
     s = await barState(p);
     await tap('#menu-open'); await p.waitForTimeout(600);
@@ -2371,17 +2513,17 @@ async function topbarHide(b) {
     await tap('#menu-markets li:nth-child(2) a');
     s = await barState(p, 1800);
     log = await p.evaluate(() => window.__bar);
-    /* 背の高い画面では、2つめの売り場はページの終わりに近く、看板の列を上端まで送れない。
+    /* 背の高い画面では、2つめの売り場はページの終わりに近く、本棚の上の端を上端まで送れない。
        そのときはページの終わりで止まる */
     t(!s.open && s.away && s.gone && (Math.abs(s.heads[1]) <= 1 || (s.end && s.heads[1] > 0)) && log.join() === 'true',
-      `${n}: メニューで下の売り場を選ぶと、帯は引っ込み、看板の列が画面の上端に来る（看板の列 ${s.heads[1]}px${s.end ? '、ページの終わり' : ''}、出し入れ ${log.join('→')}）`);
+      `${n}: メニューで下の売り場を選ぶと、帯は引っ込み、本棚の上の端が画面の上端に来る（本棚の上の端 ${s.heads[1]}px${s.end ? '、ページの終わり' : ''}、出し入れ ${log.join('→')}）`);
     await fingerScroll(cdp, p, x, y, -16);
     await barState(p);
     await tap('#menu-open'); await p.waitForTimeout(600);
     await tap('#menu-markets li:nth-child(1) a');
     s = await barState(p, 1800);
     t(!s.open && s.shown && !s.away && Math.abs(s.heads[0] - s.bottom) <= 1,
-      `${n}: メニューで上の売り場を選ぶと、帯は出たまま、看板の列は帯のすぐ下に来る（看板の列 ${s.heads[0]}px / 帯の下の端 ${s.bottom}px）`);
+      `${n}: メニューで上の売り場を選ぶと、帯は出たまま、本棚の上の端は帯のすぐ下に来る（本棚の上の端 ${s.heads[0]}px / 帯の下の端 ${s.bottom}px）`);
     /* 覆いの端で閉じたあとも出したまま。次に下へ送ると引っ込む */
     await tap('#menu-open'); await p.waitForTimeout(600);
     await p.touchscreen.tap(vp.w - 8, Math.round(vp.h / 2));
@@ -2404,15 +2546,15 @@ async function topbarHide(b) {
 
     /* 引き出した本の層。帯を引っ込めて棚を見ているところで本をタップしても、帯は引っ込めたまま
        （層が帯ごと覆うので、出してもぼかしの向こうでちらつくだけ）。
-       棚にもどっても引っ込めたまま。本を見て戻っただけで、帯が看板の列にかぶらない */
+       棚にもどっても引っ込めたまま。本を見て戻っただけで、帯が本棚の上の端にかぶらない */
     await p.evaluate(() => {
-      const h = document.querySelector('.market__head');
+      const h = document.querySelector('.market .case');
       window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 120);
     });
     await barState(p);
     await fingerScroll(cdp, p, x, Math.round(vp.h * 0.9), 120);
     s = await barState(p);
-    t(s.away && Math.abs(s.heads[0]) <= 3, `${n}: 棚を見るところ（帯は引っ込み、看板の列は上端 ${s.heads[0]}px）`);
+    t(s.away && Math.abs(s.heads[0]) <= 3, `${n}: 棚を見るところ（帯は引っ込み、本棚の上の端は上端 ${s.heads[0]}px）`);
     const head1 = s.heads[0], yShelf = s.y;
     let sp = await spineAt(p, 0, 'aya');
     await trackBar(p);
@@ -2425,7 +2567,7 @@ async function topbarHide(b) {
     s = await barState(p, 600);
     const tops = await trackedTops(p);
     t(!s.open && s.away && s.gone && s.y === yShelf && Math.abs(s.heads[0] - head1) <= 1,
-      `${n}: 棚にもどると、開く前のとおり帯は引っ込んだまま。看板の列にかぶらない（看板の列 ${s.heads[0]}px、帯の下の端 ${s.bottom}px）`);
+      `${n}: 棚にもどると、開く前のとおり帯は引っ込んだまま。本棚の上の端にかぶらない（本棚の上の端 ${s.heads[0]}px、帯の下の端 ${s.bottom}px）`);
     t(tops.length > 20 && tops.every(v => Math.abs(v + s.bottom - s.top) <= 0.5),
       `${n}: 層を開いても閉じても、帯は動かない（帯の上の端 ${[...new Set(tops)].join('・')}px）`);
     await fingerScroll(cdp, p, x, y, -16);
@@ -2456,7 +2598,7 @@ async function topbarHide(b) {
     await tap('.item__back');
     s = await barState(p, 800);
     t(!s.open && s.shown && !s.away, `${n}: 商品詳細を閉じて棚にもどったあとも、帯は出ている`);
-    /* 住所欄には「棚をのぞく」の印（#theme-1）が付いている。戻る操作でブラウザがその看板まで
+    /* 住所欄には「棚をのぞく」の印（#theme-1）が付いている。戻る操作でブラウザがそのテーマの札まで
        跳ばず、開く前と同じ位置にもどる */
     const hash = await p.evaluate(() => location.hash);
     t(s.y === yItem && hash === '#theme-1',
@@ -2576,7 +2718,7 @@ async function topbarHide(b) {
     /* 下の売り場から Shift+Tab で上の売り場へ戻る。焦点の先を見せる送りは上向きだが、帯は出さない */
     await p.evaluate(() => {
       document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
-      const h = document.querySelectorAll('.market__head')[1];
+      const h = document.querySelectorAll('.market .case')[1];
       window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 200);
     });
     await p.waitForTimeout(300);
@@ -2608,10 +2750,13 @@ async function topbarHide(b) {
 
   /* --- iOS の Safari。下へ送るとブラウザの帯が引っ込み、見える高さだけが変わる
      （390x664 ↔ 390x750）。その出入りでは帯を出し入れせず、本文も動かさない。
-     ページの終わりでは、高さが変わると位置が端に丸められて上へ動く。それも上へ戻したと数えない。
+     ページの終わりでは、高さが変わると位置が上へ動く。それも上へ戻したと数えない。
      この検査の画面（Chromium）では高さを変えると svh も変わり、森の高さが伸び縮みする
      （実機の Safari では svh は変わらない）。森が画面に入らない2つめの売り場で見て、
-     本文が動かないことは同じ高さどうしで比べる --- */
+     本文が動かないことは同じ高さどうしで比べる。
+     2つめの売り場の上に画面の高さで決まる余白が無くなってから（10/1）、Chromium は森の伸び縮みに
+     合わせて位置を送り直す（読んでいる本文を動かさないブラウザの働き）。ページの終わりで縮むと、
+     端に丸められるより大きく上へ動き、端から少し離れて止まることがある。どちらでも帯は出さない */
   {
     const ctx = await b.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     const p = await ctx.newPage();
@@ -2621,16 +2766,16 @@ async function topbarHide(b) {
     await p.goto(URL, { waitUntil: 'networkidle' });
     const cdp = await ctx.newCDPSession(p);
     const size = async hh => { await p.setViewportSize({ width: 390, height: hh }); await p.waitForTimeout(200); };
-    const head = () => p.evaluate(() => +document.querySelectorAll('.market__head')[1].getBoundingClientRect().top.toFixed(1));
+    const head = () => p.evaluate(() => +document.querySelectorAll('.market .case')[1].getBoundingClientRect().top.toFixed(1));
     await p.evaluate(() => {
       document.querySelectorAll('.will-reveal').forEach(e => e.classList.add('is-in'));
-      const h = document.querySelectorAll('.market__head')[1];
+      const h = document.querySelectorAll('.market .case')[1];
       window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 120);
     });
     await barState(p);
     await fingerScroll(cdp, p, 195, 598, 120);
     let s = await barState(p);
-    t(s.away && s.gone, `iOS Safari: 2つめの売り場を見るところで、帯は引っ込んでいる（看板の列 ${s.heads[1]}px）`);
+    t(s.away && s.gone, `iOS Safari: 2つめの売り場を見るところで、帯は引っ込んでいる（本棚の上の端 ${s.heads[1]}px）`);
     await watchBar(p);
     await size(750);
     const h0 = await head();
@@ -2639,7 +2784,7 @@ async function topbarHide(b) {
     let log = await p.evaluate(() => window.__bar);
     s = await barState(p, 100);
     t(s.away && s.gone && log.every(v => v) && Math.abs(h1 - h0) <= 1,
-      `iOS Safari: ブラウザの帯が出入りしても（高さ 664↔750）、帯は引っ込んだまま、本文も動かない（看板の列 ${h0}→${h1}px、出し入れ ${log.join('→') || 'なし'}）`);
+      `iOS Safari: ブラウザの帯が出入りしても（高さ 664↔750）、帯は引っ込んだまま、本文も動かない（本棚の上の端 ${h0}→${h1}px、出し入れ ${log.join('→') || 'なし'}）`);
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     s = await barState(p);
     const yEnd = s.y;
@@ -2647,8 +2792,8 @@ async function topbarHide(b) {
     await size(664); await size(750); await size(664);
     log = await p.evaluate(() => window.__bar);
     s = await barState(p, 100);
-    t(s.away && s.gone && s.end && s.y < yEnd && log.every(v => v),
-      `iOS Safari: ページの終わりで高さが変わり、位置が端に丸められて上へ動いても、帯は出てこない（${yEnd}→${s.y}px、出し入れ ${log.join('→') || 'なし'}）`);
+    t(s.away && s.gone && s.y < yEnd && log.every(v => v),
+      `iOS Safari: ページの終わりで高さが変わり、位置が上へ動いても、帯は出てこない（${yEnd}→${s.y}px${s.end ? '、ページの終わり' : ''}、出し入れ ${log.join('→') || 'なし'}）`);
     t(errs.length === 0, `iOS Safari: JSエラーなし${errs.length ? ' — ' + errs[0] : ''}`);
     await ctx.close();
   }
@@ -2824,12 +2969,12 @@ async function fixes(b) {
     t(glide.steps > 8, `${vp.n}: 節へ送るとき、間をかけて動く（${glide.steps}こま）`);
     s = await p.evaluate(() => {
       const r = document.getElementById('theme-1').getBoundingClientRect();
-      const head = document.querySelector('.market__head').getBoundingClientRect();
+      const head = document.querySelector('.market .case').getBoundingClientRect();
       const bar = document.querySelector('.topbar').getBoundingClientRect();
       return { top: Math.round(r.top), head: +head.top.toFixed(1), bar: Math.round(bar.bottom) };
     });
     t(s.top >= s.bar && s.bar <= 0 && Math.abs(s.head) <= 1,
-      `${vp.n}: 送った先の看板が帯に隠れない。帯は引っ込み、看板の列が画面の上端に来る（看板の列 ${s.head} / 看板 ${s.top} / 帯 ${s.bar}）`);
+      `${vp.n}: 送った先のテーマの札が帯に隠れない。帯は引っ込み、本棚の上の端が画面の上端に来る（本棚の上の端 ${s.head} / 札 ${s.top} / 帯 ${s.bar}）`);
 
     /* --- 試し読み。手を止めたら層から降りて描き直される --- */
     const sp = await p.$('.spine[data-book]');
@@ -2941,8 +3086,8 @@ async function fixes(b) {
     const e = [...document.querySelectorAll('.case .row .spine[data-book]')].filter(e => getComputedStyle(e).display !== 'none')[2];
     const r0 = e.getBoundingClientRect(), kw = parseFloat(getComputedStyle(e).getPropertyValue('--kw'));
     const tier = e.closest('.tier');
-    const band = { bandTop: tier.previousElementSibling.getBoundingClientRect().top, bandBot: tier.nextElementSibling.getBoundingClientRect().bottom,
-                   mm: parseFloat(getComputedStyle(e).getPropertyValue('--mm')) || 1 };
+    const up = tier.previousElementSibling, ur = up.getBoundingClientRect(), mm = parseFloat(getComputedStyle(e).getPropertyValue('--mm')) || 1;
+    const band = { bandTop: up.classList.contains('case__crown') ? ur.bottom - 21 * mm : ur.top, bandBot: tier.nextElementSibling.getBoundingClientRect().bottom, mm };
     e.click();
     const f = document.getElementById('focus'), node = f.querySelector('.focus__book .spine');
     const an = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#focus') && !(a instanceof CSSTransition));
@@ -3038,6 +3183,7 @@ async function widths(b) {
   const b = await chromium.launch();
   await shelf(b);
   await oneScreen(b);
+  await card(b);
   await tierFollow(b);
   await light(b);
   await picking(b);

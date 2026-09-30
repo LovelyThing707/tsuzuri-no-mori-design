@@ -12,10 +12,9 @@ shelf.css はこの地図に日の色を掛け、色覆い焼き（color-dodge�
 書き出すもの（assets/images）
   sunlight-floor.webp   本棚の手前の床。左下に落ちる細長い斜めの日の筋
   sunlight-deck.webp    平台の天面。手前ほど明るい日だまりと、斜めの光と影の帯
-  sunlight-crown.webp   天板の小口。植物の真下は葉の影と、葉のすき間を抜けた小さな光、
-                        その右は葉にさえぎられない日だまり
+  sunlight-crown-board.webp  天板の前の面（笠木と幕板）。植物の真下は葉の影と、葉のすき間を抜けた
+                        小さな光、その右は葉にさえぎられない日だまり
   sunlight-post.webp    左の柱。縦にゆるく明暗が入れ替わる帯
-  leaf-shadow.webp      看板の壁に落ちる葉の影（暗い焦茶。透明度が影の濃さ）
 
 どの地図も、日は同じ向きから差す。筋と帯は右下がり（約28度）。
 乱数は種を固定しているので、何度書き出しても同じ絵になる。
@@ -165,15 +164,19 @@ def deck_map():
     return np.clip(a, 0, 1)
 
 
-# --- 天板の小口 ---------------------------------------------------------------
+# --- 天板 ---------------------------------------------------------------------
 def crown_map():
-    """天板の小口。幅は植物の幅（--lw）の 3.4 倍、高さは小口の厚み。
+    """天板の前の面（笠木と幕板、高さ 62mm）。幅は植物の幅（--lw）の 3.4 倍、高さは天板の高さ。
     植物の真下（左から 0.03〜0.38）は葉の影。重なった葉のすき間だけ日が抜け、
-    小口の上に葉の形に欠けた小さな光のかけらが落ちる（丸い玉のぼけにはしない）。
+    板の上に葉の形に欠けた小さな光のかけらが落ちる（丸い玉のぼけにはしない）。
     低い日が斜めに差すので、かけらは横に少し伸びる。
-    その右は葉にさえぎられない日だまりで、右へなだらかに消える。"""
-    rng = np.random.default_rng(20260927)
-    H, W = 96, 1280
+    その右は葉にさえぎられない日だまりで、右へなだらかに消える。
+    以前は天板の上の壁に落ちていた葉の影と日だまりが、高くなった天板の上に落ちる。
+    天板の高さに合わせて描き直してある（21mm の天板の地図を縦に伸ばすと、光のかけらが縦に流れる）。
+    上の笠木は日をまともに受け、その下の幕板は笠木の陰の下から少しずつ日を受ける。
+    札（.market__sign）は、この上に重ねる。"""
+    rng = np.random.default_rng(20261001)
+    H, W = 240, 1280
     v, x = np.mgrid[0:H, 0:W].astype(np.float64)
     uu = x / W; vv = v / H
     # 日の強さ。植物の真下も日だまりも同じ直射で、右へなだらかに消える
@@ -183,26 +186,29 @@ def crown_map():
     im = Image.new('L', (W * S, H * S), 0)
     dr = ImageDraw.Draw(im)
     n = 0
-    while n < 95:
-        cx = rng.uniform(0.0, 0.40); cy = rng.uniform(-0.3, 1.3)
+    while n < 150:
+        cx = rng.uniform(0.0, 0.40); cy = rng.uniform(-0.15, 1.15)
         if rng.random() > 1.0 - smoothstep(0.08, 0.40, cx) * 0.9:
             continue
-        size = rng.uniform(0.009, 0.017) * W * S
+        size = rng.uniform(0.011, 0.02) * W * S
         pts = []
         rot = rng.uniform(0, 2 * np.pi)
         for k in range(48):
             ph = 2 * np.pi * k / 48
             r = size * (0.62 + 0.38 * np.abs(np.cos(2.5 * ph)) ** 1.6)
             px_, py_ = r * np.cos(ph + rot), r * np.sin(ph + rot)
-            pts.append((cx * W * S + px_ * 1.5, cy * H * S + py_))   # 横に伸びた葉の影
+            pts.append((cx * W * S + px_ * 1.4, cy * H * S + py_ * 0.9))   # 横に伸びた葉の影
         dr.polygon(pts, fill=255)
         n += 1
     cover = np.asarray(im.resize((W, H), Image.LANCZOS)).astype(np.float64) / 255.0
-    cover = blur(cover, 3.2, 1.8)                                    # 葉の影の縁（半影）
+    cover = blur(cover, 3.4, 3.0)                                    # 葉の影の縁（半影）
     gaps = np.clip(1.0 - cover, 0, 1) ** 1.4
     a = sun * gaps
-    # 小口の上の角は日をかすめて受ける
-    a *= 0.86 + 0.14 * (1 - vv)
+    # 笠木（上の 21mm）は日をまともに受け、上の角はかすめて受ける。
+    # 幕板は笠木の下の陰から、下へ少しずつ日を受ける
+    cap = 21.0 / 62.0
+    a *= np.where(vv < cap, 0.9 + 0.1 * (1 - vv / cap),
+                  0.62 + 0.3 * smoothstep(cap, cap + 0.25, vv))
     return np.clip(a, 0, 1)
 
 
@@ -225,52 +231,9 @@ def post_map():
     return np.repeat(a[:, None], W, axis=1)
 
 
-# --- 看板の壁の葉の影 -------------------------------------------------------------
-def ivy_leaf(draw, cx, cy, size, rot, fill):
-    """アイビーの葉の形（先のとがった5つの裂片）"""
-    pts = []
-    for i in range(72):
-        ph = 2 * np.pi * i / 72
-        lobe = 0.62 + 0.38 * np.abs(np.cos(2.5 * ph)) ** 1.6
-        r = size * lobe * (1.0 if np.sin(ph) < 0.2 else 0.82)
-        pts.append((cx + r * np.cos(ph + rot), cy + r * np.sin(ph + rot)))
-    draw.polygon(pts, fill=fill)
-
-
-def leaf_shadow():
-    """看板の壁の、植物の右と下に落ちる葉の影。幅は植物の幅（--lw）、高さは看板の
-    高さの 0.55 に広げて置く（shelf.css の .market）。左（植物の側）ほど葉が密で、
-    影の縁は日の角度でぼける。
-    葉のすき間は影が抜け、壁の木がそのまま日を受ける。"""
-    rng = np.random.default_rng(20260929)
-    S = 4
-    H, W = 256, 512
-    im = Image.new('L', (W * S, H * S), 0)
-    dr = ImageDraw.Draw(im)
-    n = 0
-    while n < 70:
-        x = rng.uniform(-0.05, 1.0); y = rng.uniform(-0.1, 1.05)
-        # 植物に近い左上ほど密に
-        if rng.random() > (1 - x) ** 1.8 * (0.5 + 0.5 * (1 - y)):
-            continue
-        size = rng.uniform(0.035, 0.07) * W * S
-        ivy_leaf(dr, x * W * S, y * H * S, size, rng.uniform(0, 2 * np.pi), 255)
-        n += 1
-    a = np.asarray(im.resize((W, H), Image.LANCZOS)).astype(np.float64) / 255.0
-    a = blur(a, 2.4, 1.8)                       # 半影
-    a *= 0.34 * (1 - smoothstep(0.5, 1.0, np.linspace(0, 1, W)))[None, :]
-    a *= smoothstep(0.0, 0.22, np.linspace(0, 1, H))[:, None] * 0.4 + 0.6
-    rgba = np.zeros((H, W, 4), np.uint8)
-    rgba[..., 0], rgba[..., 1], rgba[..., 2] = 14, 9, 4
-    rgba[..., 3] = np.clip(a * 255 + 0.5, 0, 255).astype(np.uint8)
-    Image.fromarray(rgba, 'RGBA').save(os.path.join(IMG, 'leaf-shadow.webp'), 'WEBP', quality=90, method=6)
-    print('%-22s %4dx%-4d  影の濃さ 最大 %.2f' % ('leaf-shadow.webp', W, H, a.max()))
-
-
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     save_grey(floor_map(), 'sunlight-floor.webp')
     save_grey(deck_map(), 'sunlight-deck.webp')
-    save_grey(crown_map(), 'sunlight-crown.webp')
+    save_grey(crown_map(), 'sunlight-crown-board.webp')
     save_grey(post_map(), 'sunlight-post.webp')
-    leaf_shadow()

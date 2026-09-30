@@ -6,7 +6,9 @@
 1枚の絵だと段と棚板の比率が絵に固定され、本の大きさに合わせられない。
 
 切り出す部材
-  case-crown-front.webp 天板の小口（前面）。下の角が天板の裏へ回り込むところまで
+  case-crown-front.webp 天板の笠木（前面）。下の角が裏へ回り込むところまで
+  case-crown-fascia.webp 天板の幕板（笠木の下の板の前面）。棚のテーマの札を留める板。
+                        背板と同じ明るい板のうち、節の少ない帯。均してから使い、色は画面の側で落とす
   case-ceiling.webp     天板の裏（いちばん上の段から見上げた面）。中の棚板の裏にも使う
   case-back-panel.webp  背板（段の奥）。色と明るさの大きな斑を均し、木目の濃淡を強める
   case-board-front.webp 棚板の小口（本が立つ板の前面）。上の丸い角から、裏との折れ目まで
@@ -44,6 +46,7 @@ CUTS = [
     # 出力名,                 元の絵,              上,   下, 均すもの, 木目の濃淡
     #   均すもの … '列'＝横に流れる光だけ、'斑'＝色と明るさの大きな斑も
     ('case-crown-front.webp', 'case-shelf.webp',    0,   28, '列',  1.0),
+    ('case-crown-fascia.webp', 'case-shelf.webp', 110,  160, '列',  1.8),
     ('case-ceiling.webp',     'case-shelf.webp',   29,   54, '列',  1.8),
     ('case-back-panel.webp',  'case-shelf.webp',   70,  266, '斑',  2.2),
     ('case-board-front.webp', 'case-shelf.webp',  275,  314, '列',  1.0),

@@ -35,7 +35,7 @@
   content:"";
   position:absolute; z-index:0;
   left:50%; top:0;
-  width:100vw; height:clamp(90px,13vh,170px);
+  width:100vw; height:var(--entry);
   transform:translateX(-50%);
   background:linear-gradient(180deg, var(--room-wall) 0%, rgba(36,26,19,.6) 46%, transparent 100%);
   pointer-events:none;
@@ -119,7 +119,7 @@
 .will-reveal.is-in{ opacity:1; transform:none; }
 
 /* --- 売り場は奥から手前へ順に置かれる -------------------------
-   看板・棚・平台がひとかたまりで現れると、書き割りが一枚
+   札・棚・平台がひとかたまりで現れると、書き割りが一枚
    立つように見える。奥から順にわずかに遅らせる。 */
 .market.will-reveal .case{
   /* 濃さは売り場ごと一枚で変える。ここで重ねて薄くすると、
@@ -185,8 +185,8 @@ body.peek-open .topbar{ right:var(--gutter,0px); }
    帯の分だけ手前で止める。
    帯を引っ込めているあいだ（scripts/main.js が html に bar-away を付ける）は、少しの間だけにする。
    帯の無いところに帯の分を空けると、タブ送りのたびに画面が上へ戻り、帯まで出てきてしまう。
-   看板へ寄せる送り（scripts/main.js の glide）はこの値を使わない。下へ送るときは帯を
-   引っ込めて看板の列を画面の上端に、上へ送るときは帯のすぐ下にそろえる。
+   売り場へ寄せる送り（scripts/main.js の glide）はこの値を使わない。下へ送るときは帯を
+   引っ込めて本棚の上の端を画面の上端に、上へ送るときは帯のすぐ下にそろえる。
    --bar は帯の実寸（scripts/main.js が測って入れる）。 */
 html{ scroll-padding-top:calc(var(--bar,86px) + clamp(12px,3vh,28px)); }
 html.bar-away{ scroll-padding-top:clamp(12px,3vh,28px); }
@@ -250,7 +250,7 @@ html.bar-away{ scroll-padding-top:clamp(12px,3vh,28px); }
 .market::before{ background-position:left 0%; }
 /* 右の苔（奇数番目の売り場）は、絵の下の端を高さ 760px の箱の下の端にそろえた位置。
    上から測って置くので、本棚の段が低くなって売り場が短くなっても、
-   苔が看板の右まで上がってこない（絵は 340x1347） */
+   苔が売り場の上の端のほうまで上がってこない（絵は 340x1347） */
 .market::after { background-position:left 0 top calc(760px - var(--moss-w) * 1347 / 340); }
 .market:nth-of-type(even)::before{ background-position:left 62%; }
 .market:nth-of-type(even)::after { background-position:left 28%; }

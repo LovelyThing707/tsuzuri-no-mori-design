@@ -228,7 +228,7 @@
        画面の中央より左の本は右の横の面が、右の本は左の横の面が見える。
        高さは、引き出す本の中ほど。手に取る本は、目の高さで見る。
        什器の目の高さ（下の段の上のほう）のまま近づけると、下の段の本は足もとが棚板を越えて
-       平台の上まで下がり、上の段の本は頭が看板の近くまで上がって、棚から落ちた・飛び出したように
+       平台の上まで下がり、上の段の本は頭が天板の近くまで上がって、棚から落ちた・飛び出したように
        見えた。什器はほとんど平らに描いてあり（棚板の上の面は見えない）、本だけが強く下がると合わない。
        目の高さを本の中ほどにすると、背表紙は上と下へ同じだけ大きくなり、段の中に収まる。
        天（紙の束の上面）は、棚の本と同じ細い帯で見える（背表紙の写しに含まれている） */
@@ -242,8 +242,12 @@
        寄せても、上と下のどちらかへ伸びるぶんが全体のこの割合を超えないようにし、
        超えるときは大きさを控える（多くが上へ伸びると、近づいたのではなく絵が大きくなったように見える） */
     var LEAN = 0.65;
-    /* 頭は、段の上の板の上の端より、これだけ下で止める（看板や上の段の本の足もとに届かない） */
+    /* 頭は、段の上の板の上の端より、これだけ下で止める（上の段の本の足もとに届かない） */
     var ROOF = 4;
+    /* いちばん上の段の本の頭が、天板の下の端から上へ入ってよい高さ（mm）。天板が 21mm だったころの
+       天板の上の端までと同じ。天板を札の留まる高さ（62mm）にしても、引き出したときの大きさと位置は
+       変わらない。札はこれより上に留めてあるので、引き出した本は札にかからない（shelf.css の .market__sign） */
+    var CROWN_REACH = 21;
     /* 見える横の面の長さは、引き出した長さに対してこの割合まで。広い画面の端の本を近くから見ると、
        目の前の広い棚を広角で覗いたことになり、横の面が長く伸びすぎる。そのときは大きさを控える */
     var WIDE = 0.5;
@@ -362,12 +366,14 @@
       var se = Math.min(l < vx ? (vx - ex) / (vx - l) : Infinity, r > vx ? (vw - ex - vx) / (r - vx) : Infinity);
       if (se < s) { s = se; why = 'edge'; }
 
-      /* 消える点の高さ。段の中に収める。頭は段の上の板（いちばん上の段では天板）の上の端の
-         ROOF 手前まで、足もとは下の棚板の下の端まで上がり下がりしてよい。
+      /* 消える点の高さ。段の中に収める。頭は段の上の板の上の端（いちばん上の段では、天板の下の端から
+         CROWN_REACH 上）の ROOF 手前まで、足もとは下の棚板の下の端まで上がり下がりしてよい。
          f は、目の高さが本の上から何割のところか */
       var tier = el.closest('.tier');
       var above = tier && tier.previousElementSibling, below = tier && tier.nextElementSibling;
-      var a = above ? t - above.getBoundingClientRect().top - ROOF : h;
+      var roof = !above ? 0 : above.classList.contains('case__crown')
+        ? above.getBoundingClientRect().bottom - CROWN_REACH * mm : above.getBoundingClientRect().top;
+      var a = above ? t - roof - ROOF : h;
       var c = below ? below.getBoundingClientRect().bottom - bt : h;
       var g = h * (s - 1), f = 0.5;
       if (g * f > a || g * (1 - f) > c) {
@@ -1152,7 +1158,7 @@
 
     /* 棚にもどる位置は、こちらで戻す（開いたときの位置 y）。ブラウザにも戻させると、
        住所欄に売り場の印（「棚をのぞく」で付く #theme-1 など）があるとき、戻る操作で
-       開く前の位置ではなく、その看板まで跳んでしまう。
+       開く前の位置ではなく、その売り場の札まで跳んでしまう。
        ブラウザの位置の戻し方は履歴ごとに持つので、履歴を積む前に棚の履歴で止め、
        積んだ商品詳細の履歴ではすぐ元に戻し（止めたのが引き継がれるため）、
        棚の履歴へ戻ってきたら棚の履歴も元に戻す。止めたままだと、読み込み直したとき
@@ -1572,20 +1578,22 @@
 
   function glide(target) {
     var root = document.documentElement;
-    /* 売り場へ寄せるときは、看板の列（.market__head）を基準にする。
-       売り場の頭には帯のぶんの余白があり、看板の文字は列の中ほどにあるため */
-    var mark = target.classList.contains('market')
-      ? (target.querySelector('.market__head') || target)
-      : (target.closest('.market__head') || target);
-    var sign = mark.classList.contains('market__head');
+    /* 売り場へ寄せるときは、本棚の上の端（.case）を基準にする。棚のテーマは天板に留めた札に
+       書いてあるので、本棚の上の端をそろえれば札も見える。売り場の頭には、1つめの売り場では
+       森から店内へ入るところの余白がある。売り場（.market）と札の見出し（.market__sign）の
+       どちらを行き先にしても同じところへ寄せる */
+    var sec = target.classList.contains('market') ? target
+      : (target.classList.contains('market__sign') ? target.closest('.market') : null);
+    var mark = (sec && sec.querySelector('.case')) || target;
+    var sign = mark !== target || target.classList.contains('case');
     /* 個別に譲りたい要素があれば scroll-margin-top で上に空けられる */
     var margin = parseFloat(window.getComputedStyle(mark).scrollMarginTop) || 0;
     var max = Math.max(0, root.scrollHeight - window.innerHeight);
     var from = window.pageYOffset;
     var top = layoutTop(mark);
-    /* 下へ送るときは、帯を引っ込めながら送る。看板の列は画面の上端に来る
+    /* 下へ送るときは、帯を引っ込めながら送る。本棚の上の端は画面の上端に来る
        （帯のぶん下で止めると、引っ込めて空けた高さを棚と平台が使えない）。
-       上へ送るときは帯が出てくるので、看板の列は帯のすぐ下に、ほかは
+       上へ送るときは帯が出てくるので、本棚の上の端は帯のすぐ下に、ほかは
        html の scroll-padding-top（帯の高さと少しの間）だけ手前で止める */
     var to = Math.max(0, Math.min(max, top - margin));
     var down = to >= from - 1;
@@ -1660,7 +1668,7 @@
      キーボードで帯の中を操作しているあいだ。
      覆いを閉じたあとも出したままにしておき、次に下へ送ったときに引っ込める。
      ただし引き出した本の層だけは、棚にもどったら開く前の出し入れに戻す。本を見て棚に
-     もどっただけで、上へ戻してもいないのに帯が看板の列にかぶるのを防ぐ
+     もどっただけで、上へ戻してもいないのに帯が本棚の上の端（棚のテーマの札）にかぶるのを防ぐ
      （商品詳細へ進んだときは、商品詳細の決まりに従う）。
      出し入れは画面の大きさによらない（スマートフォンもパソコンも同じ）。 */
   function topbar() {
